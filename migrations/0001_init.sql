@@ -11,7 +11,7 @@
 -- harness (packages/db/test-utils.ts). Never edit a migration that has shipped
 -- to the remote database: add a new one (`npm run db:migrations:new -- <name>`).
 
--- One JSON document per key (contact details, SEO defaults, …).
+-- One JSON document per key (studio details, branding, gallery defaults, …).
 CREATE TABLE site_settings (
   key        TEXT NOT NULL,
   value      TEXT NOT NULL,

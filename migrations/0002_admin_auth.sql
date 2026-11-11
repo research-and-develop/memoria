@@ -19,7 +19,7 @@ CREATE TABLE admin_sessions (
 CREATE INDEX ix_admin_sessions_expires_at ON admin_sessions (expires_at);
 
 -- Fixed-window counters: `bucket` names what is limited ("login:ip:<hash>",
--- "contact:global"), `window_start` the window's start (ISO). Incremented with
+-- "login:global"), `window_start` the window's start (ISO). Incremented with
 -- an upsert, so two concurrent requests can never both pass.
 CREATE TABLE rate_limits (
   bucket       TEXT NOT NULL,

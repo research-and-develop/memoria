@@ -5,8 +5,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { useAppConfig } from '@/components/AppProvider';
 
 /**
- * Cloudflare Turnstile (managed mode) — the anti-bot check on the contact and
- * login forms. The script is loaded once, on first use, with
+ * Cloudflare Turnstile (managed mode) — the anti-bot check on public forms
+ * (today the admin login). The script is loaded once, on first use, with
  * `render=explicit`; the widget hands its token to `onToken` and clears it
  * when it expires. The server verifies the token (src/lib/turnstile/verify.ts):
  * the widget alone protects nothing.
@@ -50,7 +50,7 @@ export type TurnstileHandle = { reset: () => void };
 
 export const Turnstile = forwardRef<
   TurnstileHandle,
-  { action: 'contact' | 'login'; onToken: (token: string | null) => void; onError?: () => void; className?: string }
+  { action: 'login'; onToken: (token: string | null) => void; onError?: () => void; className?: string }
 >(function Turnstile({ action, onToken, onError, className }, ref) {
   const { turnstileSiteKey } = useAppConfig();
   const containerRef = useRef<HTMLDivElement>(null);

@@ -34,16 +34,27 @@ export function handlerProblems(source: string): string[] {
 }
 
 describe('admin API routes are gated', () => {
-  const files = readSourceFiles({ roots: ['apps/web/src/app/api'], extensions: ['.ts'] }).filter(
-    (f) => ADMIN_API.test(f.absPath) && /route\.ts$/.test(f.path) && !EXEMPT.test(f.path),
+  const adminRoutes = readSourceFiles({ roots: ['apps/web/src/app/api'], extensions: ['.ts'] }).filter(
+    (f) => ADMIN_API.test(f.absPath) && /route\.ts$/.test(f.path),
   );
+  // May be empty while the admin API has only login/logout; the walk itself is checked below.
+  const gated = adminRoutes.filter((f) => !EXEMPT.test(f.path));
 
-  it('finds admin routes to check', () => {
-    expect(files.length).toBeGreaterThan(0);
+  it('finds the admin routes (else the walk passes for the wrong reason)', () => {
+    expect(adminRoutes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('exempts exactly login and logout', () => {
+    const exempt = adminRoutes
+      .filter((f) => EXEMPT.test(f.path))
+      .map((f) => f.path.replace(/\\/g, '/').match(/admin\/([^/]+)\/route\.ts$/)?.[1])
+      .sort();
+    expect(exempt).toEqual(['login', 'logout']);
+    expect(EXEMPT.test('apps/web/src/app/api/admin/things/route.ts')).toBe(false);
   });
 
   it('each handler calls requireAdmin before touching the request', () => {
-    const offenders = files.flatMap((f) => handlerProblems(f.text).map((p) => `${f.path} → ${p}`));
+    const offenders = gated.flatMap((f) => handlerProblems(f.text).map((p) => `${f.path} → ${p}`));
     expect(offenders).toEqual([]);
   });
 

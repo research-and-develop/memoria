@@ -19,7 +19,7 @@ Durable planning and review artifacts are **committed** here, never left in a gi
 
 ```yaml
 ---
-title: Contact form
+title: Gallery upload
 type: plan            # plan | audit | reference
 status: in-progress   # plans only
 updated: 2026-11-09

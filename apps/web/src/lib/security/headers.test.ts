@@ -36,4 +36,10 @@ describe('security headers', () => {
       expect.arrayContaining(['Content-Security-Policy', 'Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']),
     );
   });
+
+  it('tells crawlers not to index anything, in dev and production', () => {
+    for (const dev of [false, true]) {
+      expect(securityHeaders({ dev }).find((h) => h.key === 'X-Robots-Tag')?.value).toBe('noindex, nofollow');
+    }
+  });
 });

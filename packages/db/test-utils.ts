@@ -17,7 +17,7 @@ import { setDbOverride } from './client';
  *   afterEach(() => testDb.reset());
  *   afterAll(() => testDb.dispose());
  *
- *   await upsertSiteSetting('contact', { phone: '…' }, { db: testDb.db });
+ *   await upsertSiteSetting('branding', { studioName: '…' }, { db: testDb.db });
  *
  * The wrangler config is the app's: the test D1 gets the same binding and the
  * repo-root migrations, exactly as `wrangler d1 migrations apply` would apply them.

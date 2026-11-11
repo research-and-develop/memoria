@@ -4,7 +4,11 @@ import { getSiteUrl } from '@/lib/config/siteUrl';
 
 export const dynamic = 'force-dynamic';
 
-/** Everything public is indexable; the admin and the API are not. Add `sitemap` once you have one. */
+/**
+ * Crawlers may fetch public pages (link-preview bots must, for shared gallery links) but every
+ * response says `X-Robots-Tag: noindex, nofollow` (lib/security/headers.mjs), so nothing is indexed.
+ * The admin and the API are disallowed outright.
+ */
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const origin = await getSiteUrl();
   return {

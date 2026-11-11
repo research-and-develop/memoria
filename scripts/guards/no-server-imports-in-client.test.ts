@@ -105,7 +105,7 @@ describe('client bundles never reach the server', () => {
   });
 
   it('resolves the aliases it relies on (else the walk passes for the wrong reason)', () => {
-    const anchor = path.join(ROOT, 'apps/web/src/components/contact/ContactForm.tsx');
+    const anchor = path.join(ROOT, 'apps/web/src/components/admin/LoginForm.tsx');
     expect(resolveSpecifier('@/lib/config/appConfig', anchor)).toBeTruthy();
     expect(resolveSpecifier('@repo/db/client', anchor)).toBeTruthy();
     expect(factsOf(path.join(ROOT, 'apps/web/src/lib/config/appConfig.ts')).isServerOnly).toBe(true);

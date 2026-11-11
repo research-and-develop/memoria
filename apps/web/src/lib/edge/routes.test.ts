@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { HEALTH_PATH, edgeResponse } from './routes';
+import { HEALTH_PATH, ROBOTS_TAG, edgeResponse } from './routes';
 
 const env = { CF_VERSION_METADATA: { id: 'v-123' } };
 
@@ -9,6 +9,7 @@ describe('edgeResponse', () => {
     const res = edgeResponse(new Request(`https://x.test${HEALTH_PATH}`), env);
     expect(res?.status).toBe(200);
     expect(res?.headers.get('cache-control')).toBe('no-store');
+    expect(res?.headers.get('x-robots-tag')).toBe(ROBOTS_TAG);
     expect(await res?.json()).toEqual({ data: { status: 'ok', version: 'v-123' } });
   });
 

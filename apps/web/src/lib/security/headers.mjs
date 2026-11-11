@@ -12,6 +12,11 @@
  * `'unsafe-inline'` scripts are required: Next inlines the RSC payload, and the
  * nonce alternative makes every page dynamic (no edge caching at all).
  * Dev adds `'unsafe-eval'` (React's dev build) and the HMR websocket.
+ *
+ * `X-Robots-Tag: noindex, nofollow` on everything: nothing in Memoria is meant for search engines.
+ * robots.txt does NOT disallow the public pages, or link-preview bots could not fetch a shared
+ * gallery link and crawlers would never see this header. worker.ts responses set it too
+ * (src/lib/edge/routes.ts).
  */
 
 const TURNSTILE = 'https://challenges.cloudflare.com';
@@ -50,5 +55,6 @@ export function securityHeaders({ dev }) {
     { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()' },
     { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+    { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
   ];
 }

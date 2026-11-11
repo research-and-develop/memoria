@@ -17,9 +17,9 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | Path | Holds |
 | --- | --- |
 | `apps/web/src/app/**` | pages (server components by default) and `api/**/route.ts` handlers |
-| `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `contact/`, `admin/` |
+| `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `admin/` |
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
-| `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `contact_messages`) |
+| `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
 | `apps/web/src/lib/config/appConfig.ts` | runtime config read from the Worker env, handed down via `AppProvider` |
 | `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, assets, …), vars, compatibility flags |
 | `apps/web/worker.ts` + `src/lib/edge/` | the Worker entry: answers cheap paths (`/healthz`) before Next loads; imports relative only, nothing `server-only` |
@@ -105,7 +105,8 @@ export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Para
 }, { route: 'PATCH /api/admin/things/[id]' });
 ```
 
-References: `app/api/contact/route.ts` (public write), `app/api/admin/messages/[id]/route.ts` (admin write).
+Reference: `app/api/admin/login/route.ts` (a public write: same-origin, Turnstile and the rate limit
+before any work). The admin-write pattern above has no reference route until Phase 2 adds one.
 
 - **Every exported method is `withErrorHandling(fn, { route: '<METHOD> <path>' })`.** Guard:
   `every-route-wrapped.test.ts`. Errors: the `@repo/api/responses` builders, or
@@ -124,7 +125,7 @@ References: `app/api/contact/route.ts` (public write), `app/api/admin/messages/[
 
 - **There are no interactive transactions.** `BEGIN`/`COMMIT` are rejected by D1. The atomic unit is
   `batch([...statements])`: all-or-nothing, in order. A change and its audit row go in ONE batch
-  (`lib/admin/inbox.ts`). A query module that may join a batch exports a `*Statement` builder next to
+  (`lib/auth/session.ts`). A query module that may join a batch exports a `*Statement` builder next to
   its executing function (see `site_settings/upsert.ts`).
 - **Reads between writes are not isolated.** Enforce invariants in the schema (UNIQUE/CHECK/FK) or in
   the write itself (`UPDATE … WHERE id = ? AND version = ?`, `INSERT … ON CONFLICT`, an audit row
@@ -168,8 +169,7 @@ References: `app/api/contact/route.ts` (public write), `app/api/admin/messages/[
 - **Effects:** React 18.3.1 (no `useEffectEvent`), no `exhaustive-deps` lint. Depend on stable
   identities: `useApi().execute` is stable per URL; wrap derived callbacks in `useCallback` on
   those. Dev StrictMode double-mounts: effects must clean up (useApi aborts on unmount).
-- `useApi` is bound to one URL; a per-row action gets its own component with its own `useApi`
-  (`components/admin/MessageActions.tsx`).
+- `useApi` is bound to one URL; a per-row action gets its own component with its own `useApi`.
 - Mobile-first: every section must work from 360 px up.
 
 ## Testing
@@ -213,8 +213,8 @@ Work a plan by ticking its checklist in the same commit as the code.
 
 - TypeScript strict + `noUncheckedIndexedAccess`; avoid `any` (use `unknown` and narrow).
 - Never commit secrets; every secret is documented in `.dev.vars.example`, none prefixed `NEXT_PUBLIC_`.
-- Log events, not sentences: `logger.info({ event: 'contact_submitted', id })`. Never log a
-  submitter's message, email or phone — log ids.
+- Log events, not sentences: `logger.info({ event: 'admin_login', session })`. Never log a
+  visitor's name, email, phone or message — log ids.
 - camelCase vars/functions · PascalCase types/components · CONSTANT_CASE constants ·
   snake_case query-module dirs, kebab-case other dirs.
 - Small single-purpose modules; colocate what one feature uses, promote what two use.

@@ -16,7 +16,7 @@ Step lists for the common changes. Each ends the same way: `npm run verify`.
    (`pk_things`, `ck_things_title`, `ix_things_created_at`). Guard: `migrations`.
 2. `apps/web/src/lib/db/queries/things/`: `types.ts` (`ThingRow`, `ThingDbRow`, `ThingInput`,
    `THING_COLUMNS`, `toThingRow`), `read.ts`, `write.ts` (`*Statement` builders), `index.ts`
-   (`export *`), `things.test.ts` on `createTestDb()`. Copy `contact_messages/`.
+   (`export *`), `things.test.ts` on `createTestDb()`. Copy `site_settings/` (or `admin_sessions/`).
 3. `npm run db:migrate:local`.
 4. Before deploying: is the migration safe for the code still running? (Add first, drop later.)
 
@@ -27,11 +27,11 @@ A table whose rows a migration seeds and tests must keep (a singleton): `createT
 1. Pure validation in `src/lib/<feature>/parseXInput.ts` + a table-driven test; the form imports the
    same parser.
 2. Domain function in `src/lib/<feature>/` (`import 'server-only'`); writes in one `batch()` with the
-   audit row (`lib/admin/inbox.ts`).
+   audit row (`lib/auth/session.ts`).
 3. `src/app/api/<path>/route.ts`, `export const runtime = 'nodejs'`, every method
    `withErrorHandling(fn, { route: 'METHOD /api/<path>' })` (guard: `every-route-wrapped`); admin
    routes call `requireAdmin(req)` first (guard: `admin-routes-require-admin`); public writes check
-   same-origin, Turnstile and a rate limit first (`app/api/contact/route.ts`).
+   same-origin, Turnstile and a rate limit first (`app/api/admin/login/route.ts`).
 4. `route.test.ts` next to it: the real handler on a test D1, mocks only at the edges
    (`@opennextjs/cloudflare`, Turnstile). Assert the persisted effect.
 

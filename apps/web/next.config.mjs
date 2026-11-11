@@ -22,14 +22,9 @@ const nextConfig = {
   turbopack: {
     root: repoRoot,
   },
-  // CSP, HSTS and friends on every route (src/lib/security/headers.mjs).
+  // CSP, HSTS, X-Robots-Tag and friends on every route (src/lib/security/headers.mjs).
   async headers() {
-    return [
-      { source: '/:path*', headers: securityHeaders({ dev: process.env.NODE_ENV !== 'production' }) },
-      // Belt and braces next to robots.txt and the admin's `noindex` metadata.
-      { source: '/admin/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
-      { source: '/admin', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
-    ];
+    return [{ source: '/:path*', headers: securityHeaders({ dev: process.env.NODE_ENV !== 'production' }) }];
   },
 };
 

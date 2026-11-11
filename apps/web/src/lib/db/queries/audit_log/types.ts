@@ -8,7 +8,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type AuditLogRow = {
   id: string;
   action: AuditAction;
-  /** Table / area changed ("contact_messages", "site_settings", "session"). */
+  /** Table / area changed ("site_settings", "session", "galleries"). */
   entity: string;
   entity_id: string | null;
   /** Human-readable. Never personal data of a visitor (no names, emails, messages). */

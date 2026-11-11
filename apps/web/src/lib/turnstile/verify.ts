@@ -19,7 +19,8 @@ type SiteverifyResponse = { success: boolean; action?: string; hostname?: string
 export async function verifyTurnstile(input: {
   token: unknown;
   secret: string | undefined;
-  action: 'contact' | 'login';
+  /** The form the token was issued for; add one per Turnstile-protected form. */
+  action: 'login';
   remoteIp?: string;
   /** The hostname the widget must have run on (from the request); null skips the check. */
   hostname?: string | null;

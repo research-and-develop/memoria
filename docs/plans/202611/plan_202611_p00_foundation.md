@@ -158,7 +158,7 @@ place, CI and backups running on this repo. No product screen is built here.
   | `queries/audit_log/types.ts` | comment examples |
   | `migrations/0001_init.sql:14`, `0002_admin_auth.sql:22` | example comments → neutral (`studio details`, `login:global`) |
   | `apps/web/src/app/page.tsx` | D0.5: `<Section surface="ground">` with the app name as `<Heading level={1}>`; no form, no links |
-  | `apps/web/src/app/admin/(panel)/page.tsx` | D0.5: title "Dashboard" (`Heading level={1}`), one line of muted `Text` ("Nothing here yet."), a link to `/admin/design` |
+  | `apps/web/src/app/admin/(panel)/page.tsx` | D0.5: title "Dashboard" (`Heading level={1}`), one line of muted `Text` ("Nothing here yet."); the link to `/admin/design` comes with the page (T0.25), so it never 404s |
   | `AGENTS.md` | product description; Where-to-look (`contact/` row); reference modules → `site_settings`, `admin_sessions`; reference route → `app/api/admin/login/route.ts` (public write: same-origin, Turnstile, rate limit); the admin-write house pattern stays as a pattern with no reference file until Phase 2; "change + audit row in one batch" → `lib/auth/session.ts`; log example → `{ event: 'admin_login', … }` |
   | `docs/architecture.md` | diagram, tables (`contact_messages` row), the request-lifecycle line ("honeypot" no longer applies) |
   | `docs/recipes.md` | "Copy `contact_messages/`" → `site_settings/`; inbox and contact references → `session.ts` and the login route |
@@ -347,7 +347,7 @@ styles (body Inter 14 px / 1.45; most used size 13 px; weights 600 × 174, 650 �
   | `not-found.tsx` | `ground` surface; `Lead` → `Text`; link button → `buttonClassName({ variant: 'primary' })` |
   | `page.tsx`, `admin/(panel)/page.tsx` | T0.8 |
 
-- **T0.25** `/admin/design`: `app/admin/(panel)/design/page.tsx` (server, `metadata.robots` noindex)
+- **T0.25** `/admin/design` (and the dashboard's link to it): `app/admin/(panel)/design/page.tsx` (server, `metadata.robots` noindex)
   plus section components in the same folder. The interactive demos (Toggle, Segmented, loading
   button) are small `'use client'` components with local state. It shows:
   - colour swatches with token name and hex;
@@ -465,11 +465,11 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.4 `backup.yml` (encrypted, dormant)
 - [x] T0.5 GitLab CI and every reference removed
 - [x] T0.6 Rename to Memoria (incl. cookie, logger)
-- [ ] T0.7 Contact example deleted (incl. `validation/email.ts`)
-- [ ] T0.8 Guards, Turnstile, samples, pages, docs fixed
-- [ ] T0.9 Grep gate empty
-- [ ] T0.10 `X-Robots-Tag` on Next and edge responses
-- [ ] T0.11 Local D1 reset
+- [x] T0.7 Contact example deleted (incl. `validation/email.ts`)
+- [x] T0.8 Guards, Turnstile, samples, pages, docs fixed
+- [x] T0.9 Grep gate empty
+- [x] T0.10 `X-Robots-Tag` on Next and edge responses
+- [x] T0.11 Local D1 reset
 - [ ] T0.12 Studio colours
 - [ ] T0.13 Type scale
 - [ ] T0.14 Families, weight, radii, shadow, ring, `coarse` variant

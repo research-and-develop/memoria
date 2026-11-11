@@ -17,8 +17,8 @@ browser ──► Cloudflare edge (custom domain)
               └─ Worker "memoria" (worker.ts)                               100k req/day, 10 ms CPU/req
                    ├─ edge routes (src/lib/edge)            /healthz, before Next.js loads (~1 ms CPU)
                    ├─ OpenNext: the Next.js server         pages, /admin, /api/**
-                   ├─ D1 "memoria" (binding DB)            content, messages, sessions, rate limits, audit
-                   └─ Turnstile siteverify (fetch)         contact + login forms
+                   ├─ D1 "memoria" (binding DB)            settings, sessions, rate limits, audit
+                   └─ Turnstile siteverify (fetch)         the login form
 ```
 
 Everything is one deployable: public pages, the admin (`/admin`) and the API (`/api/**`) are routes
@@ -58,8 +58,8 @@ public values down through `AppProvider`.
 
 1. `withErrorHandling` wraps the handler — the one error boundary.
 2. Admin routes: `requireAdmin` checks same-origin for writes (CSRF), then the session cookie, and
-   answers 403/401 before the body is read. Public write routes: same-origin, honeypot, Turnstile,
-   rate limit — all before any write.
+   answers 403/401 before the body is read. Public write routes (today the login): same-origin,
+   Turnstile, rate limit — all before any write.
 3. The body is parsed defensively and validated by a pure helper (shared with the form).
 4. A domain function writes through query modules; a change and its audit row go in one D1 `batch()`.
 5. Success → `{ data }`. An `AppError` → its status and `{ error, errorCode, details }`. Anything
@@ -94,4 +94,3 @@ files to an in-memory D1 for tests. Rules: [AGENTS.md → Data rules](../AGENTS.
 | `audit_log` | one row per admin change, in the change's batch |
 | `admin_sessions` | hashed session tokens |
 | `rate_limits` | fixed-window counters (upserts), pruned after a write in `waitUntil` |
-| `contact_messages` | the example feature |
