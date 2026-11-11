@@ -1,0 +1,58 @@
+# CI for GitHub (the GitLab equivalent is .gitlab-ci.yml — keep one, delete the other).
+#   push / pull request → check + build
+#   deploy              → manual (Actions → CI → Run workflow, with `deploy` ticked)
+# Repository secrets: CLOUDFLARE_API_TOKEN (an account token: Workers: Editor, D1: Edit,
+# Account Settings: Read) and CLOUDFLARE_ACCOUNT_ID. App secrets live in Cloudflare.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Migrate the production D1 and deploy the Worker
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run ts-check
+      - run: npm run test
+      - run: npm run build:worker
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    needs: [check]
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Migrations BEFORE the code: each must be safe for the version still running.
+      - run: npm run db:migrate:remote
+      - run: npm run deploy

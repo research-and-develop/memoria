@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "incremental": true,
+    "plugins": [{ "name": "next" }]
+  },
+  // `@/*` resolves inside THIS app only. Shared packages are reached by name
+  // (`@repo/*`) through the workspace symlink + each package's `exports`; a
+  // package may never import this alias.
+  //
+  // The components setup file is included for its `@testing-library/jest-dom`
+  // import, which is what types `toBeInTheDocument()` in this app's *.test.tsx.
+  "include": [
+    "next-env.d.ts",
+    "cloudflare-env.d.ts",
+    "open-next.config.ts",
+    "src/**/*",
+    "scripts/**/*",
+    "../../vitest.setup.components.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".open-next", ".wrangler"]
+}

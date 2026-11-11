@@ -1,0 +1,60 @@
+{
+  // The Worker that serves the whole app: OpenNext's Next.js server plus the
+  // static assets it emits. Built by `npm run build:worker`, deployed by
+  // `npm run deploy`.
+  //
+  // After changing ANYTHING here (a binding, a var), run `npm run cf-typegen` so
+  // `cloudflare-env.d.ts` (the type of `getCloudflareContext().env`) follows.
+  // Guard: scripts/guards/wrangler-config.test.ts.
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // RENAME: the Worker's name. Also in `services` below and in
+  // scripts/measure-cpu.mjs (the guard checks they agree).
+  "name": "my-app",
+  // worker.ts is the entry: it answers cheap paths before Next.js loads, then
+  // hands everything else to OpenNext.
+  "main": "worker.ts",
+  // Pin to a date the installed workerd supports; bump deliberately.
+  // On or after 2025-04-01 `nodejs_compat` also fills `process.env`.
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  // OpenNext calls back into its own Worker; the service must be this Worker's `name`.
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "my-app" }],
+  // The running version's id (the health probe reports it; a cache key can use it).
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      // RENAME, then `npx wrangler d1 create my-app` and paste the id it prints.
+      // Local dev and the tests never touch the remote database.
+      "database_name": "my-app",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      // One schema for local, remote and the tests: the repo-root migrations.
+      "migrations_dir": "../../migrations",
+    },
+  ],
+  // Plain, non-secret config. Secrets go in `.dev.vars` locally and
+  // `wrangler secret put` in production — never here (the guard checks names).
+  "vars": {
+    "APP_NAME": "My App",
+    // The canonical origin (canonical URLs, robots.txt, email links). Empty = the
+    // origin of each request (workers.dev, preview URLs, localhost).
+    "SITE_URL": "",
+    // Cloudflare Turnstile: the widget's PUBLIC site key. Its secret is
+    // TURNSTILE_SECRET_KEY (`wrangler secret put`). Local dev overrides both with
+    // Cloudflare's always-passing test keys (.dev.vars).
+    "TURNSTILE_SITE_KEY": "",
+    // The admin login email. Empty = the admin login is closed. The password
+    // hash is the secret ADMIN_PASSWORD_HASH (`npm run admin:hash-password`).
+    "ADMIN_EMAIL": "",
+    "LOG_LEVEL": "info",
+    "LOG_FORMAT": "json",
+  },
+  // Workers Logs (free tier: 200k log lines/day): structured JSON from the logger.
+  "observability": { "enabled": true },
+}

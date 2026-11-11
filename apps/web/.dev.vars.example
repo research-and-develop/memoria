@@ -1,0 +1,39 @@
+# Copy to `.dev.vars` (same directory) and fill in. Local only — never commit
+# `.dev.vars`. Wrangler and `next dev` (through initOpenNextCloudflareForDev)
+# merge it over the `vars` in wrangler.jsonc, and the app reads both through
+# `getCloudflareContext().env` — the same object the deployed Worker gets.
+#
+# Every SECRET the app reads is listed here with a comment saying what it does.
+# In production each one is set with `npx wrangler secret put <NAME>` (run in
+# apps/web). Plain, non-secret config belongs in wrangler.jsonc `vars` instead.
+# After adding a line here run `npm run cf-typegen` (it reads THIS file).
+#
+# NO `NEXT_PUBLIC_*` variables: Next inlines those into the browser bundle at
+# BUILD time. Read config on the server and hand it down (see AppProvider).
+# Guard: scripts/guards/no-client-public-env.test.ts.
+
+# Selects which Next.js `.env*` set OpenNext loads locally. Keep `development`.
+NEXTJS_ENV=development
+
+# Human-readable logs locally (wrangler.jsonc sets `json` for production).
+LOG_FORMAT=text
+
+# Turnstile: Cloudflare's always-passing TEST pair. Production: the real site
+# key in wrangler.jsonc `vars`, the secret with
+# `npx wrangler secret put TURNSTILE_SECRET_KEY`.
+# (Always-fail test pair, to try the error path: site 2x00000000000000000000AB,
+# secret 2x0000000000000000000000000000000AA.)
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# --- Admin login (docs/architecture.md → Admin) ------------------------------
+ADMIN_EMAIL=admin@example.local
+# The hash of the LOCAL password "local-dev-password-2026", made by
+# `npm run admin:hash-password`. Never use it in production:
+# `npx wrangler secret put ADMIN_PASSWORD_HASH` with a new one.
+ADMIN_PASSWORD_HASH=pbkdf2-sha256$20000$xBlyF6CYfAzM56uMEF6qog==$fMOE3mH2XUr3KwEcMVYnLQgfXjWKGEJDbmXJKmBNF40=
+
+# A random secret mixed into the hash of a visitor's IP for rate limiting, so
+# the stored keys cannot be reversed by hashing every IP. Production:
+# `npx wrangler secret put HASH_SALT` with e.g. `openssl rand -base64 32`.
+HASH_SALT=local-dev-salt-change-me

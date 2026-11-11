@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gallery manager</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F6F5C}a:hover{color:#17564A}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; min-height: 100vh; background: #F6F6F4; color: #16171A; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+  <nav aria-label="Studio navigation" style="flex: 1 1 220px; box-sizing: border-box; padding: 20px 14px; background: #FFFFFF; border-right: 1px solid #E4E4E0; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16171A" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M14.3 8l5.7 9.9M9.7 8h11.5M7.4 12l5.7-9.9M9.7 16L4 6.1M14.3 16H2.8M16.6 12l-5.7 9.9"></path></svg>
+      <div style="display: flex; flex-direction: column">
+        <span style="font-weight: 700; font-size: 15px; letter-spacing: -0.01em">Proofsheet</span>
+        <span style="font-size: 12px; color: #5D6066">Northlight Studio</span>
+      </div>
+    </div>
+    <a href="NewGallery.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 10px; background: #16171A; color: #FFFFFF; text-decoration: none; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New gallery</a>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Dashboard</a>
+      <a href="GalleryEditor.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; background: #EAF2EF; color: #17564A; text-decoration: none; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5L5 21"></path></svg><span style="flex: 1">Galleries</span><span style="font-size: 12px">24</span></a>
+      <a href="ProofReview.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"></path></svg><span style="flex: 1">Selections</span><span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #B4530A; border-radius: 999px; padding: 1px 7px">3</span></a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"></path></svg>Clients</a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><path d="M3 6h18M16 10a4 4 0 0 1-8 0"></path></svg>Store &amp; orders</a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg>Insights</a>
+      <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg>Settings</a>
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 20px clamp(16px, 2.5vw, 32px) 40px; display: flex; flex-direction: column; gap: 18px">
+
+    <header style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; justify-content: space-between">
+      <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+        <span style="font-size: 13px; color: #5D6066"><a href="Main.dc.html" style="color: #5D6066">Galleries</a> / Weddings</span>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+          <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em">Maria &amp; Jonas</h1>
+          <span style="font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #FCEFD9; color: #8A4B00">Proofing · selection submitted</span>
+        </div>
+        <span style="font-size: 13px; color: #5D6066">12 Sep 2026 · 840 photos · 6 videos · 14.2 GB · expires 10 Jan 2027</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <a href="ClientGallery.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #DADAD5; background: #FFFFFF; color: #16171A; text-decoration: none; font-weight: 600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>View as client</a>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M17 8l-5-5-5 5"></path><path d="M12 3v12"></path></svg>Add photos</button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: #1F6F5C; color: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"></path></svg>Share</button>
+      </div>
+    </header>
+
+    <div role="tablist" aria-label="Gallery sections" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #E4E4E0">
+      <sc-for list="{{tabs}}" as="tb" hint-placeholder-count="6">
+        <button type="button" role="tab" aria-selected="{{tb.on}}" onClick="{{tb.pick}}" style="min-height: 44px; padding: 0 14px; border: 0; background: transparent; font: inherit; font-weight: 600; cursor: pointer; color: {{tb.fg}}; box-shadow: {{tb.line}}">{{tb.label}}</button>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+      <div style="flex: 1 1 190px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 12px; font-weight: 600; color: #5D6066; text-transform: uppercase; letter-spacing: 0.06em; padding: 0 10px 6px">Sets · drag to reorder</span>
+        <sc-for list="{{sets}}" as="st" hint-placeholder-count="6">
+          <button type="button" onClick="{{st.pick}}" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: 8px; border: 0; font: inherit; text-align: left; cursor: pointer; background: {{st.bg}}; color: {{st.fg}}; font-weight: {{st.fw}}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A8C91" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"></path></svg>
+            <span style="flex: 1">{{st.name}}</span>
+            <span style="font-size: 12px; color: #5D6066">{{st.count}}</span>
+          </button>
+        </sc-for>
+        <button type="button" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border-radius: 8px; border: 1px dashed #C9CAC4; background: transparent; font: inherit; font-weight: 600; color: #1F6F5C; cursor: pointer; margin-top: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add set</button>
+        <div style="margin-top: 14px; padding: 12px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E4E4E0; display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+          <span style="font-weight: 600">Smart filters</span>
+          <a href="#">Client favorites (48)</a>
+          <a href="#">With comments (9)</a>
+          <a href="#">Hidden from client (31)</a>
+          <a href="#">Most downloaded</a>
+          <a href="#">Videos (6)</a>
+        </div>
+      </div>
+
+      <div style="flex: 999 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+            <label style="display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid #DADAD5; border-radius: 8px; background: #FFFFFF; font-size: 13px">Sort<select style="border: 0; font: inherit; font-weight: 600; background: transparent"><option>Capture time</option><option>Filename</option><option>Most favorited</option><option>Custom (drag)</option></select></label>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer" onClick="{{selectAll}}">Select all</button>
+          </div>
+          <div role="group" aria-label="Thumbnail size" style="display: flex; gap: 4px">
+            <button type="button" aria-label="Large thumbnails" style="width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg></button>
+          </div>
+        </div>
+
+        <sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 12px; background: #16171A; color: #FFFFFF">
+            <span style="font-weight: 600; flex: 1 1 120px">{{selCount}} selected</span>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 0; background: #2C2E33; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Move to set</button>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 0; background: #2C2E33; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Hide from client</button>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 0; background: #2C2E33; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Set as cover</button>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 0; background: #2C2E33; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Replace edited version</button>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 0; background: #2C2E33; color: #FFB4A8; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Delete</button>
+            <button type="button" aria-label="Clear selection" onClick="{{clearSel}}" style="width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; border: 0; background: transparent; color: #FFFFFF; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </div>
+        </sc-if>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px">
+          <sc-for list="{{photos}}" as="p" hint-placeholder-count="20">
+            <div style="position: relative; display: flex; flex-direction: column; gap: 4px">
+              <button type="button" aria-pressed="{{p.sel}}" aria-label="Select {{p.file}}" onClick="{{p.toggle}}" style="position: relative; aspect-ratio: 1 / 1; border-radius: 8px; padding: 0; cursor: pointer; background: {{p.bg}}; border: 0; box-shadow: {{p.ring}}; opacity: {{p.op}}">
+                <span style="position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #FFFFFF; background: {{p.boxBg}}; border: 1.5px solid #FFFFFF">{{p.mark}}</span>
+                <sc-if value="{{p.cover}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 8px; right: 8px; padding: 2px 7px; border-radius: 999px; background: rgba(22,23,26,0.78); color: #FFFFFF; font-size: 11px; font-weight: 600">Cover</span></sc-if>
+                <sc-if value="{{p.hidden}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 8px; right: 8px; padding: 2px 7px; border-radius: 999px; background: rgba(22,23,26,0.78); color: #FFFFFF; font-size: 11px; font-weight: 600">Hidden</span></sc-if>
+                <span style="position: absolute; left: 8px; bottom: 8px; display: flex; gap: 6px">
+                  <sc-if value="{{p.fav}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 999px; background: #FFFFFF; color: #B4530A; font-size: 11px; font-weight: 700"><svg width="11" height="11" viewBox="0 0 24 24" fill="#B4530A" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"></path></svg>{{p.fav}}</span></sc-if>
+                  <sc-if value="{{p.comment}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; background: #FFFFFF; color: #2747A0; font-size: 11px; font-weight: 700">Note</span></sc-if>
+                </span>
+              </button>
+              <span style="font-size: 12px; color: #5D6066">{{p.file}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <aside aria-label="Gallery settings" style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+        <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 650">Sharing</h2>
+          <div style="display: flex; gap: 6px">
+            <span style="flex: 1; min-width: 0; display: flex; align-items: center; min-height: 40px; padding: 0 10px; border-radius: 8px; background: #F6F6F4; font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">photos.northlight.studio/maria-jonas</span>
+            <button type="button" aria-label="Copy link" style="width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 13px">
+            <div style="display: flex; flex-direction: column; padding: 8px 10px; border-radius: 8px; background: #F6F6F4"><span style="color: #5D6066; font-size: 12px">Password</span><span style="font-weight: 600">maria&amp;jonas</span></div>
+            <div style="display: flex; flex-direction: column; padding: 8px 10px; border-radius: 8px; background: #F6F6F4"><span style="color: #5D6066; font-size: 12px">Download PIN</span><span style="font-weight: 600">4821</span></div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <button type="button" style="min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">QR code</button>
+            <button type="button" style="min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Guest link (view only)</button>
+            <button type="button" style="min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Vendor link</button>
+          </div>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0 0 6px; font-size: 15px; font-weight: 650">Client experience</h2>
+          <sc-for list="{{opts}}" as="o" hint-placeholder-count="7">
+            <div style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-top: 1px solid #EEEEEB">
+              <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 13px">{{o.label}}</span><span style="font-size: 12px; color: #5D6066">{{o.desc}}</span></div>
+              <button type="button" role="switch" aria-checked="{{o.on}}" aria-label="{{o.label}}" onClick="{{o.flip}}" style="flex: none; width: 40px; height: 24px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{o.pos}}; background: {{o.bg}}"><span style="width: 18px; height: 18px; border-radius: 999px; background: #FFFFFF"></span></button>
+            </div>
+          </sc-for>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 650">Last 30 days</h2>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center">
+            <div style="display: flex; flex-direction: column; padding: 8px 4px; border-radius: 8px; background: #F6F6F4"><span style="font-weight: 700; font-size: 18px">1,312</span><span style="font-size: 12px; color: #5D6066">views</span></div>
+            <div style="display: flex; flex-direction: column; padding: 8px 4px; border-radius: 8px; background: #F6F6F4"><span style="font-weight: 700; font-size: 18px">57</span><span style="font-size: 12px; color: #5D6066">visitors</span></div>
+            <div style="display: flex; flex-direction: column; padding: 8px 4px; border-radius: 8px; background: #F6F6F4"><span style="font-weight: 700; font-size: 18px">392</span><span style="font-size: 12px; color: #5D6066">downloads</span></div>
+          </div>
+          <a href="#" style="font-size: 13px; font-weight: 600">Who viewed and downloaded</a>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1140}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'Photos', set: 'Ceremony', sel: { 2: true, 5: true, 6: true }, opts: { fav: true, faces: true, slide: true, social: false, guest: true, video: true, store: true } };
+  }
+  renderVals() {
+    const s = this.state;
+    const tabs = ['Photos', 'Selections', 'Downloads', 'Activity', 'Store', 'Settings'].map((label) => {
+      const on = s.tab === label;
+      return { label, on, fg: on ? '#16171A' : '#5D6066', line: on ? 'inset 0 -2px 0 #16171A' : 'none', pick: () => this.setState({ tab: label }) };
+    });
+    const sets = [['Highlights', 48], ['Getting ready', 120], ['Ceremony', 210], ['Portraits', 160], ['Reception', 302], ['Videos', 6]].map(([name, count]) => {
+      const on = s.set === name;
+      return { name, count, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#16171A' : '#3A3C41', fw: on ? 650 : 500, pick: () => this.setState({ set: name }) };
+    });
+    const pairs = [['#C9BBA8', '#7A6F64', 58], ['#E2D7CA', '#B9A99A', 50], ['#94A39A', '#5E6B63', 46], ['#D6CABB', '#8C7B6B', 62], ['#3F4A52', '#2F3437', 40], ['#B9A99A', '#6E5A4C', 55], ['#C8BBAA', '#94A39A', 60], ['#A3876A', '#5E6B63', 48], ['#E2D7CA', '#C8BBAA', 66], ['#7A6F64', '#4E5B57', 42]];
+    const favs = { 0: 2, 3: 1, 5: 3, 8: 1, 11: 2, 14: 1, 17: 2 };
+    const comments = { 3: true, 11: true };
+    const photos = [];
+    for (let i = 0; i < 20; i++) {
+      const [a, b, sp] = pairs[i % pairs.length];
+      const sel = !!s.sel[i];
+      const hidden = i === 9 || i === 16;
+      photos.push({
+        file: 'DSC_' + String(412 + i * 3).padStart(4, '0') + '.jpg',
+        bg: 'linear-gradient(180deg, ' + a + ' 0 ' + sp + '%, ' + b + ' ' + sp + '% 100%)',
+        sel, mark: sel ? '✓' : '', boxBg: sel ? '#1F6F5C' : 'rgba(22,23,26,0.25)',
+        ring: sel ? '0 0 0 3px #1F6F5C' : 'none', op: hidden ? 0.45 : 1,
+        cover: i === 0, hidden, fav: favs[i] || 0, comment: !!comments[i],
+        toggle: () => this.setState({ sel: Object.assign({}, this.state.sel, { [i]: !this.state.sel[i] }) })
+      });
+    }
+    const selCount = Object.values(s.sel).filter(Boolean).length;
+    const optDefs = [
+      ['fav', 'Favorites & proofing', '50 included · €8 extra'],
+      ['faces', 'Find me (face search)', 'Indexed 840 photos'],
+      ['slide', 'Slideshow with music', 'Track: “Slow morning”'],
+      ['social', 'Social share buttons', 'Shares web-size image + credit'],
+      ['guest', 'Guest uploads', 'Guests add phone photos to “From guests”'],
+      ['video', 'Video playback', 'Streams adaptive 1080p'],
+      ['store', 'Print store', 'Fine art 2026 price sheet']
+    ];
+    const opts = optDefs.map(([k, label, desc]) => {
+      const on = s.opts[k];
+      return { label, desc, on, bg: on ? '#1F6F5C' : '#C9CAC4', pos: on ? 'flex-end' : 'flex-start', flip: () => this.setState({ opts: Object.assign({}, this.state.opts, { [k]: !this.state.opts[k] }) }) };
+    });
+    return {
+      tabs, sets, photos, opts, selCount, hasSel: selCount > 0,
+      clearSel: () => this.setState({ sel: {} }),
+      selectAll: () => { const all = {}; for (let i = 0; i < 20; i++) all[i] = true; this.setState({ sel: all }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

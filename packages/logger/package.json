@@ -1,0 +1,11 @@
+{
+  "name": "@repo/logger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Structured logger + secret redaction. Zero dependencies: the leaf every other package may import.",
+  "exports": {
+    ".": "./index.ts",
+    "./*": "./*.ts"
+  }
+}

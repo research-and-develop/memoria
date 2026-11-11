@@ -1,0 +1,7 @@
+# One line ending everywhere: Windows checkouts otherwise turn every file CRLF
+# and a guard's regex or the migration splitter sees `\r`.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary

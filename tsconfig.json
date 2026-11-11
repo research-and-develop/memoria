@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "incremental": true
+  },
+  // The shared packages, the host scripts (incl. the guard tests), the vitest
+  // config and the generated Cloudflare types (D1Database, CloudflareEnv) the
+  // db package and the test harness are written against. NOT apps/web: it has its own tsconfig with its own `@/*`
+  // alias and Next plugin, and `npm run ts-check` fans out over both. One `@`
+  // cannot mean two directories, so a second app gets a third tsconfig, never
+  // an entry here.
+  "include": [
+    "packages/**/*",
+    "scripts/**/*",
+    "vitest.config.ts",
+    "vitest.setup.components.ts",
+    "vitest.empty-module.ts",
+    "apps/web/cloudflare-env.d.ts"
+  ],
+  "exclude": ["node_modules", "**/node_modules", "tmp/**/*"]
+}

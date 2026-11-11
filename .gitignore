@@ -1,0 +1,24 @@
+node_modules/
+.next/
+# Written by `next dev`/`next build`/`next typegen` (its imports differ between
+# dev and build). `npm run ts-check:web` regenerates it first.
+next-env.d.ts
+coverage/
+*.tsbuildinfo
+*.log
+
+# Cloudflare: OpenNext build output, wrangler's local state (the local D1
+# database lives here) and local secrets. Commit .dev.vars.example, never
+# .dev.vars.
+.open-next/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+
+# Scratch space for one-off investigations. Durable plans/audits go in docs/.
+**/tmp/
+
+.DS_Store

@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New gallery</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F6F5C}a:hover{color:#17564A}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F6F6F4; color: #16171A; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+  <header style="position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px clamp(16px, 3vw, 32px); background: #FFFFFF; border-bottom: 1px solid #E4E4E0">
+    <a href="Main.dc.html" aria-label="Close and go back to dashboard" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; color: #16171A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></a>
+    <div style="display: flex; flex-direction: column; flex: 1 1 200px">
+      <h1 style="margin: 0; font-size: 18px; font-weight: 700">New gallery</h1>
+      <span style="font-size: 12px; color: #5D6066">Only a name is required — everything else has a sensible default you can change later</span>
+    </div>
+    <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5D6066"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1F8A6E" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Draft saved</span>
+    <button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer">Preview as client</button>
+    <a href="GalleryEditor.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 10px; background: #1F6F5C; color: #FFFFFF; text-decoration: none; font-weight: 600">Publish &amp; share<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+  </header>
+
+  <div style="max-width: 1240px; margin: 0 auto; box-sizing: border-box; padding: 28px clamp(16px, 3vw, 32px) 64px; display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+
+    <div style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 650">Start from a preset</h2>
+          <span style="font-size: 13px; color: #5D6066">Presets fill in sets, proofing, downloads and expiry. Save your own from any gallery.</span>
+        </div>
+        <div role="radiogroup" aria-label="Preset" style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{presets}}" as="p" hint-placeholder-count="6">
+            <button type="button" role="radio" aria-checked="{{p.on}}" onClick="{{p.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; font: inherit; font-weight: 600; cursor: pointer; border: 1.5px solid {{p.border}}; background: {{p.bg}}; color: {{p.fg}}">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: #F2F6F4; font-size: 13px; color: #24433C">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v4h1"></path></svg>
+          <span>{{presetHint}}</span>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 650">Photos</h2>
+        <label style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px; border: 1.5px dashed #B9BAB3; border-radius: 12px; background: #FAFAF8; text-align: center; cursor: pointer">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1F6F5C" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M17 8l-5-5-5 5"></path><path d="M12 3v12"></path></svg>
+          <span style="font-weight: 600; font-size: 15px">Drop photos or whole folders here</span>
+          <span style="font-size: 13px; color: #5D6066">JPG, HEIC, PNG, TIFF and video. Subfolders become sets. Uploads resume after a lost connection.</span>
+          <input type="file" multiple style="position: absolute; width: 1px; height: 1px; opacity: 0">
+        </label>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: #5D6066">
+          <span>Or import from</span>
+          <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Lightroom Classic</button>
+          <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Capture One</button>
+          <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Folder on server</button>
+          <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Watch folder</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid #E4E4E0; border-radius: 10px">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px">
+            <span style="font-weight: 600">Uploading 312 of 540</span>
+            <span style="font-size: 13px; color: #5D6066">2.1 of 3.6 GB · about 4 min left</span>
+          </div>
+          <div style="height: 8px; background: #EEEEEB; border-radius: 999px; overflow: hidden"><div style="width: 58%; height: 100%; background: #1F6F5C"></div></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: #5D6066">
+            <span>3 duplicates skipped</span><span>12 RAW files ignored</span><span>You can keep editing while this runs</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; margin-top: 4px">
+            <sc-for list="{{thumbs}}" as="th" hint-placeholder-count="14">
+              <span style="aspect-ratio: 1 / 1; border-radius: 6px; background: {{th.bg}}; opacity: {{th.op}}"></span>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+            <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Split into sets automatically</span><span style="font-size: 13px; color: #5D6066">Found 5 by time gaps: Getting ready, Ceremony, Portraits, Reception, Party</span></div>
+            <button type="button" role="switch" aria-checked="{{t.sets.on}}" aria-label="Split into sets automatically" onClick="{{t.sets.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.sets.pos}}; background: {{t.sets.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+            <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Choose a cover for me</span><span style="font-size: 13px; color: #5D6066">Picks a sharp, well-exposed landscape frame — change it anytime</span></div>
+            <button type="button" role="switch" aria-checked="{{t.cover.on}}" aria-label="Choose a cover automatically" onClick="{{t.cover.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.cover.pos}}; background: {{t.cover.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+            <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Enable “Find me” face search</span><span style="font-size: 13px; color: #5D6066">Guests take a selfie to see only their photos. Faces are indexed on your server only.</span></div>
+            <button type="button" role="switch" aria-checked="{{t.faces.on}}" aria-label="Enable face search" onClick="{{t.faces.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.faces.pos}}; background: {{t.faces.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+          </div>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 650">Details</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Gallery name<input type="text" value="Ivanov family" style="min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Shoot date<input type="date" value="2026-11-02" style="min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Client email<input type="email" value="anna.ivanova@example.com" style="min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Gallery address
+            <span style="display: flex; align-items: center; min-height: 44px; border: 1px solid #C9CAC4; border-radius: 8px; overflow: hidden; font-weight: 400; font-size: 15px">
+              <span style="padding: 0 4px 0 12px; color: #5D6066; white-space: nowrap">photos.northlight.studio/</span>
+              <input type="text" value="ivanov-family" style="flex: 1; min-width: 0; border: 0; outline: none; font: inherit; padding-right: 12px">
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 650">Who can open it</h2>
+        <div role="radiogroup" aria-label="Access" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px">
+          <sc-for list="{{access}}" as="a" hint-placeholder-count="3">
+            <button type="button" role="radio" aria-checked="{{a.on}}" onClick="{{a.pick}}" style="text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 10px; font: inherit; cursor: pointer; color: #16171A; border: 1.5px solid {{a.border}}; background: {{a.bg}}">
+              <span style="font-weight: 650">{{a.label}}</span>
+              <span style="font-size: 13px; color: #5D6066">{{a.desc}}</span>
+            </button>
+          </sc-for>
+        </div>
+        <sc-if value="{{showPassword}}" hint-placeholder-val="{{ true }}">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px; max-width: 360px">Password<span style="display: flex; gap: 8px"><input type="text" value="theo-2026" style="flex: 1; min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"><button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer">Generate</button></span></label>
+        </sc-if>
+        <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+          <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Ask visitors for their email</span><span style="font-size: 13px; color: #5D6066">See exactly who viewed and downloaded; build a list for mini-session offers</span></div>
+          <button type="button" role="switch" aria-checked="{{t.email.on}}" aria-label="Ask visitors for their email" onClick="{{t.email.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.email.pos}}; background: {{t.email.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 650">Downloads</h2>
+        <div role="radiogroup" aria-label="Download size" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: #EEEEEB; border-radius: 10px; width: fit-content; max-width: 100%">
+          <sc-for list="{{dl}}" as="d" hint-placeholder-count="4">
+            <button type="button" role="radio" aria-checked="{{d.on}}" onClick="{{d.pick}}" style="min-height: 40px; padding: 0 14px; border-radius: 8px; border: 0; font: inherit; font-weight: 600; cursor: pointer; background: {{d.bg}}; color: {{d.fg}}; box-shadow: {{d.shadow}}">{{d.label}}</button>
+          </sc-for>
+        </div>
+        <span style="font-size: 13px; color: #5D6066">{{dlHint}}</span>
+        <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+          <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Protect downloads with a 4-digit PIN</span><span style="font-size: 13px; color: #5D6066">Guests can browse; only the couple can download everything</span></div>
+          <button type="button" role="switch" aria-checked="{{t.pin.on}}" aria-label="Protect downloads with a PIN" onClick="{{t.pin.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.pin.pos}}; background: {{t.pin.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+          <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Watermark web previews</span><span style="font-size: 13px; color: #5D6066">“Northlight signature” preset · originals stay clean</span></div>
+          <button type="button" role="switch" aria-checked="{{t.wm.on}}" aria-label="Watermark web previews" onClick="{{t.wm.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.wm.pos}}; background: {{t.wm.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div style="flex: 1; display: flex; flex-direction: column"><h2 style="margin: 0; font-size: 16px; font-weight: 650">Favorites &amp; proofing</h2><span style="font-size: 13px; color: #5D6066">Clients heart photos, add notes, then submit a final selection</span></div>
+          <button type="button" role="switch" aria-checked="{{t.fav.on}}" aria-label="Enable favorites and proofing" onClick="{{t.fav.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.fav.pos}}; background: {{t.fav.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+        </div>
+        <sc-if value="{{t.fav.on}}" hint-placeholder-val="{{ true }}">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Photos included<input type="number" value="50" style="min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Price per extra photo<input type="text" value="€8" style="min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Lists clients can make<input type="text" value="Album, Print wall, Family" style="min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"></label>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <span style="display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: #EAF2EF; color: #17564A; font-size: 13px; font-weight: 600">Comments on photos</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: #EAF2EF; color: #17564A; font-size: 13px; font-weight: 600">Retouch requests</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: #EAF2EF; color: #17564A; font-size: 13px; font-weight: 600">Lock after submit</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: #EEEEEB; color: #45474C; font-size: 13px; font-weight: 600">Show filenames</span>
+          </div>
+        </sc-if>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 650">Expiry &amp; reminders</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">Available until<input type="date" value="2027-02-02" style="min-height: 44px; padding: 0 12px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px">After it expires<select style="min-height: 44px; padding: 0 10px; border: 1px solid #C9CAC4; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400; background: #FFFFFF"><option>Hide, keep files (client can ask to reopen)</option><option>Move originals to cold storage</option><option>Delete web sizes only</option></select></label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+          <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Remind the client before it closes</span><span style="font-size: 13px; color: #5D6066">Emails 14 days and 2 days before — with a “Download all” button and a print offer</span></div>
+          <button type="button" role="switch" aria-checked="{{t.remind.on}}" aria-label="Remind the client before expiry" onClick="{{t.remind.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.remind.pos}}; background: {{t.remind.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; min-height: 52px; border-top: 1px solid #EEEEEB">
+          <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Open the print store</span><span style="font-size: 13px; color: #5D6066">Price sheet “Fine art 2026” · lab fulfilment or self-fulfil</span></div>
+          <button type="button" role="switch" aria-checked="{{t.store.on}}" aria-label="Open the print store" onClick="{{t.store.flip}}" style="flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; display: flex; cursor: pointer; justify-content: {{t.store.pos}}; background: {{t.store.bg}}"><span style="width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF"></span></button>
+        </div>
+      </section>
+    </div>
+
+    <aside aria-label="Preview" style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; overflow: hidden">
+        <div style="position: relative; aspect-ratio: 4 / 3; background: linear-gradient(180deg, #D6CABB 0 60%, #94A39A 60% 100%); display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; box-sizing: border-box">
+          <span style="font-family: 'Instrument Serif', Georgia, serif; font-size: 40px; line-height: 1; color: #FFFFFF; text-shadow: 0 1px 12px rgba(0,0,0,0.35)">Ivanov family</span>
+          <span style="color: #FFFFFF; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 8px; text-shadow: 0 1px 8px rgba(0,0,0,0.4)">2 November 2026</span>
+        </div>
+        <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #5D6066; text-transform: uppercase; letter-spacing: 0.06em">Cover layout</span>
+          <div role="radiogroup" aria-label="Cover layout" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+            <button type="button" role="radio" aria-checked="true" aria-label="Full bleed" style="height: 44px; border-radius: 6px; border: 2px solid #1F6F5C; background: #D6CABB; cursor: pointer"></button>
+            <button type="button" role="radio" aria-checked="false" aria-label="Split" style="height: 44px; border-radius: 6px; border: 1px solid #DADAD5; background: linear-gradient(90deg, #D6CABB 0 50%, #FFFFFF 50% 100%); cursor: pointer"></button>
+            <button type="button" role="radio" aria-checked="false" aria-label="Framed" style="height: 44px; border-radius: 6px; border: 1px solid #DADAD5; background: #FFFFFF; box-shadow: inset 0 0 0 8px #FFFFFF, inset 0 0 0 30px #D6CABB; cursor: pointer"></button>
+            <button type="button" role="radio" aria-checked="false" aria-label="Minimal text" style="height: 44px; border-radius: 6px; border: 1px solid #DADAD5; background: #16171A; cursor: pointer"></button>
+          </div>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 650">Ready to share</h2>
+        <sc-for list="{{checks}}" as="c" hint-placeholder-count="5">
+          <div style="display: flex; gap: 10px; align-items: center; font-size: 13px">
+            <span style="width: 20px; height: 20px; flex: none; border-radius: 999px; display: grid; place-items: center; background: {{c.bg}}; color: #FFFFFF; font-size: 12px; font-weight: 700">{{c.mark}}</span>
+            <span style="color: {{c.fg}}">{{c.text}}</span>
+          </div>
+        </sc-for>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 650">Email to client</h2>
+        <div style="border: 1px solid #E4E4E0; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+          <span style="font-weight: 600">Your photos are ready, Anna</span>
+          <span style="color: #3A3C41">Hi Anna — your family gallery is live. Heart your favourites (50 are included) and press “Submit selection” when you’re happy. Password: theo-2026</span>
+          <span style="align-self: flex-start; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 8px; background: #16171A; color: #FFFFFF; font-weight: 600">Open gallery</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Edit template</button>
+          <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Send later…</button>
+          <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Copy link + QR</button>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      preset: 'Portrait', access: 'password', dl: 'web',
+      tg: { sets: true, cover: true, faces: false, email: false, pin: false, wm: true, fav: true, remind: true, store: true }
+    };
+  }
+  renderVals() {
+    const s = this.state;
+    const hints = {
+      Wedding: 'Wedding: sets by time of day, 50 included favorites, full-res downloads unlocked after the selection is submitted, PIN for guests, 120-day expiry.',
+      Portrait: 'Portrait: one set, 20 included favorites with €8 extras, web-size downloads, watermarked previews, 90-day expiry.',
+      Event: 'Event: Find me face search on, email capture, free web downloads for everyone, no proofing, 30-day expiry.',
+      Newborn: 'Newborn: password protected, 15 included favorites, print store prominent, 180-day expiry.',
+      Commercial: 'Commercial: client-email access only, approve/reject instead of hearts, filenames shown, full-res downloads.',
+      Blank: 'Blank: no defaults. Every option below stays off until you switch it on.'
+    };
+    const presets = ['Wedding', 'Portrait', 'Event', 'Newborn', 'Commercial', 'Blank'].map((label) => {
+      const on = s.preset === label;
+      return { label, on, border: on ? '#1F6F5C' : '#DADAD5', bg: on ? '#EAF2EF' : '#FFFFFF', fg: on ? '#17564A' : '#16171A', pick: () => this.setState({ preset: label }) };
+    });
+    const access = [
+      { id: 'link', label: 'Anyone with the link', desc: 'Simplest. Link is unguessable and can be revoked.' },
+      { id: 'password', label: 'Password', desc: 'One shared password for family and guests.' },
+      { id: 'invite', label: 'Invited emails only', desc: 'One-tap sign-in link sent by email. No passwords.' }
+    ].map((a) => {
+      const on = s.access === a.id;
+      return Object.assign({}, a, { on, border: on ? '#1F6F5C' : '#DADAD5', bg: on ? '#F2F6F4' : '#FFFFFF', pick: () => this.setState({ access: a.id }) });
+    });
+    const dlHints = {
+      off: 'Clients can view and favorite, but not download. Good for proofing rounds.',
+      web: 'Web size is 2048 px on the long edge — perfect for phones and social. Originals stay on your server.',
+      full: 'Original files, as uploaded. Large galleries are zipped in the background and emailed as one link.',
+      after: 'Downloads unlock automatically once the client submits their selection — or when you mark the gallery delivered.'
+    };
+    const dl = [['off', 'Off'], ['web', 'Web size'], ['full', 'Full resolution'], ['after', 'After selection']].map(([id, label]) => {
+      const on = s.dl === id;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#16171A' : '#45474C', shadow: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none', pick: () => this.setState({ dl: id }) };
+    });
+    const t = {};
+    Object.keys(s.tg).forEach((k) => {
+      const on = s.tg[k];
+      t[k] = { on, bg: on ? '#1F6F5C' : '#C9CAC4', pos: on ? 'flex-end' : 'flex-start', flip: () => this.setState({ tg: Object.assign({}, this.state.tg, { [k]: !this.state.tg[k] }) }) };
+    });
+    const tones = ['#C8BBAA', '#94A39A', '#B9A99A', '#6E5A4C', '#D6CABB', '#5E6B63', '#A3876A', '#7A6F64', '#E2D7CA', '#3F4A52', '#8C7B6B', '#C9BBA8', '#4E5B57', '#B0A08F'];
+    const thumbs = tones.map((bg, i) => ({ bg, op: i < 10 ? 1 : 0.35 }));
+    const ok = (text) => ({ text, mark: '✓', bg: '#1F8A6E', fg: '#16171A' });
+    const todo = (text) => ({ text, mark: '·', bg: '#B9BAB3', fg: '#5D6066' });
+    return {
+      presets, presetHint: hints[s.preset], access, showPassword: s.access === 'password',
+      dl, dlHint: dlHints[s.dl], t, thumbs,
+      checks: [ok('Name and address set'), ok('Cover chosen'), ok(s.access === 'link' ? 'Open link' : 'Access protected'), todo('228 photos still uploading'), todo('Client not notified yet')]
+    };
+  }
+}
+</script>
+</body>
+</html>

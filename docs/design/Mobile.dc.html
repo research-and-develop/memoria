@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client gallery on phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#16171A}a:hover{color:#1F6F5C}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #FBFAF7; color: #16171A; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.45">
+
+  <header style="display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px">
+    <div style="flex: 1; display: flex; flex-direction: column">
+      <span style="font-family: 'Instrument Serif', Georgia, serif; font-size: 28px; line-height: 1.05">Maria &amp; Jonas</span>
+      <span style="font-size: 12px; color: #5D6066; letter-spacing: 0.06em; text-transform: uppercase">12 Sep 2026 · 840 photos</span>
+    </div>
+    <button type="button" aria-label="Share" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 999px; border: 1px solid #DEDCD5; background: #FFFFFF; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"></path></svg></button>
+  </header>
+
+  <div role="tablist" aria-label="Sets" style="display: flex; gap: 6px; padding: 4px 16px 12px; overflow-x: auto; flex: none">
+    <sc-for list="{{sets}}" as="s" hint-placeholder-count="5">
+      <button type="button" role="tab" aria-selected="{{s.on}}" onClick="{{s.pick}}" style="flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid {{s.border}}; background: {{s.bg}}; color: {{s.fg}}">{{s.name}}</button>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: #F1EFEA">
+      <span style="width: 40px; height: 40px; flex: none; border-radius: 999px; background: #FFFFFF; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F6F5C" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>
+      <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 14px">Find photos of you</span><span style="font-size: 13px; color: #5D6066">Take a selfie — it never leaves this studio’s server</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+      <sc-for list="{{photos}}" as="p" hint-placeholder-count="8">
+        <div style="position: relative">
+          <a href="#" aria-label="Open photo {{p.n}}" style="display: block; aspect-ratio: {{p.ratio}}; background: {{p.bg}}"></a>
+          <button type="button" aria-pressed="{{p.fav}}" aria-label="Favorite photo {{p.n}}" onClick="{{p.toggle}}" style="position: absolute; right: 4px; bottom: 4px; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; cursor: pointer; color: {{p.fg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="{{p.fill}}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45))"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"></path></svg></button>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: none; margin: 0 12px 8px; display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 16px; border-radius: 14px; background: #16171A; color: #FFFFFF">
+    <span style="flex: 1; font-size: 14px"><strong>{{favCount}}</strong> of 50 favorites</span>
+    <a href="ClientSelection.dc.html" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 999px; background: #FFFFFF; color: #16171A; text-decoration: none; font-weight: 600; font-size: 14px">Review</a>
+  </div>
+
+  <nav aria-label="Gallery" style="flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #DEDCD5; background: #FFFFFF; padding: 4px 0 18px">
+    <a href="#" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; font-size: 11px; font-weight: 600; text-decoration: none; color: #16171A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>Gallery</a>
+    <a href="ClientSelection.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; font-size: 11px; font-weight: 600; text-decoration: none; color: #5D6066"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"></path></svg>Favorites</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; font-size: 11px; font-weight: 600; text-decoration: none; color: #5D6066"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"></path></svg>Slideshow</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; font-size: 11px; font-weight: 600; text-decoration: none; color: #5D6066"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>Download</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { set: 'Highlights', fav: { 0: true, 3: true } };
+  }
+  renderVals() {
+    const s = this.state;
+    const sets = ['Highlights', 'Getting ready', 'Ceremony', 'Portraits', 'Reception'].map((name) => {
+      const on = s.set === name;
+      return { name, on, border: on ? '#16171A' : '#DEDCD5', bg: on ? '#16171A' : '#FFFFFF', fg: on ? '#FFFFFF' : '#16171A', pick: () => this.setState({ set: name }) };
+    });
+    const pairs = [['#C9BBA8', '#7A6F64', 58], ['#E2D7CA', '#B9A99A', 50], ['#94A39A', '#5E6B63', 46], ['#D6CABB', '#8C7B6B', 62], ['#3F4A52', '#2F3437', 40], ['#B9A99A', '#6E5A4C', 55], ['#C8BBAA', '#94A39A', 60], ['#A3876A', '#5E6B63', 48]];
+    const ratios = ['3 / 4', '3 / 4', '1 / 1', '1 / 1', '3 / 4', '3 / 4', '1 / 1', '1 / 1'];
+    const photos = ratios.map((ratio, i) => {
+      const [a, b, sp] = pairs[i];
+      const fav = !!s.fav[i];
+      return { n: i + 1, ratio, fav, fg: fav ? '#F4B190' : '#FFFFFF', fill: fav ? '#E08A5C' : 'none', bg: 'linear-gradient(180deg, ' + a + ' 0 ' + sp + '%, ' + b + ' ' + sp + '% 100%)', toggle: () => this.setState({ fav: Object.assign({}, this.state.fav, { [i]: !this.state.fav[i] }) }) };
+    });
+    return { sets, photos, favCount: 10 + Object.values(s.fav).filter(Boolean).length };
+  }
+}
+</script>
+</body>
+</html>

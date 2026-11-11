@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review and submit selection</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#16171A}a:hover{color:#1F6F5C}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #FBFAF7; color: #16171A; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px clamp(16px, 4vw, 56px); border-bottom: 1px solid #DEDCD5">
+    <a href="ClientGallery.dc.html" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>Back to gallery</a>
+    <span style="flex: 1; text-align: center; font-family: 'Instrument Serif', Georgia, serif; font-size: 22px">Maria &amp; Jonas</span>
+    <span style="font-size: 13px; color: #5D6066">Signed in as maria@example.com</span>
+  </header>
+
+  <div style="max-width: 1320px; margin: 0 auto; box-sizing: border-box; padding: 32px clamp(16px, 4vw, 56px) 64px; display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+    <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 48px; line-height: 1.05">Your favorites</h1>
+        <span style="color: #5D6066">Remove anything you’re unsure about. You can still go back and add more.</span>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+        <div role="tablist" aria-label="Your lists" style="display: flex; flex-wrap: wrap; gap: 6px; flex: 1">
+          <button type="button" role="tab" aria-selected="true" style="min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #16171A; background: #16171A; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600">Album · {{count}}</button>
+          <button type="button" role="tab" aria-selected="false" style="min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #DEDCD5; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600">Print wall · 6</button>
+          <button type="button" role="tab" aria-selected="false" style="min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #DEDCD5; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600">Grandma · 12</button>
+        </div>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #DEDCD5; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>Share list with family</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px">
+        <sc-for list="{{photos}}" as="p" hint-placeholder-count="16">
+          <div style="position: relative">
+            <div style="aspect-ratio: 1 / 1; background: {{p.bg}}"></div>
+            <button type="button" aria-label="Remove photo {{p.n}} from favorites" onClick="{{p.remove}}" style="position: absolute; top: 6px; right: 6px; width: 36px; height: 36px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.92); color: #16171A; display: grid; place-items: center; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+            <sc-if value="{{p.note}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.92); font-size: 11px; font-weight: 700">{{p.note}}</span></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <sc-if value="{{hasRemoved}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; background: #16171A; color: #FFFFFF; align-self: flex-start">
+          <span>{{removedCount}} removed</span>
+          <button type="button" onClick="{{undo}}" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 0; background: #FFFFFF; color: #16171A; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">Undo</button>
+        </div>
+      </sc-if>
+      <span style="font-size: 14px; color: #5D6066">Showing 16 of {{count}} · <a href="ClientGallery.dc.html">show all</a></span>
+    </div>
+
+    <aside aria-label="Summary" style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <sc-if value="{{notSubmitted}}" hint-placeholder-val="{{ true }}">
+        <section style="background: #FFFFFF; border: 1px solid #DEDCD5; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Selected</span><span style="font-size: 28px; font-weight: 700">{{count}} <span style="font-size: 15px; font-weight: 500; color: #5D6066">/ 50 included</span></span></div>
+            <div style="height: 8px; border-radius: 999px; overflow: hidden; background: #EEEEEB"><div style="height: 100%; background: {{barColor}}; width: {{pct}}"></div></div>
+            <span style="font-size: 14px; color: {{statusColor}}; font-weight: 600">{{status}}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 0; border-top: 1px solid #EEEEEB; border-bottom: 1px solid #EEEEEB; font-size: 14px">
+            <div style="display: flex; justify-content: space-between"><span>Included in your package</span><span>50</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Extra photos × €8</span><span>{{extras}}</span></div>
+            <div style="display: flex; justify-content: space-between; font-weight: 700"><span>To pay</span><span>{{price}}</span></div>
+          </div>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">A note for Niko (optional)
+            <textarea rows="3" placeholder="e.g. Please make the first-dance photos black &amp; white" style="font: inherit; font-weight: 400; font-size: 14px; padding: 10px 12px; border: 1px solid #C9CAC4; border-radius: 10px; resize: vertical"></textarea>
+          </label>
+          <button type="button" onClick="{{submit}}" style="min-height: 52px; border-radius: 999px; border: 0; background: #1F6F5C; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">Submit {{count}} photos</button>
+          <span style="font-size: 13px; color: #5D6066; text-align: center">Niko will be notified and start editing. You can ask to reopen it anytime.</span>
+        </section>
+      </sc-if>
+      <sc-if value="{{submitted}}" hint-placeholder-val="{{ false }}">
+        <section style="background: #FFFFFF; border: 1px solid #DEDCD5; border-radius: 16px; padding: 28px 22px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+          <span style="width: 56px; height: 56px; border-radius: 999px; background: #EAF2EF; color: #1F6F5C; display: grid; place-items: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg></span>
+          <h2 style="margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 32px">Sent to Niko</h2>
+          <span style="color: #5D6066">{{count}} photos are on their way to editing. We’ll email you when the finished images are ready to download — usually within 3 weeks.</span>
+          <button type="button" onClick="{{reopen}}" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #DEDCD5; background: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer">Make a change</button>
+        </section>
+      </sc-if>
+
+      <section style="background: #F1EFEA; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-weight: 600">While you wait</span>
+        <a href="#" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 14px; border-radius: 10px; background: #FFFFFF; text-decoration: none; font-weight: 600">Download favorites (web size)<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg></a>
+        <a href="#" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 14px; border-radius: 10px; background: #FFFFFF; text-decoration: none; font-weight: 600">Design your album<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+        <a href="#" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 14px; border-radius: 10px; background: #FFFFFF; text-decoration: none; font-weight: 600">Order prints of the Print wall list<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { removed: {}, submitted: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const pairs = [['#C9BBA8', '#7A6F64', 58], ['#E2D7CA', '#B9A99A', 50], ['#94A39A', '#5E6B63', 46], ['#D6CABB', '#8C7B6B', 62], ['#3F4A52', '#2F3437', 40], ['#B9A99A', '#6E5A4C', 55], ['#C8BBAA', '#94A39A', 60], ['#A3876A', '#5E6B63', 48], ['#E2D7CA', '#C8BBAA', 66], ['#7A6F64', '#4E5B57', 42]];
+    const notes = { 1: 'Retouch', 4: 'Note', 9: 'B&W' };
+    const photos = [];
+    for (let i = 0; i < 16; i++) {
+      if (s.removed[i]) continue;
+      const [a, b, sp] = pairs[(i * 7) % pairs.length];
+      photos.push({ n: i + 1, note: notes[i] || '', bg: 'linear-gradient(180deg, ' + a + ' 0 ' + sp + '%, ' + b + ' ' + sp + '% 100%)', remove: () => this.setState({ removed: Object.assign({}, this.state.removed, { [i]: true }) }) });
+    }
+    const removedCount = Object.keys(s.removed).length;
+    const count = 53 - removedCount;
+    const extras = Math.max(0, count - 50);
+    const over = count > 50;
+    return {
+      photos, count, removedCount, hasRemoved: removedCount > 0,
+      undo: () => this.setState({ removed: {} }),
+      pct: Math.min(100, Math.round(count / 50 * 100)) + '%',
+      barColor: over ? '#B4530A' : '#1F6F5C',
+      status: over ? (extras + ' over your package — remove ' + extras + ' or keep them for €' + extras * 8) : (count === 50 ? 'Perfect — exactly your 50.' : (50 - count) + ' more included photos available'),
+      statusColor: over ? '#8A4B00' : '#17564A',
+      extras, price: '€' + extras * 8,
+      notSubmitted: !s.submitted, submitted: s.submitted,
+      submit: () => this.setState({ submitted: true }),
+      reopen: () => this.setState({ submitted: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

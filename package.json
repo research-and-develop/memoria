@@ -1,0 +1,59 @@
+{
+  "name": "my-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @repo/web",
+    "build": "npm run build --workspace @repo/web",
+    "build:worker": "npm run build:worker --workspace @repo/web",
+    "preview": "npm run preview --workspace @repo/web",
+    "deploy": "npm run deploy --workspace @repo/web",
+    "cf-typegen": "npm run cf-typegen --workspace @repo/web",
+    "db:migrate:local": "npm run db:migrate:local --workspace @repo/web",
+    "db:migrate:remote": "npm run db:migrate:remote --workspace @repo/web",
+    "db:migrations:new": "npm run db:migrations:new --workspace @repo/web --",
+    "admin:hash-password": "npm run admin:hash-password --workspace @repo/web --",
+    "measure:cpu": "node scripts/measure-cpu.mjs",
+    "ts-check": "npm run ts-check:root && npm run ts-check:web",
+    "ts-check:root": "tsc -p tsconfig.json --noEmit",
+    "ts-check:web": "npm run typegen --workspace @repo/web && tsc -p apps/web/tsconfig.check.json --noEmit",
+    "test": "vitest run",
+    "test:node": "vitest run --project node",
+    "test:components": "vitest run --project components",
+    "test:watch": "vitest",
+    "verify": "npm run ts-check && npm run test"
+  },
+  "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.13",
+    "autoprefixer": "10.6.1",
+    "date-fns": "^4.4.0",
+    "next": "^16.3.7",
+    "postcss": "8.5.28",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "2.6.1",
+    "tailwindcss": "3.4.19"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "24.19.0",
+    "@types/react": "18.3.27",
+    "@types/react-dom": "18.3.7",
+    "jsdom": "^30.1.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.151.3"
+  }
+}

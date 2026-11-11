@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client selection review</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F6F5C}a:hover{color:#17564A}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; min-height: 100vh; background: #F6F6F4; color: #16171A; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+  <nav aria-label="Studio navigation" style="flex: 1 1 220px; box-sizing: border-box; padding: 20px 14px; background: #FFFFFF; border-right: 1px solid #E4E4E0; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16171A" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M14.3 8l5.7 9.9M9.7 8h11.5M7.4 12l5.7-9.9M9.7 16L4 6.1M14.3 16H2.8M16.6 12l-5.7 9.9"></path></svg>
+      <div style="display: flex; flex-direction: column">
+        <span style="font-weight: 700; font-size: 15px; letter-spacing: -0.01em">Proofsheet</span>
+        <span style="font-size: 12px; color: #5D6066">Northlight Studio</span>
+      </div>
+    </div>
+    <a href="NewGallery.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 10px; background: #16171A; color: #FFFFFF; text-decoration: none; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New gallery</a>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Dashboard</a>
+      <a href="GalleryEditor.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5L5 21"></path></svg><span style="flex: 1">Galleries</span><span style="font-size: 12px; color: #5D6066">24</span></a>
+      <a href="ProofReview.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; background: #EAF2EF; color: #17564A; text-decoration: none; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"></path></svg><span style="flex: 1">Selections</span><span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #B4530A; border-radius: 999px; padding: 1px 7px">3</span></a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"></path></svg>Clients</a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><path d="M3 6h18M16 10a4 4 0 0 1-8 0"></path></svg>Store &amp; orders</a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg>Insights</a>
+      <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #3A3C41; text-decoration: none; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg>Settings</a>
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 20px clamp(16px, 2.5vw, 32px) 40px; display: flex; flex-direction: column; gap: 18px">
+
+    <header style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; justify-content: space-between">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 13px; color: #5D6066"><a href="GalleryEditor.dc.html" style="color: #5D6066">Maria &amp; Jonas</a> / Selections</span>
+        <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em">Album picks</h1>
+        <span style="font-size: 13px; color: #5D6066">Submitted by Maria · 7 Nov, 21:14 · 48 of 50 included · no extras to bill · locked for changes</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer">Reopen for changes</button>
+        <button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer">Message Maria</button>
+        <button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: #1F6F5C; color: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer">Upload edits &amp; deliver</button>
+      </div>
+    </header>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between">
+      <div role="tablist" aria-label="Client lists" style="display: flex; flex-wrap: wrap; gap: 6px">
+        <sc-for list="{{lists}}" as="l" hint-placeholder-count="4">
+          <button type="button" role="tab" aria-selected="{{l.on}}" onClick="{{l.pick}}" style="min-height: 40px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid {{l.border}}; background: {{l.bg}}; color: {{l.fg}}">{{l.label}} · {{l.count}}</button>
+        </sc-for>
+      </div>
+      <div role="group" aria-label="Filter" style="display: flex; gap: 4px; padding: 4px; background: #EEEEEB; border-radius: 10px">
+        <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+          <button type="button" aria-pressed="{{f.on}}" onClick="{{f.pick}}" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; background: {{f.bg}}; color: {{f.fg}}">{{f.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <div style="flex: 999 1 520px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px">
+        <sc-for list="{{shown}}" as="p" hint-placeholder-count="12">
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column">
+            <div style="aspect-ratio: 3 / 2; background: {{p.bg}}"></div>
+            <div style="padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+                <span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px">{{p.file}}</span>
+                <span style="font-size: 12px; color: #5D6066">{{p.lists}}</span>
+              </div>
+              <sc-if value="{{p.note}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 13px; color: #3A3C41; background: #F6F6F4; border-radius: 8px; padding: 8px 10px">“{{p.note}}”</span>
+              </sc-if>
+              <sc-if value="{{p.retouch}}" hint-placeholder-val="{{ false }}">
+                <button type="button" aria-pressed="{{p.done}}" onClick="{{p.toggle}}" style="display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border-radius: 8px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; border: 1px solid {{p.rBorder}}; background: {{p.rBg}}; color: {{p.rFg}}">
+                  <span style="width: 16px; height: 16px; border-radius: 4px; display: grid; place-items: center; border: 1.5px solid currentColor; font-size: 11px">{{p.check}}</span>
+                  Retouch: {{p.retouch}}
+                </button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <aside aria-label="Export" style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+        <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 650">Send to your editor</h2>
+            <span style="font-size: 13px; color: #5D6066">Paste into Lightroom’s Library filter or Capture One search to select these 48 frames instantly.</span>
+          </div>
+          <div role="radiogroup" aria-label="Separator" style="display: flex; gap: 4px; padding: 4px; background: #EEEEEB; border-radius: 10px">
+            <sc-for list="{{seps}}" as="sp" hint-placeholder-count="3">
+              <button type="button" role="radio" aria-checked="{{sp.on}}" onClick="{{sp.pick}}" style="flex: 1; min-height: 36px; border-radius: 8px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; background: {{sp.bg}}; color: {{sp.fg}}">{{sp.label}}</button>
+            </sc-for>
+          </div>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Filenames
+            <textarea readOnly="{{ true }}" value="{{fileText}}" rows="6" style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.6; padding: 10px; border: 1px solid #C9CAC4; border-radius: 8px; resize: vertical; background: #FAFAF8; color: #16171A"></textarea>
+          </label>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <button type="button" style="display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 8px; border: 0; background: #16171A; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copy</button>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">.txt</button>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">.csv with notes</button>
+            <button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DADAD5; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Lightroom plugin sync</button>
+          </div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 36px"><input type="checkbox" checked="checked" style="width: 18px; height: 18px; accent-color: #1F6F5C">Strip extensions (match RAW + JPG)</label>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 650">Retouch requests</h2>
+            <span style="font-size: 13px; color: #5D6066">{{doneCount}} of 3 done</span>
+          </div>
+          <div style="height: 6px; background: #EEEEEB; border-radius: 999px; overflow: hidden"><div style="height: 100%; background: #1F6F5C; width: {{donePct}}"></div></div>
+          <span style="font-size: 13px; color: #5D6066">When all are done, uploading the edited files replaces the proofs and Maria gets one email with a download link.</span>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #E4E4E0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+          <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 650">Billing</h2>
+          <div style="display: flex; justify-content: space-between"><span>Included photos</span><span style="font-weight: 600">50</span></div>
+          <div style="display: flex; justify-content: space-between"><span>Selected</span><span style="font-weight: 600">48</span></div>
+          <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #EEEEEB"><span>Extras (0 × €8)</span><span style="font-weight: 700">€0</span></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1140}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { list: 'Album picks', filter: 'all', sep: 'space', done: { 1: true } };
+  }
+  renderVals() {
+    const s = this.state;
+    const lists = [['Album picks', 48], ['Print wall', 6], ['Grandma', 12], ['All favorites', 61]].map(([label, count]) => {
+      const on = s.list === label;
+      return { label, count, on, border: on ? '#16171A' : '#DADAD5', bg: on ? '#16171A' : '#FFFFFF', fg: on ? '#FFFFFF' : '#16171A', pick: () => this.setState({ list: label }) };
+    });
+    const filters = [['all', 'All'], ['notes', 'With notes'], ['retouch', 'Retouch']].map(([id, label]) => {
+      const on = s.filter === id;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#16171A' : '#45474C', pick: () => this.setState({ filter: id }) };
+    });
+    const pairs = [['#C9BBA8', '#7A6F64', 58], ['#E2D7CA', '#B9A99A', 50], ['#94A39A', '#5E6B63', 46], ['#D6CABB', '#8C7B6B', 62], ['#3F4A52', '#2F3437', 40], ['#B9A99A', '#6E5A4C', 55], ['#C8BBAA', '#94A39A', 60], ['#A3876A', '#5E6B63', 48]];
+    const notes = { 0: 'Our favourite of the whole day!', 2: 'Could this one be black & white?', 5: 'For the album cover', 9: 'Love the light here' };
+    const retouch = { 1: 'remove exit sign', 2: 'black & white version', 7: 'soften shadows under eyes' };
+    const all = [];
+    for (let i = 0; i < 12; i++) {
+      const [a, b, sp] = pairs[i % pairs.length];
+      const done = !!s.done[i];
+      all.push({
+        i, file: 'DSC_' + String(412 + i * 6).padStart(4, '0'),
+        bg: 'linear-gradient(180deg, ' + a + ' 0 ' + sp + '%, ' + b + ' ' + sp + '% 100%)',
+        lists: i % 4 === 0 ? 'Album · Print' : 'Album',
+        note: notes[i] || '', retouch: retouch[i] || '', done, check: done ? '✓' : '',
+        rBorder: done ? '#B7D8CC' : '#F0D3A8', rBg: done ? '#EAF2EF' : '#FCEFD9', rFg: done ? '#17564A' : '#8A4B00',
+        toggle: () => this.setState({ done: Object.assign({}, this.state.done, { [i]: !this.state.done[i] }) })
+      });
+    }
+    const shown = all.filter((p) => s.filter === 'all' || (s.filter === 'notes' ? !!p.note : !!p.retouch));
+    const sepMap = { space: ' ', comma: ', ', line: '\n' };
+    const seps = [['space', 'Spaces'], ['comma', 'Commas'], ['line', 'New lines']].map(([id, label]) => {
+      const on = s.sep === id;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#16171A' : '#45474C', pick: () => this.setState({ sep: id }) };
+    });
+    const names = [];
+    for (let i = 0; i < 48; i++) names.push('DSC_' + String(412 + i * 6).padStart(4, '0'));
+    const doneCount = Object.keys(retouch).filter((k) => s.done[k]).length;
+    return {
+      lists, filters, shown, seps,
+      fileText: names.join(sepMap[s.sep]),
+      doneCount, donePct: Math.round(doneCount / 3 * 100) + '%'
+    };
+  }
+}
+</script>
+</body>
+</html>

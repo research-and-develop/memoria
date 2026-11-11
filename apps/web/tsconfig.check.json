@@ -1,0 +1,15 @@
+{
+  // `npm run ts-check:web`: the app's tsconfig WITHOUT `.next/dev/types`, which a
+  // running `next dev` regenerates on its own schedule (stale route lists there
+  // would fail the check). `next typegen` writes the build types it does include.
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "cloudflare-env.d.ts",
+    "open-next.config.ts",
+    "src/**/*",
+    "scripts/**/*",
+    "../../vitest.setup.components.ts",
+    ".next/types/**/*.ts"
+  ]
+}

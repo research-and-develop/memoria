@@ -1,0 +1,10 @@
+{
+  "name": "@repo/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The D1 access layer (query/queryFirst/execute/statement/batch, getDb) and the test harness (an in-memory D1 with the migrations applied). Query modules shared by several apps go in queries/<table_name>/ here, with an explicit exports entry each.",
+  "exports": {
+    "./*": "./*.ts"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@repo/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Next.js app, deployed as one Cloudflare Worker through OpenNext. Dependencies live in the root package.json (one hoisted tree for the whole workspace).",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "build:worker": "opennextjs-cloudflare build",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts --env-file .dev.vars.example",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:migrations:new": "wrangler d1 migrations create DB",
+    "admin:hash-password": "tsx scripts/hash-password.ts",
+    "typegen": "next typegen",
+    "ts-check": "next typegen && tsc -p tsconfig.check.json --noEmit"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@repo/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generic React primitives, typography (the single source of truth for text styling), the useApi fetch hook and the Tailwind preset. Nothing that knows a domain shape belongs here, and nothing here may import an app's @/ alias.",
+  "exports": {
+    "./tailwind-preset": "./tailwind-preset.mjs",
+    "./cn": "./cn.ts",
+    "./colorContrast": "./colorContrast.ts",
+    "./hooks/*": "./hooks/*.ts",
+    "./*": "./*.tsx"
+  }
+}

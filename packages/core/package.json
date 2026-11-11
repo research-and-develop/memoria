@@ -1,0 +1,10 @@
+{
+  "name": "@repo/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic primitives: AppError, isUuid, objectToUrlSearchParams. Zero dependencies. Nothing that touches the database, React, Next or a domain concept belongs here. testing/ is test-only (the guard tests' shared source index).",
+  "exports": {
+    "./*": "./*.ts"
+  }
+}
