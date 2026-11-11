@@ -1,13 +1,16 @@
-# CI for GitHub (the GitLab equivalent is .gitlab-ci.yml — keep one, delete the other).
-#   push / pull request → check + build
-#   deploy              → manual (Actions → CI → Run workflow, with `deploy` ticked)
+# CI: check and build on every push to master and every pull request; deploy is manual.
+#   push to master / pull request → check (ts-check, test, build:worker)
+#   deploy                        → manual: Actions → CI → Run workflow, tick `deploy`
+#                                   (migrations first, then the Worker). Works only after the first
+#                                   manual deploy has created the D1 (docs/deployment.md).
 # Repository secrets: CLOUDFLARE_API_TOKEN (an account token: Workers: Editor, D1: Edit,
 # Account Settings: Read) and CLOUDFLARE_ACCOUNT_ID. App secrets live in Cloudflare.
+# The scheduled D1 backup is a separate workflow: backup.yml.
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -16,9 +19,13 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
+# A newer push to a branch cancels its older run; runs on master always finish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   check:
@@ -30,6 +37,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
+      # Informational only: the accepted build-time advisories are listed in docs/deployment.md.
+      - run: npm audit --omit=dev --audit-level=high || true
       - run: npm run ts-check
       - run: npm run test
       - run: npm run build:worker

@@ -460,10 +460,10 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 ## Checklist
 
 - [x] T0.1 Audit fixes (verify, build:worker, preview); accepted advisories recorded
-- [ ] T0.2 Install scripts approved, unpinned
-- [ ] T0.3 CI on `master`, permissions, cancel policy, informational audit
-- [ ] T0.4 `backup.yml` (encrypted, dormant)
-- [ ] T0.5 GitLab CI and every reference removed
+- [x] T0.2 Install scripts approved, unpinned
+- [x] T0.3 CI on `master`, permissions, cancel policy, informational audit
+- [x] T0.4 `backup.yml` (encrypted, dormant)
+- [x] T0.5 GitLab CI and every reference removed
 - [ ] T0.6 Rename to Memoria (incl. cookie, logger)
 - [ ] T0.7 Contact example deleted (incl. `validation/email.ts`)
 - [ ] T0.8 Guards, Turnstile, samples, pages, docs fixed

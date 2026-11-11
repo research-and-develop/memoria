@@ -48,9 +48,9 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 - `npm run measure:cpu -- <url> [count] [--version <id>] [--group-by <header>]` — CPU/wall time per
   request of the deployed Worker
 - `npm run ts-check` (both tsconfigs) · `npm run test` (`test:node`, `test:components`) · `npm run verify` (both)
-- Shipping, secrets, rollback: [`docs/deployment.md`](docs/deployment.md). CI: `.gitlab-ci.yml` /
-  `.github/workflows/ci.yml` (deploy is manual; migrations run first and must be safe for the code
-  still running)
+- Shipping, secrets, rollback: [`docs/deployment.md`](docs/deployment.md). CI: `.github/workflows/ci.yml`
+  (deploy is manual; migrations run first and must be safe for the code still running); nightly D1
+  backup: `.github/workflows/backup.yml`
 - Done means **`npm run ts-check` and `npm run test` both green**; a change to bindings, caching or
   config also needs `npm run preview` to boot and serve.
 

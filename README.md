@@ -58,7 +58,7 @@ npm run preview                # the real Worker, locally, at http://localhost:8
    `npm run cf-typegen`. Full runbook: [docs/deployment.md](docs/deployment.md).
 5. **The example feature.** Keep the contact form as the reference for public writes, or delete
    `contact_messages` (migration 0003, query module, routes, components) once you have your own.
-6. Run `npm run verify`, commit, and set up CI (`.gitlab-ci.yml` or `.github/workflows/ci.yml`).
+6. Run `npm run verify`, commit, and push: CI is `.github/workflows/ci.yml`.
 
 ## Deploy
 

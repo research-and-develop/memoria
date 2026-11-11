@@ -2,7 +2,7 @@
 title: Deployment
 type: reference
 updated: 2026-11-11
-related: [architecture.md, ../.gitlab-ci.yml, ../.github/workflows/ci.yml]
+related: [architecture.md, ../.github/workflows/ci.yml, ../.github/workflows/backup.yml]
 ---
 
 # Deployment
@@ -35,9 +35,14 @@ update a Worker but not create it.
 
 ## How a change ships
 
-1. Push / merge request → CI: `npm ci`, `ts-check`, `test`, `build:worker`.
-2. Default branch → the same, then a **manual** `deploy` job: `npm run db:migrate:remote`, then
-   `opennextjs-cloudflare deploy`. Manual by design — a push never goes live by itself.
+GitHub Actions (`.github/workflows/ci.yml`) is the only CI.
+
+1. Push to `master` or a pull request → `check`: `npm ci`, `ts-check`, `test`, `build:worker`
+   (plus an informational `npm audit`).
+2. Deploy is **manual**: Actions → CI → Run workflow on `master` with `deploy` ticked → `check`, then
+   `npm run db:migrate:remote`, then `npm run deploy`. Manual by design — a push never goes live by
+   itself. It works only after the first deploy from a terminal (One-time setup) has created the D1
+   and its `database_id` is in `wrangler.jsonc`.
 
 ### Migrations run before the code
 
@@ -48,8 +53,9 @@ deployed code reads them.
 
 ### Preview versions
 
-`opennextjs-cloudflare upload` makes a new version that is NOT live, on its own preview URL. **A
-preview version uses the production bindings** — the same D1. Use it only for changes that do not
+There is no CI preview job. `cd apps/web && npx wrangler versions upload` (after `npm run build:worker`)
+makes a new version that is NOT live, on its own preview URL. **A preview version uses the production
+bindings** — the same D1. Use it only for changes that do not
 write data and need no unapplied migration.
 
 ## CI variables
@@ -85,15 +91,33 @@ which exist. Setting a secret deploys a new version.
 
 ## Backups
 
-Time Travel plus a scheduled SQL export: the `backup` job in `.gitlab-ci.yml` (a pipeline schedule,
-e.g. weekly at night — an export briefly blocks other queries) keeps a gzipped dump as an artifact.
-Download one now and then and keep it outside CI. Rehearse a restore into a scratch database once:
+Time Travel (7 days) plus a nightly SQL export: `.github/workflows/backup.yml` runs at 03:00 UTC
+(an export briefly blocks other queries; it never overlaps a deploy), gzips the dump, **encrypts it
+with a passphrase** (AES-256, `gpg --symmetric`) and keeps it as a workflow artifact for 90 days.
+
+**Enable it** after the first `db:migrate:remote`:
+
+1. Repository secret `D1_BACKUP_PASSPHRASE`: a long random string (`openssl rand -base64 32`). Keep a
+   copy outside GitHub (a password manager): without it no backup can be read.
+2. Repository **variable** `D1_BACKUP_ENABLED` = `true` (Settings → Secrets and variables → Actions →
+   Variables). Until then every run is skipped.
+3. Actions → Backup → Run workflow once, and check that the artifact `d1-<run id>` appears.
+
+Download one now and then and keep it outside GitHub.
+
+**Restore** (rehearse once into a scratch database):
 
 ```sh
+gpg --decrypt --output d1.sql.gz d1.sql.gz.gpg   # asks for D1_BACKUP_PASSPHRASE
+gunzip d1.sql.gz
+cd apps/web
 npx wrangler d1 create my-app-restore-test
-npx wrangler d1 execute my-app-restore-test --remote --file=backup.sql
+npx wrangler d1 execute my-app-restore-test --remote --file=../../d1.sql
 npx wrangler d1 delete my-app-restore-test
 ```
+
+To restore production itself, prefer Time Travel (Rollback) while within its 7 days; an export is for
+older points or a lost database.
 
 ## Dependencies
 
