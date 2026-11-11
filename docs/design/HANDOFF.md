@@ -3,7 +3,8 @@
 > **Status (2026-11-11):** the product is named **Memoria** ("Proofsheet" was the design's working name).
 > Several features below were cut and some decisions differ from this spec (browser-side image
 > processing and ZIPs, SMTP relay Worker, one admin with TOTP, no team roles, no print store, Find me,
-> video or integrations).
+> video or integrations). The build plan is the source of truth for scope:
+> [`docs/plans/202611/plan_202611_mvp.md`](../plans/202611/plan_202611_mvp.md).
 
 Self-hosted client gallery for photographers. This folder (`docs/design/`) holds the design source — the mockups
 (`docs/design/*.dc.html`), the design-tool canvas index (`canvas.json`, board titles and order) — and this spec.

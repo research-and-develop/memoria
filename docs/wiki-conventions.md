@@ -11,7 +11,7 @@ Durable planning and review artifacts are **committed** here, never left in a gi
 
 | Kind | Path | Lifecycle |
 | --- | --- | --- |
-| Plan | `plans/YYYYMM/plan_YYYYMM_<topic>.md` | `draft` → `in-progress` → `done` / `abandoned`; tasks tracked inline |
+| Plan | `plans/YYYYMM/plan_YYYYMM_<topic>.md` | `placeholder` (outline only) → `draft` (detailed, under review) → `ready` (reviewed, can be coded) → `in-progress` → `done` / `abandoned`; tasks tracked inline |
 | Audit | `audits/YYYYMM/audit_YYYYMMDD_<topic>.md` | point-in-time; findings carry a resolution (`open` / `fixed <sha>` / `wontfix: why`) |
 | Reference | `<topic>.md` | evergreen: "how it works now", never a changelog |
 
