@@ -1,8 +1,9 @@
-# My App (Next.js on Cloudflare Workers) — agent instructions
+# Memoria (Next.js on Cloudflare Workers) — agent instructions
 
-<!-- RENAME: describe the product in two lines. -->
-A Next.js app on Cloudflare's **free** tier: public pages, a contact form that lands in a
-single-admin inbox, all on one Worker.
+**Memoria** is a client-gallery app for one photographer: upload a shoot, share a branded gallery,
+let the client favourite, comment and submit a selection, then deliver. Cloudflare's **free** tier:
+one Worker today, a relay Worker for email and jobs planned. Build plan:
+[`docs/plans/202611/plan_202611_mvp.md`](docs/plans/202611/plan_202611_mvp.md).
 
 Next.js 16 App Router on npm workspaces, deployed as **one Cloudflare Worker** through OpenNext
 (`@opennextjs/cloudflare`). Data in **D1** (SQLite), spam protection with **Turnstile**. Tailwind v3,

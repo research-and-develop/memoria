@@ -15,7 +15,7 @@ command from `apps/web` (the npm scripts do this for you).
 ```sh
 cd apps/web
 npx wrangler login
-npx wrangler d1 create my-app --location <hint>   # e.g. weur/eeur/enam: near your visitors; FIXED at creation
+npx wrangler d1 create memoria --location <hint>   # e.g. weur/eeur/enam: near your visitors; FIXED at creation
 #   → paste the printed database_id into wrangler.jsonc
 npm run cf-typegen                                 # after any wrangler.jsonc change
 npm run admin:hash-password -- --generate          # → the ADMIN_PASSWORD_HASH secret
@@ -111,9 +111,9 @@ Download one now and then and keep it outside GitHub.
 gpg --decrypt --output d1.sql.gz d1.sql.gz.gpg   # asks for D1_BACKUP_PASSPHRASE
 gunzip d1.sql.gz
 cd apps/web
-npx wrangler d1 create my-app-restore-test
-npx wrangler d1 execute my-app-restore-test --remote --file=../../d1.sql
-npx wrangler d1 delete my-app-restore-test
+npx wrangler d1 create memoria-restore-test
+npx wrangler d1 execute memoria-restore-test --remote --file=../../d1.sql
+npx wrangler d1 delete memoria-restore-test
 ```
 
 To restore production itself, prefer Time Travel (Rollback) while within its 7 days; an export is for
@@ -137,7 +137,7 @@ upgrade.
 The free plan allows 10 ms of CPU per request:
 
 ```sh
-npm run measure:cpu -- https://my-app.<account-subdomain>.workers.dev/ 20
+npm run measure:cpu -- https://memoria.<account-subdomain>.workers.dev/ 20
 ```
 
 It tails the Worker, sends the requests and prints median/p95/max CPU and wall time per group

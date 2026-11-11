@@ -7,9 +7,9 @@
   // `cloudflare-env.d.ts` (the type of `getCloudflareContext().env`) follows.
   // Guard: scripts/guards/wrangler-config.test.ts.
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  // RENAME: the Worker's name. Also in `services` below and in
-  // scripts/measure-cpu.mjs (the guard checks they agree).
-  "name": "my-app",
+  // The Worker's name. Also in `services` below and in scripts/measure-cpu.mjs
+  // (the guard checks they agree).
+  "name": "memoria",
   // worker.ts is the entry: it answers cheap paths before Next.js loads, then
   // hands everything else to OpenNext.
   "main": "worker.ts",
@@ -24,15 +24,15 @@
     "binding": "ASSETS",
   },
   // OpenNext calls back into its own Worker; the service must be this Worker's `name`.
-  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "my-app" }],
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "memoria" }],
   // The running version's id (the health probe reports it; a cache key can use it).
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "d1_databases": [
     {
       "binding": "DB",
-      // RENAME, then `npx wrangler d1 create my-app` and paste the id it prints.
+      // `npx wrangler d1 create memoria`, then paste the id it prints.
       // Local dev and the tests never touch the remote database.
-      "database_name": "my-app",
+      "database_name": "memoria",
       "database_id": "00000000-0000-0000-0000-000000000000",
       // One schema for local, remote and the tests: the repo-root migrations.
       "migrations_dir": "../../migrations",
@@ -41,7 +41,7 @@
   // Plain, non-secret config. Secrets go in `.dev.vars` locally and
   // `wrangler secret put` in production — never here (the guard checks names).
   "vars": {
-    "APP_NAME": "My App",
+    "APP_NAME": "Memoria",
     // The canonical origin (canonical URLs, robots.txt, email links). Empty = the
     // origin of each request (workers.dev, preview URLs, localhost).
     "SITE_URL": "",

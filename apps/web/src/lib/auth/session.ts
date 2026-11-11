@@ -23,7 +23,7 @@ export const SESSION_REFRESH_MS = 60 * 60 * 1000;
 
 /** `__Host-` binds the cookie to this exact origin over HTTPS; plain http (local dev on a LAN IP) drops the prefix. */
 export function sessionCookieName(secure: boolean): string {
-  return secure ? '__Host-app_admin' : 'app_admin';
+  return secure ? '__Host-memoria_admin' : 'memoria_admin';
 }
 
 export type SessionCookie = { name: string; value: string; options: { httpOnly: true; secure: boolean; sameSite: 'lax'; path: '/'; maxAge: number } };

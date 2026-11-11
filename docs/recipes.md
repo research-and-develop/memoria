@@ -49,8 +49,8 @@ A table whose rows a migration seeds and tests must keep (a singleton): `createT
 Add it to `wrangler.jsonc`, run `npm run cf-typegen`, create the resource. The guard knows the common
 kinds (D1, R2, KV, queues, Durable Objects, services, `send_email`, AI, Hyperdrive, Vectorize, …).
 
-- **R2 (uploads)**: `"r2_buckets": [{ "binding": "MEDIA", "bucket_name": "my-app-media" }]`,
-  `npx wrangler r2 bucket create my-app-media --location <hint>`. Serve objects from `worker.ts`
+- **R2 (uploads)**: `"r2_buckets": [{ "binding": "MEDIA", "bucket_name": "memoria-media" }]`,
+  `npx wrangler r2 bucket create memoria-media --location <hint>`. Serve objects from `worker.ts`
   (stream `bucket.get(key)`, honour `If-None-Match`, immutable keys → `Cache-Control: immutable`) so a
   file costs ~1 ms CPU instead of a Next.js route. Only serve keys of your own layout, never an
   arbitrary object key. Add `blob:` to the CSP `img-src` for upload previews (already there).

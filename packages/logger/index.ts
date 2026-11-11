@@ -201,4 +201,4 @@ export function createLogger(options: { name?: string; format?: LogFormat; sink?
 }
 
 /** The default logger. Use `logger.child('feature')` for a namespace. */
-export const logger = createLogger({ name: 'app' });
+export const logger = createLogger({ name: 'memoria' });

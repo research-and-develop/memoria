@@ -14,10 +14,10 @@ browser ──► Cloudflare edge (custom domain)
               │
               ├─ static assets (.open-next/assets: /_next/static, public/)   free, unlimited, no Worker run
               │
-              └─ Worker "my-app" (worker.ts)                                100k req/day, 10 ms CPU/req
+              └─ Worker "memoria" (worker.ts)                               100k req/day, 10 ms CPU/req
                    ├─ edge routes (src/lib/edge)            /healthz, before Next.js loads (~1 ms CPU)
                    ├─ OpenNext: the Next.js server         pages, /admin, /api/**
-                   ├─ D1 "my-app" (binding DB)             content, messages, sessions, rate limits, audit
+                   ├─ D1 "memoria" (binding DB)            content, messages, sessions, rate limits, audit
                    └─ Turnstile siteverify (fetch)         contact + login forms
 ```
 

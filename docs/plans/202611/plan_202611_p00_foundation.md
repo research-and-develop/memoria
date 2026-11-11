@@ -464,7 +464,7 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.3 CI on `master`, permissions, cancel policy, informational audit
 - [x] T0.4 `backup.yml` (encrypted, dormant)
 - [x] T0.5 GitLab CI and every reference removed
-- [ ] T0.6 Rename to Memoria (incl. cookie, logger)
+- [x] T0.6 Rename to Memoria (incl. cookie, logger)
 - [ ] T0.7 Contact example deleted (incl. `validation/email.ts`)
 - [ ] T0.8 Guards, Turnstile, samples, pages, docs fixed
 - [ ] T0.9 Grep gate empty

@@ -17,7 +17,7 @@ export type AppConfig = {
 export function getAppConfig(): AppConfig {
   const { env } = getCloudflareContext();
   return {
-    appName: env.APP_NAME?.trim() || 'My App',
+    appName: env.APP_NAME?.trim() || 'Memoria',
     turnstileSiteKey: env.TURNSTILE_SITE_KEY?.trim() ?? '',
   };
 }

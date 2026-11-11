@@ -2,7 +2,7 @@
 /**
  * Measure the deployed Worker's CPU time per request.
  *
- *   npm run measure:cpu -- https://my-app.<account>.workers.dev/ [count=20]
+ *   npm run measure:cpu -- https://memoria.<account>.workers.dev/ [count=20]
  *   npm run measure:cpu -- https://example.com/ 20 --version <version-id>
  *   npm run measure:cpu -- https://example.com/ 20 --group-by x-cache-state
  *
@@ -23,7 +23,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** wrangler.jsonc `name` (guard: scripts/guards/wrangler-config.test.ts). */
-const WORKER = 'my-app';
+const WORKER = 'memoria';
 const FREE_PLAN_CPU_MS = 10;
 
 const args = process.argv.slice(2);
