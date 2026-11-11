@@ -22,7 +22,7 @@ the detail for one phase lives only in that phase's plan.
 
 | # | Plan | Delivers | Depends on | Status |
 | --- | --- | --- | --- | --- |
-| 0 | [Foundation](plan_202611_p00_foundation.md) | rename, contact example removed, studio design system (tokens, Inter, primitives, `/admin/design`), CI on master, encrypted backups | — | ready |
+| 0 | [Foundation](plan_202611_p00_foundation.md) | rename, contact example removed, studio design system (tokens, Inter, primitives, `/admin/design`), CI on master, encrypted backups | — | in-progress |
 | 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | placeholder |
 | 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | placeholder |
 | 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, SMTP, templates | 1 | placeholder |

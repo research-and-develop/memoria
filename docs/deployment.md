@@ -1,7 +1,7 @@
 ---
 title: Deployment
 type: reference
-updated: 2026-11-09
+updated: 2026-11-11
 related: [architecture.md, ../.gitlab-ci.yml, ../.github/workflows/ci.yml]
 ---
 
@@ -94,6 +94,19 @@ npx wrangler d1 create my-app-restore-test
 npx wrangler d1 execute my-app-restore-test --remote --file=backup.sql
 npx wrangler d1 delete my-app-restore-test
 ```
+
+## Dependencies
+
+`npm audit fix` (never `--force`) is applied as its own commit, gated by `npm run verify`,
+`npm run build:worker` and `npm run preview`; revert the lockfile if any of them breaks.
+
+**Accepted advisories (2026-11-11):** 5 remain, all in OpenNext's build-time chain: `glob` 9–14
+(high: the `glob` CLI's `-c` option, `AbortSignal` bypass), `minimatch` 7–11 (moderate: ReDoS),
+`@node-minify/core`, `@opennextjs/aws`, `@opennextjs/cloudflare`. They run only during
+`opennextjs-cloudflare build` on our own source, never on user input, and none of them is in the
+deployed bundle (`grep -rlE "minimatch|node-minify" apps/web/.open-next/{worker.js,server-functions,middleware,cloudflare}`
+is empty). npm's only "fix" downgrades to `@opennextjs/cloudflare@0.3.0`. Re-check after each OpenNext
+upgrade.
 
 ## Measuring CPU time
 

@@ -1,7 +1,7 @@
 ---
 title: "Phase 0: Foundation"
 type: plan
-status: ready
+status: in-progress
 updated: 2026-11-11
 related: [plan_202611_mvp.md, ../../design/HANDOFF.md, ../../../AGENTS.md, ../../deployment.md]
 ---
@@ -459,7 +459,7 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 
 ## Checklist
 
-- [ ] T0.1 Audit fixes (verify, build:worker, preview); accepted advisories recorded
+- [x] T0.1 Audit fixes (verify, build:worker, preview); accepted advisories recorded
 - [ ] T0.2 Install scripts approved, unpinned
 - [ ] T0.3 CI on `master`, permissions, cancel policy, informational audit
 - [ ] T0.4 `backup.yml` (encrypted, dormant)
