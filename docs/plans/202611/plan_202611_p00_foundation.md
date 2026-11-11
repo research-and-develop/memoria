@@ -1,7 +1,7 @@
 ---
 title: "Phase 0: Foundation"
 type: plan
-status: draft
+status: ready
 updated: 2026-11-11
 related: [plan_202611_mvp.md, ../../design/HANDOFF.md, ../../../AGENTS.md, ../../deployment.md]
 ---
