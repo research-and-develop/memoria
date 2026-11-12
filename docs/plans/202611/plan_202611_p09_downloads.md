@@ -2,7 +2,7 @@
 title: "Phase 9: Downloads"
 type: plan
 status: placeholder
-updated: 2026-11-11
+updated: 2026-11-12
 related: [plan_202611_mvp.md]
 ---
 
@@ -31,6 +31,14 @@ Clients download single photos or whole sets as ZIPs built in their browser, wit
 
 - With public delivery and no display copy the lightbox already serves the original: the gallery form should say gating is cosmetic then.
 - PIN brute-force limits per gallery.
+
+## From Phase 1
+
+- Single downloads: `blobUrls(config).readUrl(key, { downloadName, expiresInSeconds })`, a presigned
+  GET with `response-content-disposition` (the client's original filename, from D1); expiry ≤ 1 day.
+- The download API is public, so it is the minting gate: Turnstile and a rate limit before any URL.
+- Browser ZIPs fetch presigned GETs cross-origin: the bucket's CORS rules (`apps/web/r2-cors.json`)
+  allow `GET` from the app's origin and expose `Content-Length` (progress) and `Content-Disposition`.
 
 ## To be written
 

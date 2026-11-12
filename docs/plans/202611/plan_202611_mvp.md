@@ -2,7 +2,7 @@
 title: Memoria MVP (index)
 type: plan
 status: draft
-updated: 2026-11-11
+updated: 2026-11-12
 related: [../../design/HANDOFF.md, ../../architecture.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
@@ -23,7 +23,7 @@ the detail for one phase lives only in that phase's plan.
 | # | Plan | Delivers | Depends on | Status |
 | --- | --- | --- | --- | --- |
 | 0 | [Foundation](plan_202611_p00_foundation.md) | rename, contact example removed, studio design system (tokens, Inter, primitives, `/admin/design`), CI on master, encrypted backups | — | done |
-| 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | in-progress |
+| 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | done |
 | 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | placeholder |
 | 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, SMTP, templates | 1 | placeholder |
 | 4 | [Studio settings](plan_202611_p04_studio_settings.md) | branding, gallery theming system and fonts, gallery defaults, presets, email settings | 2, 3 | placeholder |
@@ -56,6 +56,18 @@ their dependencies are done.
 | ZIP downloads | Built **in the client's browser** (Phase 9). |
 | Analytics | Email asked only at download time. Per visitor: browser, OS, device, country/city, IP (full IP kept 30 days) (Phase 11). |
 
+### Phase 1 decisions (2026-11-12)
+
+Details and reasons: [Phase 1 → Decisions](plan_202611_p01_core_adapters.md#decisions).
+
+| Topic | Decision |
+| --- | --- |
+| Packages | `@repo/platform` (neutral: ports, config, media rules, blob URLs, memory store, contract suites, test platform) and `@repo/platform-cloudflare` (D1, R2, the Cloudflare platform, the OpenNext wrapper). Guard `platform-boundary`. |
+| Composition | `cloudflarePlatform(env, waitUntil)` for any Worker; Next code uses `getPlatform()` from `@repo/platform/current`, which vitest aliases to the test platform and a Docker build would alias to a Node platform. |
+| Statements | Plain data `{ sql, params }`; builders are pure; the dialect stays SQLite. |
+| Media | Production: presigned S3 URLs to R2 only, no fallback. Development: HMAC-signed `/api/blobs/*` routes, 404 elsewhere. Images only, server-generated keys under known prefixes, limits checked at minting. |
+| Setup | The R2 bucket, its CORS rules and a bucket-scoped R2 API token are manual one-time steps ([deployment.md → Media](../../deployment.md#media-r2)); dev, tests and CI need no account. |
+
 ## Scope
 
 Feature IDs refer to the grouping used when the scope was cut (2026-11-10).
@@ -82,8 +94,10 @@ R2 memoria-media            originals, thumbnails, display copies, logos; public
 D1 memoria                  shared by both Workers
 ```
 
-- **Ports and adapters** (Phase 1): domain code talks to `Db`, `BlobStore`, `Mailer`, `Jobs` and
-  `Config`; Cloudflare adapters now, Docker adapters later, in-memory adapters for tests. A guard keeps
+- **Ports and adapters** (Phase 1, done): domain code talks to `Db`, `BlobStore`, `Config` and `defer`
+  through `getPlatform()`; `Mailer` and `Jobs` join with the relay (Phase 3). Cloudflare adapters now,
+  Docker adapters later ([architecture.md → The Docker path](../../architecture.md#the-docker-path-documented-not-built)),
+  in-memory adapters for tests. A guard keeps
   Cloudflare APIs inside adapters. Design for the stricter platform (10 ms CPU per request).
 - **Jobs** (Phase 3): rows in D1 written in the same `batch` as the change that caused them; the app
   nudges the relay, the relay's cron retries. `dedupe_key` UNIQUE makes repeats harmless.
@@ -130,6 +144,9 @@ Kept from the boilerplate: `site_settings`, `audit_log`, `admin_sessions`, `rate
 
 - Outbound SMTP from Workers on 587/465 via `cloudflare:sockets` (3).
 - Free-plan accounting for service-binding calls and Cron Triggers (3).
-- R2 presigned multipart uploads from the browser and the bucket's CORS rules (1, 5).
+- Against the real bucket, from a browser with `apps/web/r2-cors.json` applied: a presigned PUT and
+  GET, `response-content-disposition` honoured, and a PUT with another Content-Type refused (Phase 1,
+  Verification 5) (5).
+- Presigned multipart uploads, if originals above 100 MB must be accepted (5).
 - `createImageBitmap` resize options and `OffscreenCanvas.convertToBlob('image/webp')` in Safari (5).
 - `client-zip` streaming with `showSaveFilePicker`; memory limits for in-memory parts (9).

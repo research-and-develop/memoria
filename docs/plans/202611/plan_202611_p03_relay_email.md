@@ -2,7 +2,7 @@
 title: "Phase 3: Relay Worker and email"
 type: plan
 status: placeholder
-updated: 2026-11-11
+updated: 2026-11-12
 related: [plan_202611_mvp.md]
 ---
 
@@ -35,6 +35,16 @@ A second Worker, `memoria-relay`, runs background jobs from a D1 `jobs` table an
 - How the relay reaches shared code (packages vs. importing from `apps/web`).
 - Local development of two Workers (wrangler dev with a service binding).
 - From the Phase 0 review: the `wrangler-config` guard, `cf-typegen` and `scripts/measure-cpu.mjs` assume one Worker (`apps/web`); make them per-app. A second `services` entry (`memoria-relay`) must not trip the guard's "every hard-coded Worker name = name" check. Both Workers bind the same D1 (`database_id`, `migrations_dir`); only `apps/web` runs `db:migrate`. The relay sets `workers_dev: false` and `preview_urls: false`.
+
+## From Phase 1
+
+- The relay builds its platform with `cloudflarePlatform(env, ctx.waitUntil)` from
+  `@repo/platform-cloudflare/platform` (no OpenNext import). Its env type extends `CloudflarePlatformEnv`.
+- `Mailer` and `Jobs` are new ports in `packages/platform/ports.ts`, each with a contract suite in
+  `packages/platform/contract/`, an in-memory adapter for the test platform and a `Platform` method
+  (recipes.md → A binding). `useTestPlatform` grows the matching options.
+- Guard `platform-boundary`: add `apps/relay/src` to its roots and the relay's Worker entry to its
+  allowed files, as `apps/web/worker.ts` is.
 
 ## To be written
 

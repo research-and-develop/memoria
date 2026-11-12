@@ -2,7 +2,7 @@
 title: "Phase 6: Client gallery"
 type: plan
 status: placeholder
-updated: 2026-11-11
+updated: 2026-11-12
 related: [plan_202611_mvp.md]
 ---
 
@@ -36,6 +36,18 @@ Clients open a gallery (link or password) and browse it on desktop and phone, in
 - Which gallery fonts are preloaded (only the chosen pairing).
 - Link previews: Phase 0 keeps `robots.txt` open for gallery paths and relies on `X-Robots-Tag: noindex`, so Facebook/WhatsApp can fetch Open Graph tags. Decide which preview (cover image, title) a shared link shows, given galleries are private.
 - Focus ring in galleries uses `--g-ring` (Phase 0 `galleryAccentVars`).
+
+## From Phase 1
+
+- Public delivery: `blobUrls(config).publicUrl(key)` (the R2 custom domain, `MEDIA_PUBLIC_BASE_URL`);
+  CSP `img-src` gains that domain. Never presigned GETs or the dev read route for gallery images: each
+  is unique per call and defeats caching.
+- Protected delivery (T6.5): `worker.ts` checks the gallery cookie and streams from R2 itself, before
+  Next loads, building its platform with `cloudflarePlatform(env, ctx.waitUntil)` (check the bundle and
+  CPU cost; `worker.ts` imports relative only today). It sets every security header itself
+  (`X-Content-Type-Options: nosniff`, `X-Robots-Tag`, `Cache-Control`): Phase 1's preview check showed
+  that inside a Next route the site-wide headers from `next.config.mjs` replace a route's own CSP and
+  `Referrer-Policy`, and outside Next none of them apply.
 
 ## To be written
 

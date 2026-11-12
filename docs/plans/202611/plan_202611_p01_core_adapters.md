@@ -1,7 +1,7 @@
 ---
 title: "Phase 1: Core and adapters"
 type: plan
-status: in-progress
+status: done
 updated: 2026-11-12
 related: [plan_202611_mvp.md, plan_202611_p00_foundation.md, ../../architecture.md, ../../../AGENTS.md]
 ---
@@ -480,6 +480,19 @@ Git Bash, repo root.
    real bucket from a browser with the CORS rules; `response-content-disposition`; whether a wrong
    Content-Type fails.
 
+### Results (2026-11-12)
+
+1. `npm ci --dry-run` in sync; `npm run verify`: ts-check clean, 494 tests in 49 files; `build:worker` passes.
+2. Bundle (`wrangler deploy --dry-run`): before Phase 1 5356.86 KiB / gzip 1161.53 KiB; after commit 5
+   5387.29 KiB / gzip 1167.80 KiB (+6 KiB gzip).
+3. Admin login in `npm run preview`: `200`, an `HttpOnly`, `SameSite=lax` `memoria_admin` cookie.
+4. `npm run media:probe -- http://127.0.0.1:8787`: PASS (a 70-byte PNG round-tripped byte-identical).
+   The browser gets `nosniff`, `image/png`, the ETag, `private, max-age=300` and the attachment name,
+   but **the site-wide `Content-Security-Policy` and `Referrer-Policy` from `next.config.mjs` replace
+   the route's own** (`sandbox`, `no-referrer`), and the body is chunked (no `Content-Length`).
+   Accepted for development-only routes that serve images only; recorded in architecture.md → Media
+   and the Phase 6 plan (protected images are served by `worker.ts`, outside Next's headers).
+
 ## Commits
 
 | # | Commit | Tasks | Extra gate |
@@ -502,8 +515,8 @@ Git Bash, repo root.
 - [x] T1.7 Guard `platform-boundary`
 - [x] T1.8 R2 binding, adapter, proxy spike, contract on R2, `wrangler-config` rows
 - [x] T1.9 Dev routes, `media:probe`, CORS file
-- [ ] T1.10 Docs, index and consumer plans
-- [ ] Verification 1–4
+- [x] T1.10 Docs, index and consumer plans
+- [x] Verification 1–4 (results below)
 
 ## Open questions
 
