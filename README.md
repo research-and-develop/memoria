@@ -19,7 +19,7 @@ vitest, with **guard tests standing in for a linter**.
 npm ci
 cp apps/web/.dev.vars.example apps/web/.dev.vars   # local secrets (test keys, a local admin password)
 npm run db:migrate:local       # create the local D1 (apps/web/.wrangler/state)
-npm run dev                    # http://localhost:3000 — admin: /admin, admin@example.local / local-dev-password-2026
+npm run dev                    # http://localhost:3210 — admin: /admin, admin@example.local / local-dev-password-2026
 ```
 
 No database server or Docker is needed: D1 and the other bindings run locally inside wrangler.

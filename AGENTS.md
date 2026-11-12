@@ -37,7 +37,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 
 ## Commands
 
-- `npm run dev` (port 3000; `next dev` with the local D1/vars through `initOpenNextCloudflareForDev`)
+- `npm run dev` (port 3210; `next dev` with the local D1/vars through `initOpenNextCloudflareForDev`)
 - `npm run preview` — build with OpenNext and run the real Worker locally in workerd (port 8787)
 - `npm run deploy` — build + deploy to Cloudflare (needs `wrangler login`)
 - `npm run db:migrate:local` / `npm run db:migrate:remote` — apply `migrations/` to the local / production D1
