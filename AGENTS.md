@@ -21,7 +21,8 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
 | `apps/web/src/lib/config/appConfig.ts` | the public part of `getPlatform().config()`, handed down via `AppProvider` |
-| `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, assets, …), vars, compatibility flags |
+| `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA`, assets, …), vars, compatibility flags; `r2-cors.json` = the bucket's CORS rules |
+| `apps/web/src/lib/media/` | the development blob routes' checks (`devBlobRequest.ts`) and headers (`blobResponseHeaders.ts`) |
 | `apps/web/worker.ts` + `src/lib/edge/` | the Worker entry: answers cheap paths (`/healthz`) before Next loads; imports relative only, nothing `server-only` |
 | `apps/web/cloudflare-env.d.ts` | GENERATED type of the env (`npm run cf-typegen`) — never hand-edit |
 | `apps/web/open-next.config.ts` | OpenNext adapter config (caching overrides) |
@@ -30,7 +31,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `packages/core` | `AppError`, `isUuid`, `objectToUrlSearchParams`; `testing/` = the guards' source index |
 | `packages/api` | the HTTP envelope: `responses`, `withErrorHandling`, `publicErrorMessage`, `responseHeaders` |
 | `packages/platform` | the ports (`Db`, `BlobStore`, `Config`, `defer`: `ports.ts`), config parsing, media rules, blob tokens/URLs; `current.ts` = the composition root (`getPlatform()`); `testing/` = the test platform, `contract/` = the adapter contract suites |
-| `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `testing/proxy.ts` |
+| `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `r2.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `testing/proxy.ts` |
 | `packages/db` | the database layer on the `Db` port: `client.ts` (`statement`, `query`, `queryFirst`, `execute`, `batch`, `all`/`first`/`run`, `allRows`/`firstRow`, `getDb`), `rows.ts` (pure converters), `migrations.ts`, `test-utils` |
 | `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
 | `migrations/*.sql` | the authoritative D1 schema, applied by wrangler and by the test harness |
@@ -46,6 +47,8 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 - `npm run db:migrations:new -- <name>` — a new, correctly numbered migration file
 - `npm run admin:hash-password [-- --generate]` — the `ADMIN_PASSWORD_HASH` secret; locally the admin
   is `admin@example.local` / `local-dev-password-2026` (from `.dev.vars.example`)
+- `npm run media:probe -- <base-url>` — round-trip a PNG through the development blob routes of a
+  running `npm run dev`/`preview` (needs `MEDIA_DEV_SIGNING_SECRET` in `.dev.vars`)
 - `npm run cf-typegen` — regenerate `cloudflare-env.d.ts` after ANY change to `wrangler.jsonc` or
   `.dev.vars.example` (it reads the example, never your `.dev.vars`; guard `wrangler-config`)
 - `npm run measure:cpu -- <url> [count] [--version <id>] [--group-by <header>]` — CPU/wall time per
@@ -124,6 +127,10 @@ before any work). The admin-write pattern above has no reference route until Pha
 - **Public write endpoints verify same-origin, Turnstile and the rate limit BEFORE any write.**
   Admin endpoints verify the session AND that the request is same-origin (CSRF) — `requireAdmin`
   does both. Guard: `admin-routes-require-admin.test.ts`.
+- **The exception: the development blob routes** (`/api/blobs/upload`, `/api/blobs/read`) skip Turnstile
+  and the rate limit. They answer 404 unless `NEXTJS_ENV=development`, and each request carries an
+  HMAC token minted by server code (`blobUrls`), so **minting is the gate**: an admin-only API, or a
+  public one behind Turnstile and a rate limit. Never add another route like them.
 - User-facing messages are in the product's language (set it here); `errorCode`s, log events and
   identifiers stay English.
 
@@ -160,6 +167,23 @@ before any work). The admin-write pattern above has no reference route until Pha
   builder is pure**: it returns a `Statement` (`{ sql, params }`, plain data) and takes no `opts`. Every
   function that executes takes `opts?: Options` LAST and threads it to the client (`first(stmt, opts)`,
   `run(stmt, opts)`, `batch([...], opts)`). Domain code sees the `Db` port, never a D1 type.
+
+## Media rules (non-negotiable)
+
+- **Through the port only**: `getPlatform().blobs()` (`BlobStore`) to store and read; `blobUrls(config)`
+  (`@repo/platform/blobUrls`) for URLs a browser uses. Production uploads and downloads are presigned S3
+  URLs straight to R2 (`MEDIA_S3_*`); there is no fallback (`MEDIA_NOT_CONFIGURED`, 503). Locally,
+  the same calls mint development route URLs. **Never stream an upload through a Next route**: OpenNext
+  buffers the body in a 128 MB isolate.
+- **Images only**: `MEDIA_TYPES` (`image/jpeg`, `image/png`, `image/webp`). An uploaded HTML or SVG
+  served from our origin is stored XSS. Anything else read back is an `application/octet-stream`
+  attachment.
+- **Keys are generated by server code** under a known prefix (`BLOB_PREFIXES`: `galleries/`, `branding/`,
+  `dev/`; `isBlobKey`), never derived from a user's filename (filenames are D1 metadata).
+- **Limits are checked when minting**: upload expiry ≤ 15 min, size ≤ 100 MB (`MAX_UPLOAD_BYTES`). A
+  presigned PUT cannot enforce the size: the phase that registers an upload re-checks `head()`.
+- Presigned GETs are for downloads only (unique per call, so never cached). Gallery images come from
+  the public media domain or `worker.ts` (Phase 6).
 
 ## Client code
 
@@ -208,6 +232,8 @@ before any work). The admin-write pattern above has no reference route until Pha
   `flushDeferred()` for deferred work). Never mock `@opennextjs/cloudflare`; mock only the other
   edges: Turnstile, an email sender. Helpers: `src/lib/testing/routeHarness.ts`
   (`jsonRequest`, `adminCookie`, `params`, `atFixedTime` for fixed-window rate limits).
+- Blobs in tests: the test platform's `blobs()` is a fresh in-memory store per `useTestPlatform`; the
+  `BlobStore` contract suite (`@repo/platform/contract/blobStore`) runs it and R2 (workerd) alike.
 - Pure business logic → a colocated pure helper with a **table-driven** test (`it.each`).
 - Assert the persisted effect (re-read via the query module), not only the JSON.
 
@@ -216,7 +242,8 @@ before any work). The admin-write pattern above has no reference route until Pha
 `scripts/guards/`: `every-route-wrapped`, `admin-routes-require-admin`, `no-client-public-env`,
 `no-server-imports-in-client`, `no-host-locale-date`, `no-app-alias-in-packages`, `tailwind-ui-content`,
 `no-one-off-text-size`, `tailwind-merge-via-ui`, `no-raw-colors` (colours only as theme roles),
-`wrangler-config` (`cloudflare-env.d.ts` fresh, no secret in `vars`, every hard-coded Worker name = `name`),
+`wrangler-config` (`cloudflare-env.d.ts` fresh, no secret in `vars`, `MEDIA_S3_BUCKET` = the `MEDIA` bucket,
+no `NEXTJS_ENV` in `vars`, every hard-coded Worker name = `name`),
 `migrations` (numbering, named constraints, no transaction control),
 `file-size` (700 lines prod / 800 tests; allowlist `file-size-allowlist.json`),
 `platform-boundary` (no `@opennextjs/cloudflare`, `wrangler`, `@repo/platform-cloudflare`, `cloudflare:*`,

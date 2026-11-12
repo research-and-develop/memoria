@@ -33,6 +33,32 @@ redirect is a Redirect Rule (`www.example.com/*` → `https://example.com/$1`, 3
 The very first deploy runs from a terminal (`wrangler login`): a CI token with *Workers: Editor* can
 update a Worker but not create it.
 
+### Media (R2)
+
+Needed before the first upload ships (Phase 5); local dev, the tests and CI never touch it. R2 must be
+enabled on the account first (the dashboard may ask for billing details; the free tier still applies).
+
+```sh
+cd apps/web
+npx wrangler r2 bucket create memoria-media --location <hint>   # the name in wrangler.jsonc r2_buckets
+# r2-cors.json: replace the placeholder origin with the production origin first
+npx wrangler r2 bucket cors set memoria-media --file r2-cors.json
+```
+
+- **The S3 API token**: Dashboard → R2 → **Manage API tokens → Create API token**, permission **Object
+  Read & Write**, scoped to **the `memoria-media` bucket only**. It shows an *Access Key ID* and a
+  *Secret Access Key* once: `npx wrangler secret put MEDIA_S3_ACCESS_KEY_ID` and
+  `npx wrangler secret put MEDIA_S3_SECRET_ACCESS_KEY`.
+- **Vars** in `wrangler.jsonc`: `MEDIA_S3_ENDPOINT` = `https://<account id>.r2.cloudflarestorage.com`
+  (presigned URLs work only there, not on a custom domain); `MEDIA_S3_BUCKET` = the bucket (the guard
+  checks it matches `r2_buckets`); `MEDIA_PUBLIC_BASE_URL` = the public media domain once one is chosen
+  (R2 → bucket → Settings → Custom Domains), empty until then.
+- Without all four S3 settings, every upload/download URL fails with `MEDIA_NOT_CONFIGURED` (503):
+  there is no fallback in production. The `/api/blobs/*` routes answer 404 there (they need
+  `NEXTJS_ENV=development`, which only `.dev.vars` sets; the guard keeps it out of `vars`).
+- Check from a browser once (plan Phase 1, Verification 5): a presigned PUT and GET against the bucket
+  with the CORS rules, `response-content-disposition`, and that a PUT with another Content-Type fails.
+
 ## How a change ships
 
 GitHub Actions (`.github/workflows/ci.yml`) is the only CI.
@@ -78,6 +104,10 @@ which exist. Setting a secret deploys a new version.
 | `TURNSTILE_SECRET_KEY` | the Turnstile widget's secret (its site key is the `TURNSTILE_SITE_KEY` var) |
 | `ADMIN_PASSWORD_HASH` | `npm run admin:hash-password` |
 | `HASH_SALT` | a long random string; hashes IPs for rate limits (missing → logged `hash_salt_missing`) |
+| `MEDIA_S3_ACCESS_KEY_ID`, `MEDIA_S3_SECRET_ACCESS_KEY` | the bucket-scoped R2 API token (One-time setup → Media) |
+
+`MEDIA_DEV_SIGNING_SECRET` is local only (it signs the development blob routes): never set it in
+production.
 
 ## Rollback
 

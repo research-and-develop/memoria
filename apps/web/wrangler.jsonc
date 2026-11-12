@@ -38,6 +38,11 @@
       "migrations_dir": "../../migrations",
     },
   ],
+  // Photos and branding files. Domain code reaches it only through
+  // getPlatform().blobs() (the BlobStore port). Local dev and the tests use a
+  // local bucket; no Cloudflare account needed. Production setup (bucket, CORS
+  // from r2-cors.json, the S3 API token): docs/deployment.md.
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "memoria-media" }],
   // Plain, non-secret config. Secrets go in `.dev.vars` locally and
   // `wrangler secret put` in production — never here (the guard checks names).
   "vars": {
@@ -52,6 +57,15 @@
     // The admin login email. Empty = the admin login is closed. The password
     // hash is the secret ADMIN_PASSWORD_HASH (`npm run admin:hash-password`).
     "ADMIN_EMAIL": "",
+    // Media (docs/deployment.md → Media). The public media domain (an R2 custom
+    // domain), no trailing slash; empty = none yet.
+    "MEDIA_PUBLIC_BASE_URL": "",
+    // R2's S3 endpoint, https://<account id>.r2.cloudflarestorage.com, for
+    // presigned upload/download URLs. Empty (or no S3 key secrets) = minting
+    // fails with MEDIA_NOT_CONFIGURED outside development.
+    "MEDIA_S3_ENDPOINT": "",
+    // Must equal r2_buckets[0].bucket_name (the guard checks).
+    "MEDIA_S3_BUCKET": "memoria-media",
     "LOG_LEVEL": "info",
     "LOG_FORMAT": "json",
   },

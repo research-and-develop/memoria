@@ -10,7 +10,11 @@
  *    may be, and a var's literal type must still equal its value.
  * 2. No secret in `vars`: they are committed in plain text. Secrets go in
  *    `.dev.vars` / `wrangler secret put`.
- * 3. The Worker's name is written in places wrangler cannot see (the
+ * 3. Two media/env rules: `MEDIA_S3_BUCKET` (the bucket presigned URLs name)
+ *    is the bucket the `MEDIA` binding uses, and `NEXTJS_ENV` is never a var:
+ *    it switches on the development-only blob routes, so it lives only in
+ *    `.dev.vars`, never in config that is deployed.
+ * 4. The Worker's name is written in places wrangler cannot see (the
  *    self-reference service, the CPU script). A rename that misses one breaks
  *    them silently. Add any new place (e.g. a version-override header) here.
  */
@@ -52,7 +56,7 @@ const PUBLIC_VARS: Record<string, string> = {
   // e.g. Cloudflare Web Analytics: the beacon token is in every public page.
   CF_BEACON_TOKEN: 'the Web Analytics beacon token is in every public page',
 };
-const SECRET_NAME_RE = /(SECRET|PASSWORD|PRIVATE|API_KEY|(^|_)SALT$|(^|_)TOKEN$|(^|_)HASH$)/;
+const SECRET_NAME_RE = /(SECRET|PASSWORD|PRIVATE|API_KEY|ACCESS_KEY|(^|_)SALT$|(^|_)TOKEN$|(^|_)HASH$)/;
 
 export function parseJsonc(fileName: string, text: string): unknown {
   const { config, error } = ts.parseConfigFileTextToJson(fileName, text);
@@ -124,6 +128,16 @@ describe('wrangler.jsonc', () => {
     ).toEqual([]);
   });
 
+  it('presigned URLs name the bucket the MEDIA binding uses', () => {
+    const media = (config.r2_buckets ?? []).find((b) => b.binding === 'MEDIA') as (Binding & { bucket_name?: string }) | undefined;
+    expect(media?.bucket_name, 'r2_buckets MEDIA').toBeTruthy();
+    expect(config.vars?.MEDIA_S3_BUCKET, 'vars.MEDIA_S3_BUCKET').toBe(media?.bucket_name);
+  });
+
+  it('never deploys NEXTJS_ENV (it opens the development-only routes)', () => {
+    expect(Object.keys(config.vars ?? {})).not.toContain('NEXTJS_ENV');
+  });
+
   it('every place that names the Worker uses its name', () => {
     const self = (config.services ?? []).filter((s) => s.binding === 'WORKER_SELF_REFERENCE');
     expect(self.map((s) => s.service)).toEqual([config.name]);
@@ -143,6 +157,9 @@ describe('the helpers catch the mistakes they are for', () => {
     ['HASH_SALT', true],
     ['PAGE_CACHE_REFRESH_TOKEN', true],
     ['STRIPE_API_KEY', true],
+    ['MEDIA_S3_ACCESS_KEY_ID', true],
+    ['MEDIA_S3_SECRET_ACCESS_KEY', true],
+    ['MEDIA_S3_BUCKET', false],
     ['TURNSTILE_SITE_KEY', false],
     ['CF_BEACON_TOKEN', false],
     ['SITE_URL', false],

@@ -22,6 +22,7 @@
     "db:migrations:new": "npm run db:migrations:new --workspace @repo/web --",
     "admin:hash-password": "npm run admin:hash-password --workspace @repo/web --",
     "measure:cpu": "node scripts/measure-cpu.mjs",
+    "media:probe": "tsx scripts/media-probe.ts",
     "ts-check": "npm run ts-check:root && npm run ts-check:web",
     "ts-check:root": "tsc -p tsconfig.json --noEmit",
     "ts-check:web": "npm run typegen --workspace @repo/web && tsc -p apps/web/tsconfig.check.json --noEmit",

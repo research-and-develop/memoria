@@ -1,0 +1,13 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": ["http://localhost:3210", "http://localhost:8787", "https://REPLACE-WITH-THE-PRODUCTION-ORIGIN"],
+        "methods": ["PUT", "GET", "HEAD"],
+        "headers": ["content-type"]
+      },
+      "exposeHeaders": ["ETag", "Content-Length", "Content-Disposition"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

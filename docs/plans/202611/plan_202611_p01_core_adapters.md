@@ -198,6 +198,9 @@ export type Config = {
   `ifAbsent` = `head()` then `put()` (one admin; the race is acceptable; port comment says so);
   `get().body` not usable through the proxy → read `obj.arrayBuffer()` and return `new Response(buf).body`.
   If `put(bytes)` itself fails through the proxy, stop and re-plan (the R2 contract must run in vitest).
+  **Spike result (2026-11-12, wrangler's proxy on workerd 1.20261110.1):** `put` of bytes and of an
+  `ArrayBuffer`, a streamed `get().body`, the `onlyIf: { etagDoesNotMatch: '*' }` wildcard (`null`, the
+  object kept) and `uploaded` as a `Date` all work: `r2.ts` has no fallbacks.
 
 ### `@repo/db` on the ports
 
@@ -429,7 +432,7 @@ The wiki rule ("update the doc in the same commit") applies inside this phase:
 | `platform/testing/current.test.ts` | sentinel: `getPlatform().name === 'test'`; an unflushed rejected `defer` fails `flushDeferred()` |
 | `platform-cloudflare/d1.test.ts` | the `Db` contract on D1: all/first/run, `changes` > 0 with a trigger table (compare with 0), `lastRowId`, batch rollback, `null` round trip |
 | `platform-cloudflare/r2.test.ts` | the blob contract on R2 (proxy): put/get/head, overwrite, `ifAbsent`, delete many, list prefix + paging, missing → null, quoted etag |
-| `platform-cloudflare/platform.test.ts` | `stringEnv` drops bindings; `defer` calls the given `waitUntil` at call time; commits 2–4: `blobs()` → `MEDIA_NOT_CONFIGURED` (commit 5 replaces it with "returns the R2 store") |
+| `platform-cloudflare/platform.test.ts` | `stringEnv` drops bindings; `defer` calls the given `waitUntil` at call time; commits 2–4: `blobs()` → `MEDIA_NOT_CONFIGURED`; from commit 5: `blobs()` returns one R2 store |
 | `db/client.test.ts`, `rows.test.ts`, `migrations.test.ts` | `statement()` rejects `undefined`/booleans; `batch([])`; helpers on the test DB; split tests moved |
 | `lib/config/appConfig.test.ts` | no field of `AppConfig` holds a secret value from the env |
 | `app/api/blobs/upload/route.test.ts` | happy path (stored, readable); 404 outside development; cross-origin 403 and missing `Origin` 403 (request built with `'sec-fetch-site': ''`); bad/expired/`get` token 403; `text/html` or SVG: `blobUrls` refuses to mint, and a hand-minted token is refused; type mismatch 400; missing or wrong length 400; > 32 MB 413 (hand-minted token, header only, no body sent); existing key 409 |
@@ -497,8 +500,8 @@ Git Bash, repo root.
 - [x] T1.5 `@repo/db` on the ports; call sites; client-import guard; `Db` contract on D1
 - [x] T1.6 Config, auth, login on the platform
 - [x] T1.7 Guard `platform-boundary`
-- [ ] T1.8 R2 binding, adapter, proxy spike, contract on R2, `wrangler-config` rows
-- [ ] T1.9 Dev routes, `media:probe`, CORS file
+- [x] T1.8 R2 binding, adapter, proxy spike, contract on R2, `wrangler-config` rows
+- [x] T1.9 Dev routes, `media:probe`, CORS file
 - [ ] T1.10 Docs, index and consumer plans
 - [ ] Verification 1–4
 

@@ -37,3 +37,15 @@ ADMIN_PASSWORD_HASH=pbkdf2-sha256$20000$xBlyF6CYfAzM56uMEF6qog==$fMOE3mH2XUr3KwE
 # the stored keys cannot be reversed by hashing every IP. Production:
 # `npx wrangler secret put HASH_SALT` with e.g. `openssl rand -base64 32`.
 HASH_SALT=local-dev-salt-change-me
+
+# --- Media (docs/deployment.md → Media) --------------------------------------
+# Signs the DEVELOPMENT-ONLY upload/read routes (/api/blobs/*), which stand in
+# for presigned S3 URLs locally. At least 32 characters, else the routes refuse.
+# Never set in production (the routes answer 404 there anyway).
+MEDIA_DEV_SIGNING_SECRET=local-dev-media-signing-secret-change-me-2026
+# R2 API token (S3 credentials) for presigned URLs. Empty locally: the dev
+# routes are used instead. Production: an R2 API token scoped to the bucket,
+# object read/write, then `npx wrangler secret put MEDIA_S3_ACCESS_KEY_ID` and
+# `npx wrangler secret put MEDIA_S3_SECRET_ACCESS_KEY`.
+MEDIA_S3_ACCESS_KEY_ID=
+MEDIA_S3_SECRET_ACCESS_KEY=
