@@ -558,6 +558,23 @@ and runs wrangler's own script with node: `wrangler d1 execute DB --local|--remo
 - Settings is listed as *Soon* until M3 adds its pages (`nav.test.ts` requires a page for every linked
   item); the design page stays linked from the dashboard until then.
 
+### Results (M3, 2026-11-12)
+
+- `npm run verify`: ts-check clean, 784 tests in 67 files. The OpenNext build passes.
+- In the built Worker (`wrangler dev` on 8788 with a throwaway D1 seeded with a setup code; codes
+  computed from the shown keys standing in for phones): first sign-in through the UI, then Settings
+  from the sidebar → Security. *Add an app* → the code dialog; the sign-in code typed again →
+  "That code was just used"; a wrong code → "4 tries left", field selected; a right one → the dialog
+  closes and the add starts by itself (QR, link, key, name). A wrong code for the new app keeps the QR,
+  key and name; the right one adds "Tablet". Within the 5 minutes, *Remove Phone* and *Generate new
+  codes* asked only their own question, no code; the device list then read "with a removed app".
+  New codes at 360 px: Done gated by "I have saved these codes", Esc ignored. *Sign out* this
+  device → the sign-in page.
+- Fixed after the run: at 360 px the page scrolled sideways by ~50 px: the visually hidden
+  ", not available yet" of the *Soon* settings sections escaped the scrolling row (no positioned
+  ancestor); the items are `relative` now, in the sidebar list too.
+- Not checked: VoiceOver or TalkBack.
+
 ## Commits
 
 | # | Commit | Tasks | Extra gate |
@@ -581,7 +598,7 @@ Milestones: **M1** = commits 1–2 (two-factor sign-in works), **M2** = commit 3
 - [x] T2.4 Sign-in UI
 - [x] T2.5 `admin:mfa` command
 - [x] T2.6 Dialog and the studio shell
-- [ ] T2.7 Settings shell and Security
+- [x] T2.7 Settings shell and Security
 - [ ] T2.8 Docs and status
 - [ ] Verification 1–5
 

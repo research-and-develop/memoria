@@ -26,11 +26,14 @@ export function RecoveryCodesPanel({
   appName,
   continueLabel = 'Continue',
   onContinue,
+  withHeading = true,
 }: {
   codes: readonly string[];
   appName: string;
   continueLabel?: string;
   onContinue: () => Promise<void> | void;
+  /** The step's own `<h1>`; false inside a dialog that has its title. */
+  withHeading?: boolean;
 }) {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -72,7 +75,7 @@ export function RecoveryCodesPanel({
 
   return (
     <div className="flex flex-col gap-5">
-      <StepHeading>Save your recovery codes</StepHeading>
+      {withHeading ? <StepHeading>Save your recovery codes</StepHeading> : null}
       <Text as="p" size="body-sm" tone="ink2">
         Each code signs you in once if you do not have your phone. Shown once. Without these codes and without your phone, only the developer
         can get you back in.

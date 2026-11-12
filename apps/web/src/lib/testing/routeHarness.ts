@@ -9,8 +9,9 @@ import type { Db } from '@repo/platform/ports';
 import { NextRequest } from 'next/server';
 import { vi } from 'vitest';
 
-import { batch } from '@repo/db/client';
+import { batch, run, statement } from '@repo/db/client';
 
+import { sha256Hex } from '@/lib/auth/crypto';
 import { prepareSession, sessionCookieName } from '@/lib/auth/session';
 
 export const ORIGIN = 'http://localhost:3000';
@@ -31,20 +32,34 @@ export function jsonRequest(
 export const TEST_AUTHENTICATOR_ID = '00000000-0000-4000-8000-000000000001';
 
 /**
- * A live session for `passwordHash` in the test D1, signed in with an
- * authenticator app, as a Cookie header value (plain http: the plain name).
+ * A live session for `passwordHash` in the test D1, as a Cookie header value (plain http: the
+ * plain name). Signed in with an authenticator app unless `secondFactor` says otherwise;
+ * `confirmed`: a code was entered just now, so the confirm window (D2.9) is open.
  */
-export async function adminCookie(passwordHash: string, db: Db, input: { now?: Date } = {}): Promise<string> {
+export async function adminCookie(
+  passwordHash: string,
+  db: Db,
+  input: { now?: Date; confirmed?: boolean; secondFactor?: 'authenticator' | 'recovery_code'; authenticatorId?: string } = {},
+): Promise<string> {
+  const secondFactor = input.secondFactor ?? 'authenticator';
   const session = await prepareSession({
     passwordHash,
     userAgent: 'vitest',
-    secondFactor: 'authenticator',
-    authenticatorId: TEST_AUTHENTICATOR_ID,
+    secondFactor,
+    authenticatorId: secondFactor === 'authenticator' ? (input.authenticatorId ?? TEST_AUTHENTICATOR_ID) : null,
     country: null,
     now: input.now ?? new Date(),
   });
   await batch(session.statements({ sql: '1 = 1', params: [] }), { db });
+  if (input.confirmed) {
+    await run(statement('UPDATE admin_sessions SET verified_until = ? WHERE id = ?', [new Date(Date.now() + 5 * 60_000).toISOString(), session.id]), { db });
+  }
   return `${sessionCookieName(false)}=${session.token}`;
+}
+
+/** The session row id behind an `adminCookie` value. */
+export function sessionIdOf(cookie: string): Promise<string> {
+  return sha256Hex(cookie.slice(cookie.indexOf('=') + 1));
 }
 
 /**

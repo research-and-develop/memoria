@@ -102,7 +102,7 @@ async function stillLive(challengeId: string, now: string, opts?: Options): Prom
 }
 
 /** Decrypt every authenticator's secret; none decrypting means the key changed (D2.7). */
-async function candidates(keys: TwoFactorKeys, opts?: Options): Promise<TotpCandidate[] | 'key_mismatch'> {
+export async function authenticatorCandidates(keys: TwoFactorKeys, opts?: Options): Promise<TotpCandidate[] | 'key_mismatch'> {
   const rows = await listAdminAuthenticators(opts);
   const out: TotpCandidate[] = [];
   for (const row of rows) {
@@ -122,7 +122,7 @@ const SESSION_CREATED = { sql: 'changes() > 0', params: [] as const };
 
 /** A 'login' challenge and a code from an authenticator app. */
 export async function signInWithCode(challenge: SignInChallenge, code: string, ctx: SignInContext, opts?: Options): Promise<SignedIn | NotSignedIn> {
-  const list = await candidates(ctx.keys, opts);
+  const list = await authenticatorCandidates(ctx.keys, opts);
   if (list === 'key_mismatch') return { ok: false, reason: 'key_mismatch' };
   const match = await matchTotp(list, code, ctx.now);
   if (match.kind === 'replay') {

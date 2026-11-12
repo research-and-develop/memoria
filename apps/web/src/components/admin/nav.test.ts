@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { repoRoot } from '@repo/core/testing/sourceIndex';
 
 import { isCurrent, NAV_ITEMS, NEW_GALLERY, type NavItem } from './nav';
+import { DESIGN_SYSTEM_LINK, SETTINGS_HOME, SETTINGS_SECTIONS } from './settings/nav';
 
 const PANEL = path.join(repoRoot(), 'apps/web/src/app/admin/(panel)');
 const ALL: readonly NavItem[] = [NEW_GALLERY, ...NAV_ITEMS];
@@ -50,5 +51,21 @@ describe('the studio navigation registry', () => {
   ])('isCurrent(%s, %s) → %s', (id, pathname, expected) => {
     const item = ALL.find((i) => i.id === id);
     expect(item && isCurrent(item, pathname)).toBe(expected);
+  });
+});
+
+describe('the settings sections registry', () => {
+  it.each(SETTINGS_SECTIONS.map((s) => [s.id, s.href, s.soonPhase === undefined]))('%s (%s): a page exists exactly when it is built', (_id, href, built) => {
+    expect(existsSync(pageFor(href))).toBe(built);
+  });
+
+  it('opens on a built section; the design-system link has its page', () => {
+    expect(SETTINGS_SECTIONS.find((s) => s.href === SETTINGS_HOME)?.soonPhase).toBeUndefined();
+    expect(existsSync(pageFor(DESIGN_SYSTEM_LINK.href))).toBe(true);
+  });
+
+  it('lists no out-of-scope section', () => {
+    for (const s of SETTINGS_SECTIONS) expect(`${s.id} ${s.label}`).not.toMatch(/store|order|price|team|domain|storage|backup|integration|client/i);
+    expect(new Set(SETTINGS_SECTIONS.map((s) => s.id)).size).toBe(SETTINGS_SECTIONS.length);
   });
 });

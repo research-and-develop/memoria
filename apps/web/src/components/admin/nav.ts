@@ -27,7 +27,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'galleries', label: 'Galleries', href: '/admin/galleries', icon: 'galleries', soonPhase: 5 },
   { id: 'selections', label: 'Selections', href: '/admin/selections', icon: 'selections', soonPhase: 8 },
   { id: 'insights', label: 'Insights', href: '/admin/insights', icon: 'insights', soonPhase: 11 },
-  { id: 'settings', label: 'Settings', href: '/admin/settings', icon: 'settings', soonPhase: 2 },
+  { id: 'settings', label: 'Settings', href: '/admin/settings', icon: 'settings' },
 ];
 
 /**

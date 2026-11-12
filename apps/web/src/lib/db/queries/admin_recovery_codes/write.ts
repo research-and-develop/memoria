@@ -26,3 +26,12 @@ export function insertRecoveryCodeAfterStatement(id: string, authenticatorId: st
 export function acknowledgeRecoveryCodesStatement(now: string): Statement {
   return statement('UPDATE admin_recovery_codes SET acknowledged_at = ? WHERE acknowledged_at IS NULL', [now]);
 }
+
+/** Regenerating: the old set goes first, in the same batch as the new inserts. */
+export function deleteAllRecoveryCodesStatement(): Statement {
+  return statement('DELETE FROM admin_recovery_codes');
+}
+
+export function insertRecoveryCodeStatement(id: string): Statement {
+  return statement('INSERT INTO admin_recovery_codes (id) VALUES (?)', [id]);
+}

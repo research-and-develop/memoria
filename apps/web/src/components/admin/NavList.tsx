@@ -9,7 +9,7 @@ import { Pill } from '@repo/ui/layout';
 import { Icon } from './icons';
 import { isCurrent, NAV_ITEMS, NEW_GALLERY, type NavItem } from './nav';
 
-const ROW = 'flex min-h-11 items-center gap-2.5 rounded-control px-3 font-sans text-body';
+const ROW = 'relative flex min-h-11 items-center gap-2.5 rounded-control px-3 font-sans text-body';
 
 /** "Soon": shown, not a link, not focusable; read once as "Galleries, not available yet". */
 function SoonLabel({ item, onWash = false }: { item: NavItem; onWash?: boolean }) {
@@ -63,7 +63,7 @@ export function NewGalleryAction() {
   const item = NEW_GALLERY;
   if (item.soonPhase !== undefined) {
     return (
-      <div className="flex min-h-11 items-center gap-2 rounded-button bg-wash px-3 font-sans text-body font-semibold text-ink-muted">
+      <div className="relative flex min-h-11 items-center gap-2 rounded-button bg-wash px-3 font-sans text-body font-semibold text-ink-muted">
         <Icon name={item.icon} strokeWidth={2} />
         <SoonLabel item={item} onWash />
       </div>

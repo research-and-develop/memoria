@@ -17,7 +17,7 @@ import { twMerge } from './cn';
 export type DialogVariant = 'modal' | 'drawer';
 
 const VARIANT: Record<DialogVariant, { dialog: string; content: string }> = {
-  modal: { dialog: 'm-auto w-[calc(100%-2rem)] max-w-md rounded-panel', content: 'p-6' },
+  modal: { dialog: 'm-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-panel', content: 'p-6' },
   drawer: { dialog: 'm-0 mr-auto h-full max-h-full w-drawer max-w-[85vw] motion-safe:animate-drawer-in', content: 'h-full' },
 };
 

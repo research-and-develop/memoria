@@ -185,6 +185,14 @@ first time    step 2  POST /api/admin/login/setup   the setup code from `npm run
   cookie lives 90 days; `expires_at` is refreshed at most hourly, since a write per request would burn
   the write budget). Each session records a fingerprint of the password hash, so rotating the password
   ends every session.
+- **Settings → Security** (`/admin/settings/security`): authenticator apps (add with a QR code,
+  rename, remove; at most 10, never the last), recovery codes (how many are left; new ones replace
+  the set), signed-in devices (sign out one, or all the others). Removing an app signs out the
+  devices it signed in; new recovery codes sign out the devices that used an old one.
+- **Confirm with a code**: those changes (except signing out this device) need a code entered on this
+  session in the last 5 minutes (`admin_sessions.verified_until`, NULL after sign-in; the API answers
+  `403 SECOND_FACTOR_REQUIRED`, the page asks for a code and retries once: `SecondFactorProvider`).
+  Wrong codes count toward the lockout, and five on one session end it (`lib/auth/confirm.ts`).
 - **Gate**: `app/admin/(panel)/layout.tsx` redirects pages; every admin API route calls `requireAdmin`
   itself (a page gate never protects an API). Guard: `admin-routes-require-admin`.
 

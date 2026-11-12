@@ -1,27 +1,19 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@repo/ui/button';
 import { useApi } from '@repo/ui/hooks/useApi';
 import { FormField, Input } from '@repo/ui/input';
-import { Mono, Text } from '@repo/ui/typography';
 
-import { groupSecret } from '@/lib/auth/totp';
-
+import { AuthenticatorSetup } from './AuthenticatorSetup';
 import { cleanDigits, CodeField } from './CodeField';
 import { forgetLoginEmail, safeNext, setLoginNote } from './loginFlash';
 import { RecoveryCodesPanel } from './RecoveryCodesPanel';
 import { StartOver } from './StartOver';
 import { FormNote, StepHeading } from './StepHeading';
 import { stepErrorOutcome } from './stepError';
-
-const QrCode = dynamic(() => import('./QrCode').then((m) => m.QrCode), {
-  ssr: false,
-  loading: () => <div className="h-[200px] w-[200px] rounded-control bg-wash" aria-hidden />,
-});
 
 type Enrolled = { expiresAt: string; recoveryCodes?: string[] };
 
@@ -47,10 +39,8 @@ export function EnrollForm({
   const [label, setLabel] = useState(defaultLabel);
   const [code, setCode] = useState('');
   const [error, setError] = useState<{ field?: 'label' | 'code'; message: string } | null>(null);
-  const [copied, setCopied] = useState(false);
   const [codes, setCodes] = useState<string[] | null>(null);
   const codeRef = useRef<HTMLInputElement>(null);
-  const secretRef = useRef<HTMLSpanElement>(null);
   const { execute, loading } = useApi<Enrolled>('/api/admin/login/verify', { method: 'POST' });
   const acknowledge = useApi('/api/admin/recovery-codes/acknowledge', { method: 'POST' });
 
@@ -77,18 +67,6 @@ export function EnrollForm({
     setCodes(result.data?.recoveryCodes ?? []);
   };
 
-  const copySecret = async () => {
-    try {
-      await navigator.clipboard.writeText(secret);
-      setCopied(true);
-    } catch {
-      const range = document.createRange();
-      if (secretRef.current) range.selectNodeContents(secretRef.current);
-      window.getSelection()?.removeAllRanges();
-      window.getSelection()?.addRange(range);
-    }
-  };
-
   if (codes) {
     return (
       <RecoveryCodesPanel
@@ -107,29 +85,7 @@ export function EnrollForm({
   return (
     <div className="flex flex-col gap-6">
       <StepHeading>Connect your authenticator app</StepHeading>
-      <Text as="p" size="body-sm" tone="ink2">
-        Use any authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, …). On this phone? Tap{' '}
-        <strong className="font-semibold">Open in authenticator app</strong>. On a computer? Scan the code with your phone.
-      </Text>
-      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-        <QrCode value={otpauthUri} label={`QR code to add ${appName} to an authenticator app`} />
-        <div className="flex w-full min-w-0 flex-col gap-3">
-          <a href={otpauthUri} className="inline-flex min-h-11 items-center font-sans text-body-sm font-semibold text-accent-ink underline-offset-4 hover:underline">
-            Open in authenticator app
-          </a>
-          <div className="flex flex-col gap-1">
-            <Text size="caption" tone="muted">
-              Or type this key into the app:
-            </Text>
-            <span ref={secretRef} className="break-all select-all">
-              <Mono size="body-sm">{groupSecret(secret)}</Mono>
-            </span>
-            <Button variant="secondary" size="sm" className="self-start" onClick={copySecret}>
-              {copied ? 'Copied' : 'Copy key'}
-            </Button>
-          </div>
-        </div>
-      </div>
+      <AuthenticatorSetup secret={secret} otpauthUri={otpauthUri} appName={appName} />
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
         <FormNote message={error && !error.field ? error.message : null} />
         <FormField label="Name of this app" hint="To tell your devices apart later." error={error?.field === 'label' ? error.message : null}>
