@@ -51,6 +51,7 @@ their dependencies are done.
 | Uploads | Usually Lightroom web exports (~2048 px sRGB JPEG). The uploaded file is kept as the original, **GPS stripped**, the rest of EXIF kept (Phase 5). |
 | Generated sizes | As few as possible, configurable per gallery at creation. Default: one ~800 px WebP grid thumbnail; a 2048 px display copy only when the upload is larger or the gallery is watermarked (Phase 5). |
 | Watermark | Baked into previews at upload. Changing it = delete and re-create the gallery. |
+| Gallery fonts | The photographer chooses a font pairing per gallery (default in Studio settings) from a registry; adding a font is one registry entry. Only the chosen pairing is downloaded by clients (Phase 4, T4.7). |
 | Image delivery | Chosen per gallery at creation. Default **public**: R2 on a custom domain, unguessable keys, served by the CDN (no Worker requests). Option **protected**: every image checked by the Worker, one Worker request per image (Phase 6). |
 | ZIP downloads | Built **in the client's browser** (Phase 9). |
 | Analytics | Email asked only at download time. Per visitor: browser, OS, device, country/city, IP (full IP kept 30 days) (Phase 11). |

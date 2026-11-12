@@ -23,7 +23,7 @@ The photographer creates a gallery, uploads photos (processed in the browser) an
 ## Draft tasks
 
 - [ ] T5.1 Migration: `galleries`, `photo_sets`, `photos`
-- [ ] T5.2 New gallery screen: preset, details, slug, access, delivery mode, downloads, PIN, watermark, sizes, proofing, expiry; draft autosave; checklist; email preview
+- [ ] T5.2 New gallery screen: preset, details, slug, access, delivery mode, downloads, PIN, watermark, sizes, proofing, expiry, font pairing (default from Studio settings, p04 T4.7); draft autosave; checklist; email preview
 - [ ] T5.3 Upload client: Web Worker pool, SHA-256 dedupe, EXIF (`exifr`), GPS strip, thumbnail/display/watermark, placeholder, presigned upload, IndexedDB resume, unsupported-format notice
 - [ ] T5.4 Folder drop (subfolders → sets), auto-split by capture-time gaps
 - [ ] T5.5 Gallery manager: sets add/rename/reorder, multi-select bulk bar (move, hide, cover, delete), sort, smart filters, badges, feature toggles
