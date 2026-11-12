@@ -79,6 +79,7 @@ place, CI and backups running on this repo. No product screen is built here.
 | D0.8 | Fonts through `next/font/google` (self-hosted at build). If CI's network to Google Fonts proves flaky, switch to `next/font/local`. | Simplest; GitHub runners have network. |
 | D0.9 | `/admin/design` lives for the life of the project, split into files under 700 lines. | Visual check for every phase that touches tokens or primitives. |
 | D0.10 | GitHub Actions is the only CI. The backup moves to `backup.yml` and its artifact is **encrypted** (works whether the repo is public or private). No PR preview job; preview versions are a manual `wrangler versions upload`. | One CI, no lost backups, no data exposure through artifacts. |
+| D0.11 | **Themeable by construction** (added 2026-11-12, user request: "if we change the colours and the overall style tomorrow, it must be easy"). Every value lives in `packages/ui/theme/studio.mjs`. Colours are **roles** (`surface`, `accent`, `ink-muted`, `focus`, `inverse`), never hues: the preset replaces Tailwind's palette with one utility per role reading a CSS variable (`theme/cssVars.mjs`, declared on `:root` by the preset), so another theme only redeclares the variables. `cn.ts` derives its token lists from the same file. Guard `no-raw-colors` rejects colour literals outside `theme/`. Role names replace the plan's literal ones: `white` → `surface` (fills) / `inverse` (text on fills); the ring colour → `focus`; Section `white` → `surface`; Card `white` → `surface`. | A restyle is one file; Phase 4's gallery themes reuse `themeCssVars` instead of a second mechanism; contrast tests read the same values. |
 
 ## Workstreams
 
@@ -180,8 +181,8 @@ place, CI and backups running on this repo. No product screen is built here.
 Source: `docs/design/HANDOFF.md` → Design tokens (Studio), cross-checked with the studio mockups' inline
 styles (body Inter 14 px / 1.45; most used size 13 px; weights 600 × 174, 650 × 31, 700 × 30).
 
-- **T0.12** Colours, nested groups, so `colorContrast.tokenHex` (splits on the first dash) resolves
-  them. Shared values are JS constants in the preset (`danger` = `expired.fg`), so they cannot drift.
+- **T0.12** Colours (D0.11: roles in `theme/studio.mjs`, read through CSS variables), nested groups;
+  `colorContrast.tokenHex` resolves `group-key` names from the theme. Shared values are JS constants in the preset (`danger` = `expired.fg`), so they cannot drift.
 
   | Group: key | Hex | Use |
   | --- | --- | --- |
@@ -470,19 +471,19 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.9 Grep gate empty
 - [x] T0.10 `X-Robots-Tag` on Next and edge responses
 - [x] T0.11 Local D1 reset
-- [ ] T0.12 Studio colours
-- [ ] T0.13 Type scale
-- [ ] T0.14 Families, weight, radii, shadow, ring, `coarse` variant
-- [ ] T0.15 `cn.ts` registrations and exported token lists
-- [ ] T0.16 `globals.css`
-- [ ] T0.17 Root layout
+- [x] T0.12 Studio colours
+- [x] T0.13 Type scale
+- [x] T0.14 Families, weight, radii, shadow, ring, `coarse` variant
+- [x] T0.15 `cn.ts` registrations and exported token lists
+- [x] T0.16 `globals.css`
+- [x] T0.17 Root layout
 - [ ] T0.18 Fonts
-- [ ] T0.19 Typography
-- [ ] T0.20 Button
-- [ ] T0.21 Form fields
-- [ ] T0.22 Layout primitives, Pill
+- [x] T0.19 Typography
+- [x] T0.20 Button
+- [x] T0.21 Form fields
+- [x] T0.22 Layout primitives, Pill
 - [ ] T0.23 Toggle, Segmented
-- [ ] T0.24 Callers
+- [x] T0.24 Callers
 - [ ] T0.25 `/admin/design`
 - [ ] T0.26 AGENTS.md rules
 - [ ] T0.27 architecture.md, deployment.md

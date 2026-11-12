@@ -11,7 +11,7 @@ export default function HomePage() {
   const { appName } = getAppConfig();
   return (
     <main>
-      <Section surface="page">
+      <Section surface="ground">
         <Heading level={1}>{appName}</Heading>
       </Section>
     </main>

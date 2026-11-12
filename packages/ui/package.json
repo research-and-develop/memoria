@@ -8,6 +8,7 @@
     "./tailwind-preset": "./tailwind-preset.mjs",
     "./cn": "./cn.ts",
     "./colorContrast": "./colorContrast.ts",
+    "./theme/*": "./theme/*.mjs",
     "./hooks/*": "./hooks/*.ts",
     "./*": "./*.tsx"
   }

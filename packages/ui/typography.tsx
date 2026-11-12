@@ -2,15 +2,14 @@ import * as React from 'react';
 import { twMerge } from './cn';
 
 /**
- * Typography primitives — the single source of truth for text styling.
+ * Typography primitives: the single source of truth for text styling.
  *
- * Screens never hand-write sizes and weights (`text-[38px]`, `font-black`);
- * they pick a primitive. The scale lives in tailwind-preset.mjs; the weight
- * rule is the design's (default: display font bold 700; text font body 400,
- * navigation 600, buttons/emphasis 700, eyebrows 800).
+ * Screens never hand-write sizes, weights or text colours; they pick a primitive and a tone. The
+ * values live in theme/studio.mjs; the maps below only say which token each option uses, so a
+ * restyle is a theme edit, and a new option is one line here.
  *
- * Every primitive forwards `className` through tailwind-merge, so a genuine
- * one-off can still override a token without forking the component.
+ * Every primitive forwards `className` through tailwind-merge, so a genuine one-off can still
+ * override a token without forking the component.
  */
 
 type Polymorphic<P> = P & { as?: React.ElementType; className?: string; children?: React.ReactNode } & Omit<
@@ -18,103 +17,75 @@ type Polymorphic<P> = P & { as?: React.ElementType; className?: string; children
     keyof P | 'className' | 'children'
   >;
 
-export type TextTone = 'ink' | 'muted' | 'brand' | 'inverse' | 'onBrand' | 'accent' | 'danger' | 'success';
+/** Text colours by purpose. `accentInk` is for text on an accent tint; `inverse` for a filled surface. */
+export type TextTone = 'ink' | 'ink2' | 'muted' | 'accent' | 'accentInk' | 'danger' | 'alert' | 'inverse';
 
-const TONE: Record<TextTone, string> = {
+export const TEXT_TONE: Record<TextTone, string> = {
   ink: 'text-ink',
+  ink2: 'text-ink-2',
   muted: 'text-ink-muted',
-  // brand-strong, not brand: the base brand colour is below AA for body sizes.
-  brand: 'text-brand-strong',
-  inverse: 'text-white',
-  onBrand: 'text-brand-on',
   accent: 'text-accent',
+  accentInk: 'text-accent-ink',
   danger: 'text-danger',
-  success: 'text-success',
+  alert: 'text-alert',
+  inverse: 'text-inverse',
 };
 
-/** Page title (h1 by default). `xl` is the home hero, `lg` an inner page. */
-export function Display({
-  size = 'lg',
-  tone = 'brand',
-  as,
-  className,
-  children,
-  ...rest
-}: Polymorphic<{ size?: 'xl' | 'lg'; tone?: 'brand' | 'inverse' | 'ink' }>) {
-  const Tag = as ?? 'h1';
-  // The big display sizes pass AA as large text, so the true brand blue stays.
-  const tone_ = tone === 'brand' ? 'text-brand' : TONE[tone];
-  return (
-    <Tag
-      className={twMerge(
-        'font-display font-bold text-balance break-words',
-        size === 'xl' ? 'text-display-xl' : 'text-display-lg',
-        tone_,
-        className,
-      )}
-      {...rest}
-    >
-      {children}
-    </Tag>
-  );
-}
+export type FontWeight = 'normal' | 'medium' | 'semibold' | 'title' | 'bold';
 
-export type HeadingSize = 'xl' | 'section' | 'lg' | 'md' | 'sm' | 'xs';
-type HeadingLevel = 1 | 2 | 3 | 4;
+const FONT_WEIGHT: Record<FontWeight, string> = {
+  normal: 'font-normal',
+  medium: 'font-medium',
+  semibold: 'font-semibold',
+  title: 'font-title',
+  bold: 'font-bold',
+};
+
+export type HeadingLevel = 1 | 2 | 3 | 4;
+export type HeadingSize = 'title-sm' | 'title' | 'title-lg' | 'heading' | 'heading-lg' | 'stat';
 
 const HEADING_SIZE: Record<HeadingSize, string> = {
-  xl: 'text-heading-xl',
-  section: 'text-heading-section',
-  lg: 'text-heading-lg',
-  md: 'text-heading-md',
-  sm: 'text-heading-sm',
-  xs: 'text-heading-xs',
+  'title-sm': 'text-title-sm',
+  title: 'text-title',
+  'title-lg': 'text-title-lg',
+  heading: 'text-heading',
+  'heading-lg': 'text-heading-lg',
+  stat: 'text-stat',
 };
 
-const LEVEL_SIZE: Record<HeadingLevel, HeadingSize> = { 1: 'xl', 2: 'section', 3: 'md', 4: 'sm' };
+/** Default size per level: 1 page greeting, 2 screen title, 3 section title, 4 card title. */
+const LEVEL_SIZE: Record<HeadingLevel, HeadingSize> = { 1: 'heading-lg', 2: 'title-lg', 3: 'title', 4: 'title-sm' };
 
-/**
- * A heading in the display font. `level` sets the element (h1–h4) and the
- * default size: 1 xl · 2 section title · 3 card title · 4 small title.
- */
+/** Default weight per size: titles 650, the large headings bold. */
+const SIZE_WEIGHT: Record<HeadingSize, FontWeight> = {
+  'title-sm': 'title',
+  title: 'title',
+  'title-lg': 'title',
+  heading: 'bold',
+  'heading-lg': 'bold',
+  stat: 'bold',
+};
+
+/** A heading. `level` sets the element (h1–h4) and the default size; `as` changes only the element. */
 export function Heading({
   level = 2,
   size,
+  weight,
   tone = 'ink',
   as,
   className,
   children,
   ...rest
-}: Polymorphic<{ level?: HeadingLevel; size?: HeadingSize; tone?: TextTone }>) {
+}: Polymorphic<{ level?: HeadingLevel; size?: HeadingSize; weight?: 'title' | 'bold'; tone?: TextTone }>) {
   const Tag = as ?? (`h${level}` as React.ElementType);
-  // Large headings may use the true brand blue (3:1 is enough for large text).
-  const toneClass = tone === 'brand' ? 'text-brand' : TONE[tone];
-  return (
-    <Tag
-      className={twMerge('font-display font-bold text-balance break-words', HEADING_SIZE[size ?? LEVEL_SIZE[level]], toneClass, className)}
-      {...rest}
-    >
-      {children}
-    </Tag>
-  );
-}
-
-/** The small uppercase line above a section title ("FEATURES"). */
-export function Eyebrow({
-  size = 'md',
-  tone = 'brand',
-  as,
-  className,
-  children,
-  ...rest
-}: Polymorphic<{ size?: 'md' | 'sm' | 'xs'; tone?: TextTone }>) {
-  const Tag = as ?? 'p';
+  const size_ = size ?? LEVEL_SIZE[level];
   return (
     <Tag
       className={twMerge(
-        'font-sans font-extrabold uppercase',
-        size === 'md' ? 'text-eyebrow' : size === 'sm' ? 'text-eyebrow-sm' : 'text-eyebrow-xs',
-        TONE[tone],
+        'font-sans text-balance break-words',
+        HEADING_SIZE[size_],
+        FONT_WEIGHT[weight ?? SIZE_WEIGHT[size_]],
+        TEXT_TONE[tone],
         className,
       )}
       {...rest}
@@ -124,72 +95,68 @@ export function Eyebrow({
   );
 }
 
-/** The paragraph under a section title. `lg` is the hero/page-title lead. */
-export function Lead({
-  size = 'md',
-  tone = 'muted',
-  as,
-  className,
-  children,
-  ...rest
-}: Polymorphic<{ size?: 'md' | 'lg'; tone?: TextTone }>) {
-  const Tag = as ?? 'p';
-  return (
-    <Tag className={twMerge('font-sans', size === 'lg' ? 'text-lead-lg' : 'text-lead', TONE[tone], className)} {...rest}>
-      {children}
-    </Tag>
-  );
-}
-
-export type TextSize = 'lg' | 'md' | 'sm' | 'xs';
-export type TextWeight = 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold';
+export type TextSize = 'micro' | 'caption' | 'body-sm' | 'body' | 'body-lg';
 
 const TEXT_SIZE: Record<TextSize, string> = {
-  lg: 'text-body-lg',
-  md: 'text-body',
-  sm: 'text-body-sm',
-  xs: 'text-caption',
-};
-const TEXT_WEIGHT: Record<TextWeight, string> = {
-  normal: 'font-normal',
-  medium: 'font-medium',
-  semibold: 'font-semibold',
-  bold: 'font-bold',
-  extrabold: 'font-extrabold',
+  micro: 'text-micro',
+  caption: 'text-caption',
+  'body-sm': 'text-body-sm',
+  body: 'text-body',
+  'body-lg': 'text-body-lg',
 };
 
-/** Body / inline text in the text font. A <span> by default; pass `as="p"` for a block. */
+/** Body or inline text. A <span> by default; pass `as="p"` for a paragraph. */
 export function Text({
-  size = 'md',
-  tone = 'muted',
+  size = 'body',
+  tone = 'ink',
   weight = 'normal',
   as,
   className,
   children,
   ...rest
-}: Polymorphic<{ size?: TextSize; tone?: TextTone; weight?: TextWeight }>) {
+}: Polymorphic<{ size?: TextSize; tone?: TextTone; weight?: FontWeight }>) {
   const Tag = as ?? 'span';
   return (
-    <Tag className={twMerge('font-sans', TEXT_SIZE[size], TONE[tone], TEXT_WEIGHT[weight], className)} {...rest}>
+    <Tag className={twMerge('font-sans', TEXT_SIZE[size], FONT_WEIGHT[weight], TEXT_TONE[tone], className)} {...rest}>
       {children}
     </Tag>
   );
 }
 
-/** Field label above an input. */
+/** A form label (above its control). */
 export function Label({ className, children, ...rest }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
-    <label className={twMerge('block font-sans text-label font-bold text-ink', className)} {...rest}>
+    <label className={twMerge('block font-sans text-body-sm font-semibold text-ink', className)} {...rest}>
       {children}
     </label>
   );
 }
 
-/** Small muted helper text under a control or heading. */
+/** Small muted helper text: meta lines, hints. */
 export function Caption({ className, children, ...rest }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p className={twMerge('font-sans text-caption text-ink-muted', className)} {...rest}>
       {children}
     </p>
+  );
+}
+
+/** The small uppercase label above a group ("GALLERIES"). */
+export function Eyebrow({ tone = 'muted', as, className, children, ...rest }: Polymorphic<{ tone?: TextTone }>) {
+  const Tag = as ?? 'p';
+  return (
+    <Tag className={twMerge('font-sans text-eyebrow font-semibold uppercase', TEXT_TONE[tone], className)} {...rest}>
+      {children}
+    </Tag>
+  );
+}
+
+/** Monospace text: filenames, codes, ids. */
+export function Mono({ size = 'caption', as, className, children, ...rest }: Polymorphic<{ size?: 'caption' | 'body-sm' }>) {
+  const Tag = as ?? 'span';
+  return (
+    <Tag className={twMerge('font-mono text-ink-2', TEXT_SIZE[size], className)} {...rest}>
+      {children}
+    </Tag>
   );
 }

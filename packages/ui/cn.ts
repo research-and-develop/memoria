@@ -1,44 +1,33 @@
 import { extendTailwindMerge } from 'tailwind-merge';
 
-/**
- * tailwind-merge taught the preset's custom tokens. Without this it reads
- * `text-heading-md` as a COLOUR, so `twMerge('text-body', 'text-heading-md')`
- * keeps both and the stylesheet order — not the caller — decides; and it does
- * not know the `section` spacing, so `lg:py-section` (Section's padding) beat
- * every caller's `lg:py-…`. Import `twMerge` from here, never from 'tailwind-merge'.
- */
-export const FONT_SIZE_TOKENS = [
-  'display-xl',
-  'display-lg',
-  'heading-xl',
-  'heading-section',
-  'heading-lg',
-  'heading-md',
-  'heading-sm',
-  'heading-xs',
-  'lead-lg',
-  'lead',
-  'body-lg',
-  'body',
-  'body-sm',
-  'nav',
-  'label',
-  'caption',
-  'eyebrow',
-  'eyebrow-sm',
-  'eyebrow-xs',
-];
+import studio from './theme/studio.mjs';
 
-/** The preset's custom spacing keys (`theme.extend.spacing`). */
-export const SPACING_TOKENS = ['section'];
+/**
+ * tailwind-merge taught the theme's custom tokens. Without this it reads `text-heading` as a
+ * COLOUR (so `twMerge('text-body', 'text-heading')` keeps both and the stylesheet order, not the
+ * caller, decides), keeps both `rounded-lg rounded-card`, reads `shadow-control` as a shadow colour
+ * and `font-title` as a font family. Import `twMerge` from here, never from 'tailwind-merge'.
+ *
+ * The lists come from `theme/studio.mjs`, the same source as the preset, so a new token needs no
+ * edit here; cn.test.ts checks the preset agrees and that the merges behave.
+ */
+export const FONT_SIZE_TOKENS: readonly string[] = Object.keys(studio.fontSize);
+export const FONT_WEIGHT_TOKENS: readonly string[] = Object.keys(studio.fontWeight);
+export const RADIUS_TOKENS: readonly string[] = Object.keys(studio.borderRadius);
+export const SHADOW_TOKENS: readonly string[] = Object.keys(studio.boxShadow);
+/** The preset's custom spacing keys (`theme.extend.spacing`): none today. */
+export const SPACING_TOKENS: readonly string[] = [];
 
 export const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      spacing: SPACING_TOKENS,
+      spacing: [...SPACING_TOKENS],
+      borderRadius: [...RADIUS_TOKENS],
     },
     classGroups: {
-      'font-size': [{ text: FONT_SIZE_TOKENS }],
+      'font-size': [{ text: [...FONT_SIZE_TOKENS] }],
+      'font-weight': [{ font: [...FONT_WEIGHT_TOKENS] }],
+      shadow: [{ shadow: [...SHADOW_TOKENS] }],
     },
   },
 });

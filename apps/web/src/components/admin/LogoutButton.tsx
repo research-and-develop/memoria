@@ -11,7 +11,7 @@ export function LogoutButton() {
   return (
     <Button
       size="sm"
-      variant="outline"
+      variant="secondary"
       loading={loading}
       onClick={async () => {
         await execute({});

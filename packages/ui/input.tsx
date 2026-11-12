@@ -2,26 +2,28 @@ import * as React from 'react';
 import { twMerge } from './cn';
 
 /**
- * Form controls: 50 px
- * fields, a hairline border, 9 px radius, 14 px text. An invalid control is
- * marked with `aria-invalid` (the border turns red) — pair it with a message
- * linked through `aria-describedby` (see `FormField`).
+ * Form controls: 44 px fields on a surface fill with an input border, 16 px text on phones (iOS
+ * zooms into a smaller field) and 15 px from `sm` up. Colours are theme roles (theme/studio.mjs).
+ * The input border is fainter than WCAG 1.4.11's 3:1 by design; a visible label above, the surface
+ * fill and the focus ring carry the field instead (plan_202611_p00_foundation D0.7).
+ * An invalid control is marked with `aria-invalid` (the border turns danger): pair it with a
+ * message linked through `aria-describedby` (see `FormField`).
  */
 
-const field =
-  'w-full rounded-field border border-line bg-white px-[13px] font-sans text-body-sm text-ink placeholder:text-ink-subtle transition-colors focus:border-brand-strong focus:outline-none focus:ring-2 focus:ring-brand-strong/25 disabled:cursor-not-allowed disabled:bg-brand-wash disabled:opacity-70 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/25 motion-reduce:transition-none';
+const FIELD =
+  'w-full rounded-control border border-line-input bg-surface px-3 font-sans text-field text-ink placeholder:text-ink-muted transition-colors sm:text-body-lg focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/25 disabled:cursor-not-allowed disabled:bg-wash disabled:text-ink-faint aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/25 motion-reduce:transition-none';
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, ...props }, ref) => (
-  <input ref={ref} className={twMerge(field, 'h-[50px]', className)} {...props} />
+  <input ref={ref} className={twMerge(FIELD, 'h-11', className)} {...props} />
 ));
 Input.displayName = 'Input';
 
 export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, rows = 4, ...props }, ref) => (
-  <textarea ref={ref} rows={rows} className={twMerge(field, 'min-h-[90px] py-3', className)} {...props} />
+  <textarea ref={ref} rows={rows} className={twMerge(FIELD, 'min-h-[96px] py-2.5', className)} {...props} />
 ));
 Textarea.displayName = 'Textarea';
 
@@ -30,7 +32,7 @@ export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
 /** A native <select> (accessible and mobile-friendly for free) with the design's chevron. */
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(({ className, children, ...props }, ref) => (
   <span className="relative block">
-    <select ref={ref} className={twMerge(field, 'h-[50px] appearance-none pr-10', className)} {...props}>
+    <select ref={ref} className={twMerge(FIELD, 'h-11 appearance-none pr-10', className)} {...props}>
       {children}
     </select>
     <svg
@@ -49,20 +51,20 @@ Select.displayName = 'Select';
 
 export type CheckboxProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> & { label: React.ReactNode };
 
-/** An 18 px checkbox with its label to the right (e.g. a consent line). */
+/** An 18 px checkbox with its label to the right, in a row at least 44 px tall (a touch target). */
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(({ className, label, id, ...props }, ref) => {
   const autoId = React.useId();
   const inputId = id ?? autoId;
   return (
-    <span className={twMerge('flex items-start gap-3', className)}>
+    <span className={twMerge('flex min-h-11 items-center gap-3', className)}>
       <input
         ref={ref}
         id={inputId}
         type="checkbox"
-        className="mt-0.5 h-[18px] w-[18px] shrink-0 cursor-pointer rounded border-line accent-brand-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-strong focus-visible:ring-offset-2 aria-[invalid=true]:outline aria-[invalid=true]:outline-2 aria-[invalid=true]:outline-danger"
+        className="h-[18px] w-[18px] shrink-0 cursor-pointer rounded border-line-input accent-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 aria-[invalid=true]:outline aria-[invalid=true]:outline-2 aria-[invalid=true]:outline-danger"
         {...props}
       />
-      <label htmlFor={inputId} className="cursor-pointer font-sans text-caption text-ink-muted">
+      <label htmlFor={inputId} className="cursor-pointer font-sans text-body-sm text-ink-2">
         {label}
       </label>
     </span>
@@ -97,7 +99,7 @@ export function FormField({
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined;
   return (
     <div className={twMerge('flex flex-col gap-2', className)}>
-      <label htmlFor={id} className="font-sans text-label font-bold text-ink">
+      <label htmlFor={id} className="font-sans text-body-sm font-semibold text-ink">
         {label}
       </label>
       {children({ id, 'aria-describedby': describedBy, ...(error ? { 'aria-invalid': true as const } : {}) })}
@@ -107,7 +109,7 @@ export function FormField({
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} className="font-sans text-caption font-semibold text-danger">
+        <p id={errorId} className="font-sans text-body-sm text-danger">
           {error}
         </p>
       ) : null}

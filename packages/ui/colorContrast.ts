@@ -1,18 +1,15 @@
-import preset from './tailwind-preset.mjs';
+import { flattenColors, type ColorRoles } from './theme/cssVars.mjs';
+import studio from './theme/studio.mjs';
 
 /**
- * WCAG contrast of the design tokens, for tests that pin a text/background pair
- * to AA (4.5:1). Reads the preset, so a token change re-checks every pair.
+ * WCAG contrast of a theme's colour roles, for tests that pin a text/background pair to AA (4.5:1).
+ * Reads the theme, so a colour change re-checks every pair. Defaults to the studio theme; pass
+ * another theme's colours to check it the same way.
  */
-type Palette = Record<string, string | Record<string, string>>;
-const colors = (preset as { theme: { extend: { colors: Palette } } }).theme.extend.colors;
 
-/** A token as Tailwind names it (`brand-strong`, `ink`, `white`) → its hex value. */
-export function tokenHex(token: string): string {
-  if (token === 'white') return '#FFFFFF';
-  const [group, shade] = token.split('-') as [string, string | undefined];
-  const value = colors[group];
-  const resolved = typeof value === 'string' ? value : value?.[shade ?? 'DEFAULT'];
+/** A role as Tailwind names it (`accent-ink`, `ink`, `live-fg`) → its hex value. */
+export function tokenHex(token: string, colors: ColorRoles = studio.colors): string {
+  const resolved = new Map(flattenColors(colors)).get(token);
   if (!resolved) throw new Error(`unknown colour token ${token}`);
   return resolved;
 }
@@ -23,9 +20,9 @@ function luminance(color: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-/** The contrast ratio of two tokens (or hex colours). */
-export function contrastRatio(a: string, b: string): number {
-  const [x, y] = [a, b].map((c) => (c.startsWith('#') ? c : tokenHex(c)));
+/** The contrast ratio of two roles (or hex colours). */
+export function contrastRatio(a: string, b: string, colors: ColorRoles = studio.colors): number {
+  const [x, y] = [a, b].map((c) => (c.startsWith('#') ? c : tokenHex(c, colors)));
   const [hi, lo] = [luminance(x!), luminance(y!)].sort((p, q) => q - p) as [number, number];
   return (hi + 0.05) / (lo + 0.05);
 }

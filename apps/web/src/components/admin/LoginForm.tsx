@@ -49,7 +49,7 @@ export function LoginForm({ next = '/admin' }: { next?: string }) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
       <div aria-live="polite">
         {error && !error.field ? (
-          <p role="alert" className="rounded-xl bg-danger-wash px-4 py-3 text-body-sm font-semibold text-danger">
+          <p role="alert" className="rounded-control bg-danger-wash px-4 py-3 text-body-sm font-semibold text-danger">
             {error.message}
           </p>
         ) : null}

@@ -30,7 +30,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `packages/core` | `AppError`, `isUuid`, `objectToUrlSearchParams`; `testing/` = the guards' source index |
 | `packages/api` | the HTTP envelope: `responses`, `withErrorHandling`, `publicErrorMessage`, `responseHeaders` |
 | `packages/db` | D1 client (`query`, `queryFirst`, `execute`, `statement`, `batch`, `getDb`), `rows` converters, `test-utils` |
-| `packages/ui` | primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`, Tailwind preset = the design tokens |
+| `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
 | `migrations/*.sql` | the authoritative D1 schema, applied by wrangler and by the test harness |
 | `scripts/guards/*.test.ts` | repo-wide rules enforced by the suite |
 | `docs/` | the wiki: plans, audits, reference docs — index `docs/README.md` |
@@ -158,6 +158,8 @@ before any work). The admin-write pattern above has no reference route until Pha
   `import 'server-only'`. Guard: `no-server-imports-in-client.test.ts`.
 - **No `NEXT_PUBLIC_*` in client code** — read env server-side and hand it down through
   `AppProvider` (public keys such as the Turnstile site key included). Guard: `no-client-public-env.test.ts`.
+- **The look lives in `packages/ui/theme/studio.mjs`**: colours as roles (`bg-surface`, `text-ink-muted`,
+  `ring-focus`), never a literal (guard `no-raw-colors`); a restyle is an edit there.
 - Use `@repo/ui` primitives and the typography components before writing classes; never one-off
   `text-[Npx]` (guard `no-one-off-text-size`) — sizes are tokens of the preset. Merge classes with
   `twMerge` from `@repo/ui/cn` (it knows the font-size tokens; guard `tailwind-merge-via-ui`;
@@ -190,7 +192,7 @@ before any work). The admin-write pattern above has no reference route until Pha
 
 `scripts/guards/`: `every-route-wrapped`, `admin-routes-require-admin`, `no-client-public-env`,
 `no-server-imports-in-client`, `no-host-locale-date`, `no-app-alias-in-packages`, `tailwind-ui-content`,
-`no-one-off-text-size`, `tailwind-merge-via-ui`,
+`no-one-off-text-size`, `tailwind-merge-via-ui`, `no-raw-colors` (colours only as theme roles),
 `wrangler-config` (`cloudflare-env.d.ts` fresh, no secret in `vars`, every hard-coded Worker name = `name`),
 `migrations` (numbering, named constraints, no transaction control),
 `file-size` (700 lines prod / 800 tests; allowlist `file-size-allowlist.json`).

@@ -23,10 +23,10 @@ export default async function AdminPanelLayout({ children }: { children: React.R
   if (!session) redirect('/admin/login');
   const { appName } = getAppConfig();
   return (
-    <div className="min-h-screen bg-brand-wash">
-      <header className="border-b border-line bg-white">
+    <div className="min-h-screen bg-ground">
+      <header className="border-b border-line bg-surface">
         <Container className="flex h-16 items-center justify-between gap-4">
-          <Text weight="bold" tone="ink">
+          <Text weight="title">
             {appName} · Admin
           </Text>
           <LogoutButton />

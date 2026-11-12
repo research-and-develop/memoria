@@ -2,6 +2,8 @@ import './globals.css';
 
 import type { Metadata, Viewport } from 'next';
 
+import studio from '@repo/ui/theme/studio';
+
 import { AppProvider } from '@/components/AppProvider';
 import { getAppConfig } from '@/lib/config/appConfig';
 import { getSiteUrl } from '@/lib/config/siteUrl';
@@ -19,13 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#3D56B8',
+  themeColor: studio.meta.themeColor,
   width: 'device-width',
   initialScale: 1,
 };
 
 /**
- * Fonts: the preset reads `--font-text` and `--font-display` (globals.css sets
+ * Fonts: the preset reads `--font-text` and `--font-mono` (globals.css sets
  * system stacks). For a web font, use `next/font` here and put its `variable`
  * class on <html> — it overrides the fallback variables.
  */
@@ -33,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const config = getAppConfig();
   return (
     <html lang="en">
-      <body className="bg-page font-sans text-ink antialiased">
+      <body className="bg-ground font-sans text-body text-ink antialiased">
         <AppProvider config={config}>{children}</AppProvider>
       </body>
     </html>
