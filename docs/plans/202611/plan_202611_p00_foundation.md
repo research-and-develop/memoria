@@ -431,10 +431,11 @@ Git Bash, repo root.
    curl -sI http://localhost:8787/healthz | grep -i x-robots        # noindex, nofollow
    curl -sI http://localhost:8787/admin/login | grep -i x-robots    # noindex, nofollow
    curl -s  http://localhost:8787/robots.txt                        # disallows /admin and /api/
-   curl -s  http://localhost:8787/admin/login | grep -o 'rel="preload"[^>]*woff2' | wc -l
+   curl -sI http://localhost:8787/admin/login | grep -ci '^link:.*woff2'
    ```
 
-   The last one shows one preloaded font file (Inter latin).
+   The last one shows one preloaded font file (Inter latin). Next 16 sends font preloads as an HTTP
+   `Link` header, not a `<link>` tag in the HTML (checked 2026-11-12).
 5. Push to `master` → the GitHub Actions `check` job is green; `backup.yml` runs are skipped
    (`D1_BACKUP_ENABLED` unset). Tick this after the push (it cannot be known inside the commit).
 
@@ -477,7 +478,7 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.15 `cn.ts` registrations and exported token lists
 - [x] T0.16 `globals.css`
 - [x] T0.17 Root layout
-- [ ] T0.18 Fonts
+- [x] T0.18 Fonts
 - [x] T0.19 Typography
 - [x] T0.20 Button
 - [x] T0.21 Form fields

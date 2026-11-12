@@ -8,6 +8,8 @@ import { AppProvider } from '@/components/AppProvider';
 import { getAppConfig } from '@/lib/config/appConfig';
 import { getSiteUrl } from '@/lib/config/siteUrl';
 
+import { monoFont, textFont } from './fonts';
+
 // Every page reads the Worker env (and D1) per request. Next never caches a page
 // itself here; add caching deliberately (docs/recipes.md → Caching).
 export const dynamic = 'force-dynamic';
@@ -27,14 +29,14 @@ export const viewport: Viewport = {
 };
 
 /**
- * Fonts: the preset reads `--font-text` and `--font-mono` (globals.css sets
- * system stacks). For a web font, use `next/font` here and put its `variable`
- * class on <html> — it overrides the fallback variables.
+ * Fonts: `./fonts.ts` (next/font) sets `--font-text` and `--font-mono` through the
+ * `variable` classes on <html>; the theme's font stacks read them, and globals.css
+ * holds system fallbacks.
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const config = getAppConfig();
   return (
-    <html lang="en">
+    <html lang="en" className={`${textFont.variable} ${monoFont.variable}`}>
       <body className="bg-ground font-sans text-body text-ink antialiased">
         <AppProvider config={config}>{children}</AppProvider>
       </body>
