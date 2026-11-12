@@ -31,6 +31,11 @@ The photographer reviews a submitted selection, exports filenames to Lightroom/C
 
 - "Message the client": an email through the relay, or a thread in the gallery?
 
+## From Phase 2
+
+- The sidebar lists *Selections* as *Soon* (`components/admin/nav.ts`, `soonPhase: 8`): the commit that adds
+  its page drops the flag (`nav.test.ts`). Pages start with `PageHeader`.
+
 ## To be written
 
 Design (modules, routes, migration SQL, query modules, components) · edge cases and limits (CPU,

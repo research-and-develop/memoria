@@ -2,7 +2,7 @@
 title: "Phase 4: Studio settings"
 type: plan
 status: placeholder
-updated: 2026-11-11
+updated: 2026-11-12
 related: [plan_202611_mvp.md]
 ---
 
@@ -43,6 +43,16 @@ The photographer sets the studio's branding and the defaults every new gallery s
 - Cyrillic (from Phase 0): Instrument Serif (default display) and Space Grotesk have no Cyrillic. The registry's `scripts` field lets the picker warn; still decide the DEFAULT pairing (Cormorant Garamond has Cyrillic) and whether to add a Cyrillic-capable display serif.
 - How many pairings to ship, and whether the photographer may mix any display font with any text font (free choice) or only curated pairings (safer typography). Proposal: curated pairings.
 - Accent contrast (from the Phase 0 review): on the dark theme Pine 2.74 and Olive 2.67 fail 3:1 against `surface` `#1D1F21`; Navy, Plum and Ink fail against `bg` too. Rings and accent-coloured text fall back to `fg` where they fail.
+
+## From Phase 2
+
+- Settings has its shell: `/admin/settings/<section>` with the section list in
+  `components/admin/settings/nav.ts`. Branding, Watermarks and Emails are listed as *Soon* (phase 4):
+  each one's page is `app/admin/(panel)/settings/<id>/page.tsx`, and its entry drops `soonPhase` in
+  the same commit (`nav.test.ts` fails otherwise).
+- A section is a stack of `SecuritySection`-style cards (`components/admin/security/SecuritySection.tsx`:
+  a `<h2>`, a line, an action); promote it to `components/admin/settings/` when a second section uses it.
+- Saving settings is an ordinary admin write; only two-factor and device changes need the confirm window.
 
 ## To be written
 

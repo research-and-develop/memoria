@@ -32,6 +32,13 @@ The studio dashboard shows what needs attention and how galleries are used; per-
 - Activity feed: derived from existing tables, or an `activity` table written alongside each event?
 - Privacy notice text for visitors (IP, device, the name or email given at download).
 
+## From Phase 2
+
+- The sidebar lists *Insights* as *Soon* (`components/admin/nav.ts`, `soonPhase: 11`): the commit that adds
+  its page drops the flag (`nav.test.ts`). Pages start with `PageHeader`.
+- The dashboard (`app/admin/(panel)/page.tsx`) already shows the recovery-codes banner
+  (`RecoveryCodesBanner`); keep it above the new content.
+
 ## To be written
 
 Design (modules, routes, migration SQL, query modules, components) · edge cases and limits (CPU,

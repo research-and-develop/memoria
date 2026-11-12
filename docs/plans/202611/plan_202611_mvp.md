@@ -24,7 +24,7 @@ the detail for one phase lives only in that phase's plan.
 | --- | --- | --- | --- | --- |
 | 0 | [Foundation](plan_202611_p00_foundation.md) | rename, contact example removed, studio design system (tokens, Inter, primitives, `/admin/design`), CI on master, encrypted backups | — | done |
 | 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | done |
-| 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | in-progress |
+| 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | done |
 | 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, SMTP, templates | 1 | placeholder |
 | 4 | [Studio settings](plan_202611_p04_studio_settings.md) | branding, gallery theming system and fonts, gallery defaults, presets, email settings | 2, 3 | placeholder |
 | 5 | [Galleries and upload](plan_202611_p05_galleries_upload.md) | new gallery, browser image pipeline, gallery manager, sharing | 1, 4 | placeholder |

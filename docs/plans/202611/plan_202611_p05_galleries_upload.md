@@ -55,6 +55,14 @@ The photographer creates a gallery, uploads photos (processed in the browser) an
   (abandoned uploads); `blobs().list` pages by prefix and `delete` takes any number of keys.
 - Gallery deletion's R2 cleanup uses the same `delete(keys)`.
 
+## From Phase 2
+
+- The sidebar lists *New gallery* and *Galleries* as *Soon* (`components/admin/nav.ts`,
+  `soonPhase: 5`): the commit that adds `app/admin/(panel)/galleries/page.tsx` and `…/galleries/new/page.tsx`
+  drops the flags (`nav.test.ts`). New gallery then renders as the dark button.
+- Every screen starts with `PageHeader` (one `<h1>`, `actions` for the page's buttons); dialogs use
+  `@repo/ui/dialog` (docs/recipes.md → An admin screen).
+
 ## To be written
 
 Design (modules, routes, migration SQL, query modules, components) · edge cases and limits (CPU,

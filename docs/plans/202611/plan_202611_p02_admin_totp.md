@@ -1,7 +1,7 @@
 ---
 title: "Phase 2: Admin shell and two-factor sign-in"
 type: plan
-status: in-progress
+status: done
 updated: 2026-11-12
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, ../../architecture.md, ../../../AGENTS.md]
 ---
@@ -599,8 +599,8 @@ Milestones: **M1** = commits 1–2 (two-factor sign-in works), **M2** = commit 3
 - [x] T2.5 `admin:mfa` command
 - [x] T2.6 Dialog and the studio shell
 - [x] T2.7 Settings shell and Security
-- [ ] T2.8 Docs and status
-- [ ] Verification 1–5
+- [x] T2.8 Docs and status
+- [x] Verification 1–5 (results under each milestone; a real phone and a screen reader are the developer's to try)
 
 ## Open questions
 
