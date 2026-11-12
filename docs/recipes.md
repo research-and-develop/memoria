@@ -32,17 +32,21 @@ A table whose rows a migration seeds and tests must keep (a singleton): `createT
    `withErrorHandling(fn, { route: 'METHOD /api/<path>' })` (guard: `every-route-wrapped`); admin
    routes call `requireAdmin(req)` first (guard: `admin-routes-require-admin`); public writes check
    same-origin, Turnstile and a rate limit first (`app/api/admin/login/route.ts`).
-4. `route.test.ts` next to it: the real handler on a test D1, mocks only at the edges
-   (`@opennextjs/cloudflare`, Turnstile). Assert the persisted effect.
+4. `route.test.ts` next to it: the real handler on a test D1 and the test platform
+   (`useTestPlatform({ db: testDb.db, env })`), mocks only at the edges (Turnstile). Assert the
+   persisted effect.
 
 ## A var or a secret
 
 - **Var** (not secret): `vars` in `wrangler.jsonc` with a comment.
 - **Secret**: a line with a comment in `apps/web/.dev.vars.example` (+ your `.dev.vars`), then
   `npx wrangler secret put NAME` in production, and a row in deployment.md → Secrets.
-- Either way: `npm run cf-typegen` (guard `wrangler-config` fails until you do). Read it with
-  `getCloudflareContext().env.NAME` on the server; a value the browser needs goes through
-  `getAppConfig()` → `AppProvider`, never `NEXT_PUBLIC_*`.
+- Either way: `npm run cf-typegen` (guard `wrangler-config` fails until you do).
+- Add a field to `Config` (`packages/platform/ports.ts`) and parse it in `parseConfig`
+  (`packages/platform/config.ts`: trim, empty → closed feature or `null`), with a row in
+  `config.test.ts`. Read it with `getPlatform().config()` on the server; a value the browser needs goes
+  through `toAppConfig` → `getAppConfig()` → `AppProvider` (never a secret: `appConfig.test.ts`), never
+  `NEXT_PUBLIC_*`.
 
 ## A binding
 
@@ -56,7 +60,7 @@ kinds (D1, R2, KV, queues, Durable Objects, services, `send_email`, AI, Hyperdri
   arbitrary object key. Add `blob:` to the CSP `img-src` for upload previews (already there).
 - **Email (Email Routing)**: `"send_email": [{ "name": "EMAIL" }]` without `destination_address`
   delivers to any VERIFIED Email Routing destination. Send after the response:
-  `ctx.waitUntil(sendNotification(id).catch(log))`, store the outcome on the row (sent / failed /
+  `getPlatform().defer(sendNotification(id))`, store the outcome on the row (sent / failed /
   skipped) so the admin can resend; mock `env.EMAIL.send` in route tests.
 - **KV**: good for config read on every request; not for counters (eventually consistent — use D1
   upserts).
@@ -69,7 +73,7 @@ Every page renders per request by default (`dynamic = 'force-dynamic'` in the ro
 first (`npm run measure:cpu`). When renders cost too much CPU, options from cheapest to most work:
 
 1. **Static where possible**: a page that reads no D1/env can be static (drop `force-dynamic` there;
-   build-time code must use `getCloudflareContext({ async: true })`).
+   build-time code cannot call `getPlatform()`).
 2. **OpenNext's incremental cache** (`open-next.config.ts`, R2/KV-backed ISR) with `revalidatePath`
    after admin writes.
 3. **A page cache in the Worker entry** (the source project's approach — a hit costs ~1 ms CPU):

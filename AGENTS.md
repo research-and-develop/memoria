@@ -20,7 +20,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `admin/` |
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
-| `apps/web/src/lib/config/appConfig.ts` | runtime config read from the Worker env, handed down via `AppProvider` |
+| `apps/web/src/lib/config/appConfig.ts` | the public part of `getPlatform().config()`, handed down via `AppProvider` |
 | `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, assets, …), vars, compatibility flags |
 | `apps/web/worker.ts` + `src/lib/edge/` | the Worker entry: answers cheap paths (`/healthz`) before Next loads; imports relative only, nothing `server-only` |
 | `apps/web/cloudflare-env.d.ts` | GENERATED type of the env (`npm run cf-typegen`) — never hand-edit |
@@ -59,18 +59,22 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 
 ## Cloudflare rules that bite
 
-- **Read env through the Cloudflare context.** Bindings, vars and secrets come from
-  `getCloudflareContext().env` (typed as `CloudflareEnv`), in dev, preview and production alike.
-  Locally: `wrangler.jsonc` `vars` + `apps/web/.dev.vars`. Production: `vars` + `wrangler secret put`.
-  A new secret = a line in `.dev.vars.example` with a comment. Never commit `.dev.vars`.
-- **The sync context exists only inside a request.** Code that runs at build time (a statically
-  prerendered page, `generateStaticParams`) must `await getCloudflareContext({ async: true })`.
+- **Env and bindings only through the platform.** Domain code calls `getPlatform()` from
+  `@repo/platform/current` and uses its ports: `config()` (vars and secrets, parsed by
+  `@repo/platform/config`), `db()`, `blobs()`, `defer()`. Only the Cloudflare adapters
+  (`packages/platform-cloudflare`) read `getCloudflareContext()`; a Worker entry outside Next builds its
+  platform with `cloudflarePlatform(env, ctx.waitUntil)`. Locally: `wrangler.jsonc` `vars` +
+  `apps/web/.dev.vars`. Production: `vars` + `wrangler secret put`. A new secret = a line in
+  `.dev.vars.example` with a comment and a `Config` field. Never commit `.dev.vars`.
+- **`getPlatform()` exists only inside a request**: never call it at import time (module scope) or
+  from code that runs at build time (a statically prerendered page, `generateStaticParams`).
 - **Free plan = 10 ms CPU per request, 50 subrequests, 100k requests/day.** Waiting on D1/fetch is
   not CPU; rendering, hashing and parsing are. Never do per-request work proportional to content size,
   measure anything crypto-heavy (PBKDF2 iterations are a measured trade-off), and answer cheap paths
   in `worker.ts` before Next loads.
-- **Work after the response goes in `ctx.waitUntil(promise)`** (from `getCloudflareContext().ctx`).
-  A floating promise is cancelled.
+- **Work after the response goes in `getPlatform().defer(promise)`** (`ctx.waitUntil` underneath;
+  a rejection is logged as `deferred_task_failed`). A floating promise is cancelled. Tests:
+  `await flushDeferred()`.
 - **No filesystem at runtime.** Static files are build assets (`public/`); uploads go to R2.
 - **Node APIs only through `nodejs_compat`.** Prefer Web APIs (`crypto.randomUUID()`,
   `crypto.subtle`, `fetch`, `Response`) over `node:*` imports in runtime code.
@@ -199,8 +203,10 @@ before any work). The admin-write pattern above has no reference route until Pha
 - **Under vitest, `@repo/platform/current` is the test platform** (alias in `vitest.config.ts`):
   `getPlatform().name === 'test'`, never Cloudflare.
 - Routes → `route.test.ts` driving the real handler with `useTestDb(testDb.db)` (every un-scoped
-  query goes to the test D1 through the test platform; `useTestDb(null)` in afterEach). Mock only the edges: the Cloudflare
-  context, Turnstile, an email sender. Helpers: `src/lib/testing/routeHarness.ts`
+  query goes to the test D1 through the test platform; `useTestDb(null)` in afterEach), or
+  `useTestPlatform({ db, env })` when the route reads config (`resetTestPlatform()` in afterEach,
+  `flushDeferred()` for deferred work). Never mock `@opennextjs/cloudflare`; mock only the other
+  edges: Turnstile, an email sender. Helpers: `src/lib/testing/routeHarness.ts`
   (`jsonRequest`, `adminCookie`, `params`, `atFixedTime` for fixed-window rate limits).
 - Pure business logic → a colocated pure helper with a **table-driven** test (`it.each`).
 - Assert the persisted effect (re-read via the query module), not only the JSON.

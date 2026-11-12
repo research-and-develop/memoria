@@ -1,10 +1,10 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { forbiddenError, invalidParamsError, jsonError, tooManyRequestsError } from '@repo/api/responses';
 import { withErrorHandling } from '@repo/api/withErrorHandling';
 import { AppError } from '@repo/core/error';
 import { logger } from '@repo/logger';
+import { getPlatform } from '@repo/platform/current';
 
 import { constantTimeEqualStrings } from '@/lib/auth/crypto';
 import { parseLoginInput } from '@/lib/auth/parseLoginInput';
@@ -37,9 +37,9 @@ export const POST = withErrorHandling(
     const parsed = parseLoginInput(body);
     if (!parsed.ok) return invalidParamsError(parsed.message, parsed.field);
 
-    const { env, ctx } = getCloudflareContext();
-    const adminEmail = env.ADMIN_EMAIL?.trim().toLowerCase() ?? '';
-    const passwordHash = env.ADMIN_PASSWORD_HASH?.trim() ?? '';
+    const platform = getPlatform();
+    const config = platform.config();
+    const { email: adminEmail, passwordHash } = config.admin;
     if (!adminEmail || !passwordHash) {
       throw new AppError('Admin login is not configured', 'ADMIN_NOT_CONFIGURED', {
         status: 503,
@@ -48,7 +48,7 @@ export const POST = withErrorHandling(
     }
 
     const ip = clientIp(req);
-    const limit = await hitRateLimits(RULES(await ipKey(ip, env.HASH_SALT ?? '')));
+    const limit = await hitRateLimits(RULES(await ipKey(ip, config.hashSalt)));
     if (limit.limited) {
       logger.warn({ event: 'admin_login_rate_limited' });
       return tooManyRequestsError(limit.retryAfterSeconds, 'Too many attempts. Try again in a few minutes.');
@@ -56,7 +56,7 @@ export const POST = withErrorHandling(
 
     const turnstile = await verifyTurnstile({
       token: parsed.value.turnstileToken,
-      secret: env.TURNSTILE_SECRET_KEY,
+      secret: config.turnstile.secretKey,
       action: 'login',
       remoteIp: ip,
       hostname: new URL(req.url).hostname,
@@ -78,7 +78,7 @@ export const POST = withErrorHandling(
 
     const { token, session } = await createSession({ passwordHash, userAgent: req.headers.get('user-agent') ?? '' });
     logger.info({ event: 'admin_login', session: session.sessionId.slice(0, 12) });
-    ctx.waitUntil(pruneRateLimits().catch(() => {}));
+    platform.defer(pruneRateLimits());
 
     const cookie = sessionCookie(token, isSecureRequest(req));
     const res = NextResponse.json({ data: { expiresAt: session.expiresAt } });

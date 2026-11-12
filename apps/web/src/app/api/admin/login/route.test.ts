@@ -1,7 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { run, statement } from '@repo/db/client';
-import { createTestDb, useTestDb, type TestDb } from '@repo/db/test-utils';
+import { createTestDb, type TestDb } from '@repo/db/test-utils';
+import { flushDeferred, resetTestPlatform, useTestPlatform } from '@repo/platform/testing/platform';
 
 import { hashPassword } from '@/lib/auth/password';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
@@ -10,10 +11,6 @@ import { listRecentAudit } from '@/lib/db/queries/audit_log';
 import { listLiveAdminSessions } from '@/lib/db/queries/admin_sessions';
 import { atFixedTime, jsonRequest } from '@/lib/testing/routeHarness';
 
-const cf = vi.hoisted(() => ({ env: {} as Record<string, string>, waitUntil: [] as Promise<unknown>[] }));
-vi.mock('@opennextjs/cloudflare', () => ({
-  getCloudflareContext: () => ({ env: cf.env, ctx: { waitUntil: (p: Promise<unknown>) => cf.waitUntil.push(p) } }),
-}));
 const turnstile = vi.hoisted(() => ({ result: { ok: true } as { ok: boolean; reason?: string } }));
 vi.mock('@/lib/turnstile/verify', () => ({ verifyTurnstile: vi.fn(async () => turnstile.result) }));
 
@@ -24,20 +21,21 @@ const EMAIL = 'admin@example.com';
 const PASSWORD = 'a-long-test-password-123';
 let testDb: TestDb;
 let passwordHash: string;
+/** The env the test platform parses on every config() call: a test may change it. */
+let env: Record<string, string>;
 
 beforeAll(async () => {
   testDb = await createTestDb();
   passwordHash = await hashPassword(PASSWORD, 1_000);
 });
 beforeEach(() => {
-  useTestDb(testDb.db);
-  cf.env = { ADMIN_EMAIL: EMAIL, ADMIN_PASSWORD_HASH: passwordHash, TURNSTILE_SECRET_KEY: 'secret', HASH_SALT: 'salt' };
-  cf.waitUntil = [];
+  env = { ADMIN_EMAIL: EMAIL, ADMIN_PASSWORD_HASH: passwordHash, TURNSTILE_SECRET_KEY: 'secret', HASH_SALT: 'salt' };
+  useTestPlatform({ db: testDb.db, env });
   turnstile.result = { ok: true };
 });
 afterEach(async () => {
-  await Promise.allSettled(cf.waitUntil);
-  useTestDb(null);
+  await flushDeferred();
+  resetTestPlatform();
   await testDb.reset();
 });
 afterAll(() => testDb.dispose());
@@ -101,7 +99,7 @@ describe('POST /api/admin/login', () => {
   });
 
   it('is closed (503) until the admin email and password hash are configured', async () => {
-    cf.env.ADMIN_PASSWORD_HASH = '';
+    env.ADMIN_PASSWORD_HASH = '';
     const res = await login(jsonRequest('/api/admin/login', credentials()));
     expect(res.status).toBe(503);
     expect(await res.json()).toMatchObject({ errorCode: 'ADMIN_NOT_CONFIGURED' });
@@ -121,7 +119,7 @@ describe('sessions', () => {
 
   it('a rotated password ends every session', async () => {
     const cookie = await signIn();
-    cf.env.ADMIN_PASSWORD_HASH = await hashPassword('a-new-long-password-456', 1_000);
+    env.ADMIN_PASSWORD_HASH = await hashPassword('a-new-long-password-456', 1_000);
     const gate = await requireAdmin(jsonRequest('/api/admin/x', undefined, { cookie }));
     expect(gate.ok).toBe(false);
     if (!gate.ok) expect(gate.response.status).toBe(401);

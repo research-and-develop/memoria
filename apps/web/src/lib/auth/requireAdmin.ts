@@ -1,9 +1,9 @@
 import 'server-only';
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { cookies, headers } from 'next/headers';
 
 import { forbiddenError, unauthorizedError } from '@repo/api/responses';
+import { getPlatform } from '@repo/platform/current';
 
 import { isSameOrigin, isSecureRequest } from '@/lib/security/request';
 
@@ -25,7 +25,7 @@ export type AdminContext = { sessionId: string };
 export type RequireAdminResult = { ok: true; ctx: AdminContext } | { ok: false; response: Response };
 
 export function adminPasswordHash(): string {
-  return getCloudflareContext().env.ADMIN_PASSWORD_HASH?.trim() ?? '';
+  return getPlatform().config().admin.passwordHash;
 }
 
 function readCookie(req: Request, name: string): string | null {

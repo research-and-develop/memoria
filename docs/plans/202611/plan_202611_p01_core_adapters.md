@@ -494,7 +494,7 @@ Git Bash, repo root.
 - [x] T1.3 Contract suites; memory store passes
 - [x] T1.4 `@repo/platform-cloudflare` (D1, env, platform, next, proxy); composition root; vitest alias
 - [x] T1.5 `@repo/db` on the ports; call sites; client-import guard; `Db` contract on D1
-- [ ] T1.6 Config, auth, login on the platform
+- [x] T1.6 Config, auth, login on the platform
 - [ ] T1.7 Guard `platform-boundary`
 - [ ] T1.8 R2 binding, adapter, proxy spike, contract on R2, `wrangler-config` rows
 - [ ] T1.9 Dev routes, `media:probe`, CORS file
