@@ -75,6 +75,7 @@ export const colors = {
 /**
  * The type scale: [size, { lineHeight, letterSpacing? }]. Use it through the typography
  * primitives; a screen never sets a size of its own (guard: no-one-off-text-size).
+ * @type {Record<string, [string, { lineHeight: string; letterSpacing?: string }]>}
  */
 export const fontSize = {
   /** 11 px: badges, tab counts, avatar initials. */

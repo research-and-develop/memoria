@@ -22,3 +22,6 @@ coverage/
 **/tmp/
 
 .DS_Store
+
+# Browser-automation screenshots and logs (Playwright MCP)
+.playwright-mcp/

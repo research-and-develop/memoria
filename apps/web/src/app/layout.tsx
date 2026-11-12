@@ -36,7 +36,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const config = getAppConfig();
   return (
-    <html lang="en" className={`${textFont.variable} ${monoFont.variable}`}>
+    <html lang="en" className={`${textFont.variable} ${monoFont.variable}`} data-scroll-behavior="smooth">
       <body className="bg-ground font-sans text-body text-ink antialiased">
         <AppProvider config={config}>{children}</AppProvider>
       </body>

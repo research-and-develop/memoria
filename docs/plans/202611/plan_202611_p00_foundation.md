@@ -485,7 +485,7 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.22 Layout primitives, Pill
 - [x] T0.23 Toggle, Segmented
 - [x] T0.24 Callers
-- [ ] T0.25 `/admin/design`
+- [x] T0.25 `/admin/design`
 - [ ] T0.26 AGENTS.md rules
 - [ ] T0.27 architecture.md, deployment.md
 - [ ] Verification 1–4
