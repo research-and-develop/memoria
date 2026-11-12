@@ -2,7 +2,7 @@
 title: "Phase 0: Foundation"
 type: plan
 status: in-progress
-updated: 2026-11-11
+updated: 2026-11-12
 related: [plan_202611_mvp.md, ../../design/HANDOFF.md, ../../../AGENTS.md, ../../deployment.md]
 ---
 
@@ -486,9 +486,9 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.23 Toggle, Segmented
 - [x] T0.24 Callers
 - [x] T0.25 `/admin/design`
-- [ ] T0.26 AGENTS.md rules
-- [ ] T0.27 architecture.md, deployment.md
-- [ ] Verification 1–4
+- [x] T0.26 AGENTS.md rules
+- [x] T0.27 architecture.md, deployment.md
+- [x] Verification 1–4
 - [ ] Verification 5 (after the push)
 
 ## Open questions

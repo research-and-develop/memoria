@@ -1,7 +1,7 @@
 ---
 title: Architecture
 type: reference
-updated: 2026-11-09
+updated: 2026-11-12
 related: [../AGENTS.md, deployment.md, recipes.md]
 ---
 
@@ -24,6 +24,21 @@ browser ──► Cloudflare edge (custom domain)
 Everything is one deployable: public pages, the admin (`/admin`) and the API (`/api/**`) are routes
 of the same Next app.
 
+### Planned (Phases 1–3)
+
+Not built yet; the build plan is [plans/202611/plan_202611_mvp.md](plans/202611/plan_202611_mvp.md).
+
+```
+memoria (apps/web)          as above, plus client galleries; worker.ts also serves protected-mode images
+memoria-relay (apps/relay)  no UI: runs jobs from a D1 `jobs` table (SMTP email, reminders, expiry,
+                            R2 cleanup); nudged by memoria through a service binding, retried by a cron
+R2 memoria-media            originals, thumbnails, display copies, logos; public on a custom domain
+D1 memoria                  shared by both Workers
+```
+
+Domain code will talk to ports (`Db`, `BlobStore`, `Mailer`, `Jobs`, `Config`) with Cloudflare
+adapters now and Docker adapters possible later (Phase 1).
+
 ## Layout
 
 ```
@@ -32,7 +47,7 @@ packages/logger     structured logger + redaction       — leaf, zero deps
 packages/core       AppError, validation, url helpers    — depends on nothing
 packages/api        HTTP envelope + route error boundary — core, logger, next
 packages/db         D1 client, batch, row converters, test harness — @opennextjs/cloudflare, wrangler (tests)
-packages/ui         primitives, typography, cn, useApi, Tailwind preset (design tokens) — core, react, tailwind-merge
+packages/ui         theme (theme/studio.mjs: every design value), primitives, typography, cn, useApi, Tailwind preset — core, react, tailwind-merge
 migrations/         authoritative D1 schema (SQL), wrangler-numbered
 scripts/guards/     repo-wide rules as tests
 ```

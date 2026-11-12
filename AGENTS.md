@@ -142,8 +142,9 @@ before any work). The admin-write pattern above has no reference route until Pha
 - **Migrations:** `migrations/NNNN_<change>.sql` (`npm run db:migrations:new`), one per logical
   change-set, every constraint/index/trigger named (`pk_/fk_/uq_/ck_/ix_/tr_`). Statements end with `;`
   at end of line; never `;`+newline inside a string literal (the test harness splits on it). Guard:
-  `migrations.test.ts`. Extend your own *unshipped* migration; never rewrite one applied to the remote
-  D1 — ask the human whether it has shipped.
+  `migrations.test.ts`. **Forward-only from the first `db:migrate:remote`:** before it (no remote D1
+  yet: `database_id` all zeros in `wrangler.jsonc`) an unshipped migration may be edited; after it, never
+  rewrite one applied to the remote D1, write a new one. Unsure whether it shipped? Ask the human.
 - **Query modules:** `src/lib/db/queries/<table_name>/` (snake_case) with `types.ts` (`<Entity>Row`,
   `<Entity>DbRow`, `<Entity>Input`, the columns and the row converter), the reads (`get.ts`/`list.ts`
   or one `read.ts`), the writes (`write.ts`: `*Statement` builders plus executing helpers), an
@@ -159,11 +160,18 @@ before any work). The admin-write pattern above has no reference route until Pha
 - **No `NEXT_PUBLIC_*` in client code** — read env server-side and hand it down through
   `AppProvider` (public keys such as the Turnstile site key included). Guard: `no-client-public-env.test.ts`.
 - **The look lives in `packages/ui/theme/studio.mjs`**: colours as roles (`bg-surface`, `text-ink-muted`,
-  `ring-focus`), never a literal (guard `no-raw-colors`); a restyle is an edit there.
+  `ring-focus`), never a literal (guard `no-raw-colors`); a restyle is an edit there. A new token (size,
+  weight, radius, shadow) goes there too: the preset and `cn.ts` read their names from it.
+  `/admin/design` shows every token and primitive: check it at 360 px and 1440 px after a change.
+- Colour roles have rules: placeholders use `ink-muted`; `ink-faint` is for disabled text and
+  decoration only (below AA); `alert` text sits on `surface` only.
+- Touch: interactive targets reach 44 px on a coarse pointer (the `coarse:` variant; `Button` sizes
+  `sm`/`md`/`icon` do it with a `::before`). Form fields are 16 px text below `sm` (iOS zooms into
+  smaller fields): use the `@repo/ui/input` controls, do not shrink their text.
 - Use `@repo/ui` primitives and the typography components before writing classes; never one-off
   `text-[Npx]` (guard `no-one-off-text-size`) — sizes are tokens of the preset. Merge classes with
-  `twMerge` from `@repo/ui/cn` (it knows the font-size tokens; guard `tailwind-merge-via-ui`;
-  `cn.test.ts` keeps it in step with the preset). A generic primitive goes in `packages/ui`;
+  `twMerge` from `@repo/ui/cn` (it knows the theme's tokens; guard `tailwind-merge-via-ui`;
+  `cn.test.ts` checks it against the preset). A generic primitive goes in `packages/ui`;
   app-specific UI stays in `apps/web/src/components`.
 - Text/surface colour pairs are pinned to WCAG AA in `packages/ui/colorContrast.test.ts` — add a row for
   each new pair.
