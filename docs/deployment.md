@@ -1,7 +1,7 @@
 ---
 title: Deployment
 type: reference
-updated: 2026-11-11
+updated: 2026-11-12
 related: [architecture.md, ../.github/workflows/ci.yml, ../.github/workflows/backup.yml]
 ---
 
@@ -22,8 +22,14 @@ npm run admin:hash-password -- --generate          # → the ADMIN_PASSWORD_HASH
 npx wrangler secret put ADMIN_PASSWORD_HASH
 npx wrangler secret put TURNSTILE_SECRET_KEY       # Dashboard → Turnstile → add a widget (site key → vars)
 npx wrangler secret put HASH_SALT                  # openssl rand -base64 32
+cd ../.. && npm run admin:mfa -- key               # → the TOTP_ENCRYPTION_KEY secret
+cd apps/web && npx wrangler secret put TOTP_ENCRYPTION_KEY
 cd ../.. && npm run db:migrate:remote && npm run deploy
+npm run admin:mfa -- setup --remote                # → a setup code for the first sign-in (valid 1 hour)
 ```
+
+The first sign-in takes the email, the password, then that setup code, then a code from the
+authenticator app it connects; it shows 10 recovery codes once (see *Two-factor sign-in* below).
 
 Then set `ADMIN_EMAIL` and `TURNSTILE_SITE_KEY` in `wrangler.jsonc` `vars`, and `SITE_URL` once a
 custom domain serves the Worker (never before: canonical URLs would point at a domain that does not
@@ -104,10 +110,29 @@ which exist. Setting a secret deploys a new version.
 | `TURNSTILE_SECRET_KEY` | the Turnstile widget's secret (its site key is the `TURNSTILE_SITE_KEY` var) |
 | `ADMIN_PASSWORD_HASH` | `npm run admin:hash-password` |
 | `HASH_SALT` | a long random string; hashes IPs for rate limits (missing → logged `hash_salt_missing`) |
+| `TOTP_ENCRYPTION_KEY` | `npm run admin:mfa -- key` (32 random bytes): encrypts the authenticator secrets, keys the recovery codes. Missing → sign-in answers 503. Changing it disables every authenticator: reset (below) |
 | `MEDIA_S3_ACCESS_KEY_ID`, `MEDIA_S3_SECRET_ACCESS_KEY` | the bucket-scoped R2 API token (One-time setup → Media) |
 
 `MEDIA_DEV_SIGNING_SECRET` is local only (it signs the development blob routes): never set it in
 production.
+
+## Two-factor sign-in
+
+Signing in to `/admin` takes the password, then a 6-digit code from an authenticator app or a
+one-time recovery code ([architecture.md → Admin](architecture.md#admin)). The developer's controls,
+run from the repo root (local D1 by default, `--remote` for production after `wrangler login`; a
+remote run says what it will do and asks you to type the command's name, or pass `--yes`):
+
+| Command | When |
+| --- | --- |
+| `npm run admin:mfa -- setup [--remote]` | No authenticator yet (first sign-in): prints a setup code, valid 1 hour. Refused once one exists. |
+| `npm run admin:mfa -- reset [--remote]` | Phone and recovery codes lost, or a changed `TOTP_ENCRYPTION_KEY`: removes every authenticator, recovery code and session (everyone is signed out) and prints a new setup code. |
+| `npm run admin:mfa -- unlock [--remote]` | "Sign-in is locked": 20 wrong codes in a UTC day lock sign-in until midnight UTC; this clears it (and the sign-in rate limits). |
+| `npm run admin:mfa -- list [--remote]` | What is registered: apps, recovery codes left, live sessions, a live setup code, wrong codes today. |
+| `npm run admin:mfa -- key` | A new `TOTP_ENCRYPTION_KEY` (no database). |
+
+Changing the password (`admin:hash-password`, `wrangler secret put ADMIN_PASSWORD_HASH`) signs out
+every device; authenticators stay.
 
 ## Rollback
 

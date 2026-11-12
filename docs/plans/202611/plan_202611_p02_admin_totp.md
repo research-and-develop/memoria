@@ -237,8 +237,10 @@ DELETE /api/admin/login       "Start over": same-origin, delete the challenge, c
 
 - Challenge cookie: `__Host-memoria_admin_mfa` over HTTPS, `memoria_admin_mfa` on plain http (D2.19),
   httpOnly, `SameSite=Lax`, path `/`, max-age 600.
-- Kind `login` with no authenticator left (a CLI reset in between), kind `enroll` with an authenticator
-  already present, or a stale `password_version`: delete the challenge, 401 `CHALLENGE_EXPIRED`.
+- Kind `login` with no authenticator left (a CLI reset in between), or a stale `password_version`:
+  delete the challenge, 401 `CHALLENGE_EXPIRED`. Kind `enroll` with an authenticator already present
+  (set up from another device): delete it, 409 `ALREADY_ENROLLED` (built 2026-11-12: clearer than
+  "timed out"; a first enrolment therefore deletes only its own challenge).
 - An `enroll` challenge's 5 attempts are shared by the setup code and the new app's first code. A
   `recoveryCode` on an `enroll` challenge is 400 `INVALID_PARAMS`.
 - Responses of every sign-in and security route carry `Cache-Control: no-store`; their pages are
@@ -421,9 +423,11 @@ Logs (events and ids only, never a code, secret, setup code or recovery-code id)
 | `unlock` | delete the `login:%` rate-limit rows (lockout and buckets) |
 | `key` | print a new random `TOTP_ENCRYPTION_KEY` (no database) |
 
-`scripts/admin-mfa.ts` (tsx, run from the repo root): builds SQL from `admin_two_factor_cli/sql.ts`,
-writes it to a temporary `.sql` file, runs `npx wrangler d1 execute DB --local|--remote --file <file>
-[-y]` in `apps/web` (argv array, no shell string), deletes the file. `--remote`: refuses while
+`scripts/admin-mfa.ts` (tsx, run from the repo root): builds SQL from `admin_two_factor_cli/sql.ts`
+and runs wrangler's own script with node: `wrangler d1 execute DB --local|--remote --json --command
+<statements>` (`--yes` when remote) in `apps/web`, an argv array, no shell. (Built 2026-11-12 with
+`--command` instead of a temporary `--file`: a remote `--file` is an import that returns no rows, and
+`setup` reads its code back.) `--remote`: refuses while
 `database_id` is all zeros; prints the plan and asks to type the command name unless `--yes`; needs
 `wrangler login`. `list` uses `--json` and prints a table.
 
@@ -523,6 +527,23 @@ writes it to a temporary `.sql` file, runs `npx wrangler d1 execute DB --local|-
 5. `/admin`, the login steps and `/admin/settings/security` at 360 px and 1440 px; the drawer and the
    dialogs with the keyboard only and with VoiceOver or TalkBack.
 
+### Results (M1, 2026-11-12)
+
+1. `npm run verify`: ts-check clean, 701 tests in 60 files; the OpenNext build (`npm run preview`) passes.
+2. Local D1: `db:migrate:local` applied `0003`. In `npm run preview` (port 8787), with a code computed
+   from the shown key standing in for a phone: `admin:mfa -- setup` → password → setup code (typed in
+   lower case with spaces) → QR step (QR, link, grouped key, name "Windows PC") → code → 10 recovery
+   codes, Continue gated → dashboard. Sign out; password → code: the enrolment code again →
+   "That code was just used", value and focus kept; a fresh code auto-submits at 6 digits → dashboard.
+   Recovery code `5VLB2 TX547` (upper case, space) at 360 px → dashboard; `list`: 9 of 10 unused.
+3. As 2 (the real Worker in workerd).
+4. Today's failures set to 20 in the local D1 → step 1 answers "Sign-in is locked…"; `unlock` →
+   `reset` → `list` shows no app, code or session and a live setup code → sign-in asks for it again.
+   `--remote` is refused while `database_id` is all zeros.
+5. Login steps at 360 and 1440 px: no horizontal scroll; focus moves to each new step's `<h1>`. Fixed
+   after the run: the QR shrank to ~120 px beside the key at 1440 (now `shrink-0`, 200 px); the first
+   code now sets the app's "last used". The shell and Security parts come with M2 and M3.
+
 ## Commits
 
 | # | Commit | Tasks | Extra gate |
@@ -540,11 +561,11 @@ Milestones: **M1** = commits 1–2 (two-factor sign-in works), **M2** = commit 3
 
 ## Checklist
 
-- [ ] T2.1 Migration, query modules, config key, `uqr`
+- [x] T2.1 Migration, query modules, config key, `uqr`
 - [x] T2.2 TOTP, codes, keys, user agent, country, `isOverLimit` (pure)
-- [ ] T2.3 Sign-in routes, session changes, guard
-- [ ] T2.4 Sign-in UI
-- [ ] T2.5 `admin:mfa` command
+- [x] T2.3 Sign-in routes, session changes, guard
+- [x] T2.4 Sign-in UI
+- [x] T2.5 `admin:mfa` command
 - [ ] T2.6 Dialog and the studio shell
 - [ ] T2.7 Settings shell and Security
 - [ ] T2.8 Docs and status

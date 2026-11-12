@@ -35,6 +35,22 @@ export function isSecureRequest(headers: Headers, url?: string | URL): boolean {
   return !LOCAL_HOST.test(name);
 }
 
+/** One cookie's value from the `Cookie` header, or null. */
+export function readCookie(headers: Headers, name: string): string | null {
+  const header = headers.get('cookie');
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const [k, ...v] = part.trim().split('=');
+    if (k !== name) continue;
+    try {
+      return decodeURIComponent(v.join('='));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * CSRF check for a state-changing request: the browser says it came from this
  * site. `Sec-Fetch-Site: same-origin` when present, otherwise `Origin` must be

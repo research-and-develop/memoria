@@ -19,6 +19,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/app/**` | pages (server components by default) and `api/**/route.ts` handlers |
 | `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `admin/` |
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
+| `apps/web/src/lib/auth/` | sign-in: `session.ts`, `requireAdmin.ts`; two-factor: `totp.ts`, `recoveryCodes.ts`, `setupCode.ts`, `twoFactorKeys.ts` (pure), `challenge.ts`, `secondFactor.ts` (the guarded batches), `codeStep.ts` (what every code route does first) |
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
 | `apps/web/src/lib/config/appConfig.ts` | the public part of `getPlatform().config()`, handed down via `AppProvider` |
 | `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA`, assets, …), vars, compatibility flags; `r2-cors.json` = the bucket's CORS rules |
@@ -46,7 +47,12 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 - `npm run db:migrate:local` / `npm run db:migrate:remote` — apply `migrations/` to the local / production D1
 - `npm run db:migrations:new -- <name>` — a new, correctly numbered migration file
 - `npm run admin:hash-password [-- --generate]` — the `ADMIN_PASSWORD_HASH` secret; locally the admin
-  is `admin@example.local` / `local-dev-password-2026` (from `.dev.vars.example`)
+  is `admin@example.local` / `local-dev-password-2026` (from `.dev.vars.example`), plus a code from an
+  authenticator app
+- `npm run admin:mfa -- <setup|reset|unlock|list|key> [--remote]` — two-factor sign-in: a setup code for
+  the first authenticator, a reset when locked out, clear the lockout, show the state, a new
+  `TOTP_ENCRYPTION_KEY` ([deployment.md → Two-factor sign-in](docs/deployment.md#two-factor-sign-in));
+  its SQL lives in `lib/db/queries/admin_two_factor_cli/sql.ts` (import-free: tsx cannot load the db client)
 - `npm run media:probe -- <base-url>` — round-trip a PNG through the development blob routes of a
   running `npm run dev`/`preview` (needs `MEDIA_DEV_SIGNING_SECRET` in `.dev.vars`)
 - `npm run cf-typegen` — regenerate `cloudflare-env.d.ts` after ANY change to `wrangler.jsonc` or
@@ -126,7 +132,9 @@ before any work). The admin-write pattern above has no reference route until Pha
 - Validate ids with `isUuid` before SQL. A missing row is a 404.
 - **Public write endpoints verify same-origin, Turnstile and the rate limit BEFORE any write.**
   Admin endpoints verify the session AND that the request is same-origin (CSRF) — `requireAdmin`
-  does both. Guard: `admin-routes-require-admin.test.ts`.
+  does both. Guard: `admin-routes-require-admin.test.ts`; its only exceptions are the sign-in routes
+  (`admin/login`, `admin/login/setup`, `admin/login/verify`: no session exists yet; they check
+  same-origin and the sign-in challenge through `lib/auth/codeStep.ts`) and `admin/logout`.
 - **The exception: the development blob routes** (`/api/blobs/upload`, `/api/blobs/read`) skip Turnstile
   and the rate limit. They answer 404 unless `NEXTJS_ENV=development`, and each request carries an
   HMAC token minted by server code (`blobUrls`), so **minting is the gate**: an admin-only API, or a

@@ -5,7 +5,7 @@ import { cookies, headers } from 'next/headers';
 import { forbiddenError, unauthorizedError } from '@repo/api/responses';
 import { getPlatform } from '@repo/platform/current';
 
-import { isSameOrigin, isSecureRequest } from '@/lib/security/request';
+import { isSameOrigin, isSecureRequest, readCookie } from '@/lib/security/request';
 
 import { resolveSession, sessionCookieName, type AdminSession } from './session';
 
@@ -19,8 +19,11 @@ import { resolveSession, sessionCookieName, type AdminSession } from './session'
  * (guard: scripts/guards/admin-routes-require-admin.test.ts). It refuses a
  * state-changing request that is not same-origin (CSRF), then resolves the
  * session cookie.
+ *
+ * Over HTTPS only the `__Host-` cookie is read, on plain http only the plain
+ * name (D2.19): a sibling subdomain cannot plant a cookie we would accept.
  */
-export type AdminContext = { sessionId: string };
+export type AdminContext = { sessionId: string; session: AdminSession };
 
 export type RequireAdminResult = { ok: true; ctx: AdminContext } | { ok: false; response: Response };
 
@@ -28,32 +31,20 @@ export function adminPasswordHash(): string {
   return getPlatform().config().admin.passwordHash;
 }
 
-function readCookie(req: Request, name: string): string | null {
-  const header = req.headers.get('cookie');
-  if (!header) return null;
-  for (const part of header.split(';')) {
-    const [k, ...v] = part.trim().split('=');
-    if (k === name) return decodeURIComponent(v.join('='));
-  }
-  return null;
-}
-
 export async function requireAdmin(req: Request): Promise<RequireAdminResult> {
   const method = req.method.toUpperCase();
   if (method !== 'GET' && method !== 'HEAD' && !isSameOrigin(req)) {
     return { ok: false, response: forbiddenError({ reason: 'cross_origin' }) };
   }
-  const token = readCookie(req, sessionCookieName(isSecureRequest(req.headers, req.url))) ?? readCookie(req, sessionCookieName(!isSecureRequest(req.headers, req.url)));
+  const token = readCookie(req.headers, sessionCookieName(isSecureRequest(req.headers, req.url)));
   const session = await resolveSession(token, { passwordHash: adminPasswordHash() });
   if (!session) return { ok: false, response: unauthorizedError() };
-  return { ok: true, ctx: { sessionId: session.sessionId } };
+  return { ok: true, ctx: { sessionId: session.sessionId, session } };
 }
 
 /** For server components (the admin layout): the current session, or null. */
 export async function getAdminSession(): Promise<AdminSession | null> {
   const jar = await cookies();
-  const h = await headers();
-  const secure = (h.get('x-forwarded-proto') ?? '').startsWith('https');
-  const token = jar.get(sessionCookieName(secure))?.value ?? jar.get(sessionCookieName(!secure))?.value;
+  const token = jar.get(sessionCookieName(isSecureRequest(await headers())))?.value;
   return resolveSession(token, { passwordHash: adminPasswordHash() });
 }

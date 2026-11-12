@@ -152,17 +152,39 @@ public values down through `AppProvider`.
 
 ## Admin
 
-One admin, configured by two settings: the `ADMIN_EMAIL` var and the `ADMIN_PASSWORD_HASH` secret
+One admin, configured by three settings: the `ADMIN_EMAIL` var, the `ADMIN_PASSWORD_HASH` secret
 (`npm run admin:hash-password`; PBKDF2-SHA256 in Web Crypto, iterations measured against the 10 ms
-CPU budget). Either missing = the login answers 503.
+CPU budget) and the `TOTP_ENCRYPTION_KEY` secret. Any missing = sign-in answers 503. Signing in takes
+the password **and** a second factor (Phase 2: [plan](plans/202611/plan_202611_p02_admin_totp.md)).
 
-- **Login** (`POST /api/admin/login`): same-origin → parse → rate limit (10 per IP per 15 min, 60
-  overall per hour) → Turnstile → email AND password always both checked (timing does not tell which
-  was wrong) → session.
-- **Sessions**: a random 256-bit token in an `httpOnly`, `SameSite=Lax` cookie (`__Host-` prefixed
-  over HTTPS); D1 stores only its SHA-256. 14-day sliding expiry, refreshed at most hourly (a write per
-  request would burn the write budget). Each session records a fingerprint of the password hash, so
-  rotating the password ends every session.
+```
+/admin/login  step 1  POST /api/admin/login         same-origin → rate limit → lockout → Turnstile → email + password
+                                                     → a challenge (D1 row + its own httpOnly cookie, 10 min, 5 attempts)
+              step 2  POST /api/admin/login/verify  a code from any authenticator app, or a recovery code → the session
+first time    step 2  POST /api/admin/login/setup   the setup code from `npm run admin:mfa -- setup` → a QR code
+              step 3  POST /api/admin/login/verify  the new app's first code + its name → app, 10 recovery codes, session
+```
+
+- **Codes**: TOTP (RFC 6238: SHA-1, 6 digits, 30 s, one step of drift), every app and step checked
+  in constant time. Each app stores its last used step and a code is accepted only for a later one, in
+  the same batch that creates the session (`lib/auth/secondFactor.ts`): one code, one session. A
+  replayed code answers `CODE_ALREADY_USED` and is not a failure.
+- **At rest**: app secrets are AES-GCM under a key derived (HKDF) from `TOTP_ENCRYPTION_KEY`, bound to
+  their row; recovery codes are stored as HMACs, setup codes as SHA-256. A D1 export alone reveals
+  nothing usable (`lib/auth/twoFactorKeys.ts`).
+- **First enrolment** needs the setup code (100 bits, 1 hour), so the password alone never grants the
+  admin. The setup code is spent only together with the enrolment, in one batch.
+- **Lockout**: 20 wrong codes (sign-in, recovery or setup) in a UTC day lock sign-in until midnight
+  UTC, checked before the password; audited once. Plus per-IP and overall code rate limits.
+- **The developer is in charge**: `npm run admin:mfa -- setup|reset|unlock|list|key [--remote]`
+  ([deployment.md → Two-factor sign-in](deployment.md#two-factor-sign-in)).
+- **Sessions**: a random 256-bit token in an `httpOnly`, `SameSite=Lax` cookie, created only after the
+  second factor; D1 stores its SHA-256 and how it signed in (which app, or a recovery code). Over HTTPS
+  only the `__Host-` cookie is read, on plain http only the plain name (`isSecureRequest`, one rule for
+  routes and pages). A session ends after 14 days without use and at most 90 days after sign-in (the
+  cookie lives 90 days; `expires_at` is refreshed at most hourly, since a write per request would burn
+  the write budget). Each session records a fingerprint of the password hash, so rotating the password
+  ends every session.
 - **Gate**: `app/admin/(panel)/layout.tsx` redirects pages; every admin API route calls `requireAdmin`
   itself (a page gate never protects an API). Guard: `admin-routes-require-admin`.
 
@@ -177,5 +199,9 @@ D1 for tests. Rules: [AGENTS.md → Data rules](../AGENTS.md#data-rules-d1--non-
 | --- | --- |
 | `site_settings` | one JSON document per key (the reference query module) |
 | `audit_log` | one row per admin change, in the change's batch |
-| `admin_sessions` | hashed session tokens |
+| `admin_sessions` | hashed session tokens, how each signed in |
+| `admin_authenticators` | authenticator apps: label, encrypted secret, last used step |
+| `admin_recovery_codes` | HMACs of the recovery codes, used / acknowledged |
+| `admin_setup_codes` | the hash of the setup code for the first enrolment |
+| `admin_mfa_challenges` | half-finished sign-ins (between the password and the code) |
 | `rate_limits` | fixed-window counters (upserts), pruned after a write in `getPlatform().defer` |

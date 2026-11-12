@@ -1,20 +1,22 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { run, statement } from '@repo/db/client';
+import { all, run, statement } from '@repo/db/client';
 import { createTestDb, type TestDb } from '@repo/db/test-utils';
 import { flushDeferred, resetTestPlatform, useTestPlatform } from '@repo/platform/testing/platform';
 
+import { challengeCookieName } from '@/lib/auth/challenge';
 import { hashPassword } from '@/lib/auth/password';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
-import { sessionCookieName } from '@/lib/auth/session';
-import { listRecentAudit } from '@/lib/db/queries/audit_log';
+import { CODE_FAILURE_RULE } from '@/lib/auth/secondFactor';
 import { listLiveAdminSessions } from '@/lib/db/queries/admin_sessions';
-import { atFixedTime, jsonRequest } from '@/lib/testing/routeHarness';
+import { windowStart } from '@/lib/security/rateLimit';
+import { adminCookie, atFixedTime, jsonRequest } from '@/lib/testing/routeHarness';
+import { seedAuthenticator, seedSetupCode, TEST_TOTP_KEY_B64 } from '@/lib/testing/twoFactorHarness';
 
 const turnstile = vi.hoisted(() => ({ result: { ok: true } as { ok: boolean; reason?: string } }));
 vi.mock('@/lib/turnstile/verify', () => ({ verifyTurnstile: vi.fn(async () => turnstile.result) }));
 
-const { POST: login } = await import('./route');
+const { POST: login, DELETE: startOver } = await import('./route');
 const { POST: logout } = await import('../logout/route');
 
 const EMAIL = 'admin@example.com';
@@ -29,7 +31,7 @@ beforeAll(async () => {
   passwordHash = await hashPassword(PASSWORD, 1_000);
 });
 beforeEach(() => {
-  env = { ADMIN_EMAIL: EMAIL, ADMIN_PASSWORD_HASH: passwordHash, TURNSTILE_SECRET_KEY: 'secret', HASH_SALT: 'salt' };
+  env = { ADMIN_EMAIL: EMAIL, ADMIN_PASSWORD_HASH: passwordHash, TURNSTILE_SECRET_KEY: 'secret', HASH_SALT: 'salt', TOTP_ENCRYPTION_KEY: TEST_TOTP_KEY_B64 };
   useTestPlatform({ db: testDb.db, env });
   turnstile.result = { ok: true };
 });
@@ -41,35 +43,68 @@ afterEach(async () => {
 afterAll(() => testDb.dispose());
 
 const credentials = (overrides: Record<string, unknown> = {}) => ({ email: EMAIL, password: PASSWORD, turnstileToken: 't', ...overrides });
-const cookieFrom = (res: Response) => (res.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
+const setCookies = (res: Response) => res.headers.getSetCookie();
+const challenges = () => all<{ kind: string }>(statement('SELECT kind FROM admin_mfa_challenges'), { db: testDb.db });
+const sessions = () => listLiveAdminSessions(new Date().toISOString(), { db: testDb.db });
 
-describe('POST /api/admin/login', () => {
-  it('signs in: sets an httpOnly session cookie, stores only its hash, audits the login', async () => {
+describe('POST /api/admin/login (step 1: the password)', () => {
+  it('with an authenticator: a login challenge in its own cookie, no session, next = code', async () => {
+    await seedAuthenticator(testDb.db);
     const res = await login(jsonRequest('/api/admin/login', credentials({ email: ' Admin@Example.COM ' })));
     expect(res.status).toBe(200);
-    const setCookie = res.headers.get('set-cookie') ?? '';
-    expect(setCookie).toMatch(new RegExp(`^${sessionCookieName(false)}=[A-Za-z0-9_-]{43};`));
-    expect(setCookie).toMatch(/HttpOnly/i);
-    expect(setCookie).toMatch(/SameSite=lax/i);
-    const token = cookieFrom(res).split('=')[1];
-    const sessions = await listLiveAdminSessions(new Date().toISOString(), { db: testDb.db });
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]?.id).not.toBe(token);
-    expect((await listRecentAudit(5, { db: testDb.db }))[0]).toMatchObject({ action: 'login', entity: 'session' });
+    expect(await res.json()).toEqual({ data: { next: 'code' } });
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    const cookies = setCookies(res);
+    expect(cookies).toHaveLength(1);
+    expect(cookies[0]).toMatch(new RegExp(`^${challengeCookieName(false)}=[A-Za-z0-9_-]{43};`));
+    expect(cookies[0]).toMatch(/HttpOnly/i);
+    expect(cookies[0]).toMatch(/Max-Age=600/i);
+    expect(cookies[0]).toMatch(/SameSite=lax/i);
+    expect(await challenges()).toEqual([{ kind: 'login' }]);
+    expect(await sessions()).toEqual([]);
+  });
 
-    const gate = await requireAdmin(jsonRequest('/api/admin/x', undefined, { cookie: cookieFrom(res) }));
-    expect(gate.ok).toBe(true);
+  it('with no authenticator but a live setup code: an enroll challenge, next = setup', async () => {
+    await seedSetupCode(testDb.db);
+    const res = await login(jsonRequest('/api/admin/login', credentials()));
+    expect(await res.json()).toEqual({ data: { next: 'setup' } });
+    expect(await challenges()).toEqual([{ kind: 'enroll' }]);
+  });
+
+  it('with neither: 503 TWO_FACTOR_SETUP_REQUIRED, naming the command', async () => {
+    await seedSetupCode(testDb.db, 'ABCDEFGHIJKLMNOPQRST', new Date(Date.now() - 1000));
+    const res = await login(jsonRequest('/api/admin/login', credentials()));
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { errorCode: string; details: { message: string } };
+    expect(body.errorCode).toBe('TWO_FACTOR_SETUP_REQUIRED');
+    expect(body.details.message).toContain('npm run admin:mfa -- setup');
+    expect(await challenges()).toEqual([]);
+  });
+
+  it('without a usable TOTP_ENCRYPTION_KEY: 503 TWO_FACTOR_NOT_CONFIGURED', async () => {
+    await seedAuthenticator(testDb.db);
+    env.TOTP_ENCRYPTION_KEY = 'too-short';
+    const res = await login(jsonRequest('/api/admin/login', credentials()));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ errorCode: 'TWO_FACTOR_NOT_CONFIGURED' });
+  });
+
+  it('marks the cookie Secure and __Host- over HTTPS', async () => {
+    await seedAuthenticator(testDb.db);
+    const res = await login(jsonRequest('/api/admin/login', credentials(), { headers: { 'x-forwarded-proto': 'https' } }));
+    expect(setCookies(res)[0]).toMatch(new RegExp(`^${challengeCookieName(true)}=.*Secure`, 'i'));
   });
 
   it.each([
     ['a wrong password', credentials({ password: 'wrong' })],
     ['an unknown email', credentials({ email: 'someone@else.com' })],
-  ])('refuses %s with one generic message and no session', async (_label, body) => {
+  ])('refuses %s with one generic message and no challenge', async (_label, body) => {
+    await seedAuthenticator(testDb.db);
     const res = await login(jsonRequest('/api/admin/login', body));
     expect(res.status).toBe(401);
     expect(await res.json()).toMatchObject({ errorCode: 'INVALID_CREDENTIALS', details: { message: 'Wrong email or password.' } });
     expect(res.headers.get('set-cookie')).toBeNull();
-    expect(await listLiveAdminSessions(new Date().toISOString(), { db: testDb.db })).toEqual([]);
+    expect(await challenges()).toEqual([]);
   });
 
   it('refuses a failed Turnstile check before looking at the password', async () => {
@@ -79,7 +114,25 @@ describe('POST /api/admin/login', () => {
     expect(await res.json()).toMatchObject({ errorCode: 'TURNSTILE_FAILED' });
   });
 
+  it('answers SIGN_IN_LOCKED once 20 codes failed today, before checking the password', async () => {
+    await seedAuthenticator(testDb.db);
+    const now = new Date();
+    await run(
+      statement('INSERT INTO rate_limits (bucket, window_start, count) VALUES (?, ?, ?)', [
+        CODE_FAILURE_RULE.bucket,
+        windowStart(now, CODE_FAILURE_RULE.windowSeconds),
+        CODE_FAILURE_RULE.limit,
+      ]),
+      { db: testDb.db },
+    );
+    turnstile.result = { ok: false, reason: 'rejected' };
+    const res = await login(jsonRequest('/api/admin/login', credentials({ password: 'wrong' })));
+    expect(res.status).toBe(429);
+    expect(await res.json()).toMatchObject({ errorCode: 'SIGN_IN_LOCKED' });
+  });
+
   it('rate-limits after 10 attempts from one IP', async () => {
+    await seedAuthenticator(testDb.db);
     const headers = { 'cf-connecting-ip': '203.0.113.7' };
     await atFixedTime(async () => {
       for (let i = 0; i < 10; i++) {
@@ -112,10 +165,39 @@ describe('POST /api/admin/login', () => {
   });
 });
 
+describe('DELETE /api/admin/login ("Start over")', () => {
+  it('deletes the challenge and clears its cookie', async () => {
+    await seedAuthenticator(testDb.db);
+    const first = await login(jsonRequest('/api/admin/login', credentials()));
+    const cookie = setCookies(first)[0]?.split(';')[0] ?? '';
+    const res = await startOver(jsonRequest('/api/admin/login', undefined, { method: 'DELETE', cookie }));
+    expect(res.status).toBe(200);
+    expect(setCookies(res)[0]).toMatch(/Max-Age=0/i);
+    expect(await challenges()).toEqual([]);
+  });
+
+  it('works without a challenge, and refuses cross-origin', async () => {
+    expect((await startOver(jsonRequest('/api/admin/login', undefined, { method: 'DELETE' }))).status).toBe(200);
+    const res = await startOver(jsonRequest('/api/admin/login', undefined, { method: 'DELETE', headers: { 'sec-fetch-site': 'cross-site' } }));
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('sessions', () => {
-  async function signIn() {
-    return cookieFrom(await login(jsonRequest('/api/admin/login', credentials())));
-  }
+  const signIn = () => adminCookie(passwordHash, testDb.db);
+
+  it('the gate accepts a live session', async () => {
+    const cookie = await signIn();
+    expect((await requireAdmin(jsonRequest('/api/admin/x', undefined, { cookie }))).ok).toBe(true);
+  });
+
+  it('over HTTPS the gate reads only the __Host- cookie (D2.19)', async () => {
+    const cookie = await signIn();
+    const gate = await requireAdmin(jsonRequest('/api/admin/x', undefined, { cookie, headers: { 'x-forwarded-proto': 'https' } }));
+    expect(gate.ok).toBe(false);
+    const hostCookie = cookie.replace(/^memoria_admin=/, '__Host-memoria_admin=');
+    expect((await requireAdmin(jsonRequest('/api/admin/x', undefined, { cookie: hostCookie, headers: { 'x-forwarded-proto': 'https' } }))).ok).toBe(true);
+  });
 
   it('a rotated password ends every session', async () => {
     const cookie = await signIn();
@@ -123,7 +205,7 @@ describe('sessions', () => {
     const gate = await requireAdmin(jsonRequest('/api/admin/x', undefined, { cookie }));
     expect(gate.ok).toBe(false);
     if (!gate.ok) expect(gate.response.status).toBe(401);
-    expect(await listLiveAdminSessions(new Date().toISOString(), { db: testDb.db })).toEqual([]);
+    expect(await sessions()).toEqual([]);
   });
 
   it('an expired session is refused', async () => {
@@ -150,6 +232,6 @@ describe('sessions', () => {
 
     await signIn();
     await logout(jsonRequest('/api/admin/logout', { everywhere: true }, { cookie: b }));
-    expect(await listLiveAdminSessions(new Date().toISOString(), { db: testDb.db })).toEqual([]);
+    expect(await sessions()).toEqual([]);
   });
 });

@@ -4,14 +4,16 @@
  * The admin API is the whole CMS — one forgotten check is an open door. The
  * call must come before the body or params are touched (`req.json()`,
  * `req.formData()`, `await params`), so an unauthenticated request does no
- * work and cannot probe validation. login/logout are the only exceptions.
+ * work and cannot probe validation. The sign-in routes (login, login/setup,
+ * login/verify) and logout are the only exceptions: they run before a session
+ * exists, and check same-origin and the sign-in challenge themselves.
  */
 import { describe, expect, it } from 'vitest';
 
 import { readSourceFiles, stripComments } from '@repo/core/testing/sourceIndex';
 
 const ADMIN_API = /apps[\\/]web[\\/]src[\\/]app[\\/]api[\\/]admin[\\/]/;
-const EXEMPT = /[\\/]admin[\\/](login|logout)[\\/]route\.ts$/;
+const EXEMPT = /[\\/]api[\\/]admin[\\/](login|login[\\/]setup|login[\\/]verify|logout)[\\/]route\.ts$/;
 const HANDLER_RE = /export const (GET|POST|PUT|PATCH|DELETE)\s*=\s*withErrorHandling\(\s*async\s*\(([^)]*)\)\s*=>\s*\{/g;
 const BODY_ACCESS_RE = /req\.(json|formData|text|arrayBuffer)\(|await params|searchParams/;
 
@@ -37,20 +39,22 @@ describe('admin API routes are gated', () => {
   const adminRoutes = readSourceFiles({ roots: ['apps/web/src/app/api'], extensions: ['.ts'] }).filter(
     (f) => ADMIN_API.test(f.absPath) && /route\.ts$/.test(f.path),
   );
-  // May be empty while the admin API has only login/logout; the walk itself is checked below.
+  // The walk itself is checked below.
   const gated = adminRoutes.filter((f) => !EXEMPT.test(f.path));
 
   it('finds the admin routes (else the walk passes for the wrong reason)', () => {
     expect(adminRoutes.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('exempts exactly login and logout', () => {
+  it('exempts exactly the sign-in routes and logout', () => {
     const exempt = adminRoutes
       .filter((f) => EXEMPT.test(f.path))
-      .map((f) => f.path.replace(/\\/g, '/').match(/admin\/([^/]+)\/route\.ts$/)?.[1])
+      .map((f) => f.path.replace(/\\/g, '/').match(/api\/admin\/(.+)\/route\.ts$/)?.[1])
       .sort();
-    expect(exempt).toEqual(['login', 'logout']);
+    expect(exempt).toEqual(['login', 'login/setup', 'login/verify', 'logout']);
     expect(EXEMPT.test('apps/web/src/app/api/admin/things/route.ts')).toBe(false);
+    expect(EXEMPT.test('apps/web/src/app/api/admin/login/other/route.ts')).toBe(false);
+    expect(EXEMPT.test('apps/web/src/app/api/admin/things/login/route.ts')).toBe(false);
   });
 
   it('each handler calls requireAdmin before touching the request', () => {

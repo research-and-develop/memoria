@@ -19,6 +19,7 @@ describe('theme contrast (AA, 4.5:1)', () => {
   it.each([
     ['accent', 'surface'],
     ['accent', 'ground'],
+    ['accent-ink', 'surface'],
     ['accent-ink', 'accent-tint'],
     ['inverse', 'accent'],
     ['inverse', 'accent-ink'],

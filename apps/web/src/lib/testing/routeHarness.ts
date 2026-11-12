@@ -9,7 +9,9 @@ import type { Db } from '@repo/platform/ports';
 import { NextRequest } from 'next/server';
 import { vi } from 'vitest';
 
-import { createSession, sessionCookieName } from '@/lib/auth/session';
+import { batch } from '@repo/db/client';
+
+import { prepareSession, sessionCookieName } from '@/lib/auth/session';
 
 export const ORIGIN = 'http://localhost:3000';
 
@@ -25,10 +27,24 @@ export function jsonRequest(
   return new NextRequest(`${ORIGIN}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
-/** A live session for `passwordHash` in the test D1, as a Cookie header value. */
-export async function adminCookie(passwordHash: string, db: Db): Promise<string> {
-  const { token } = await createSession({ passwordHash, userAgent: 'vitest' }, { db });
-  return `${sessionCookieName(false)}=${token}`;
+/** The authenticator id that `adminCookie` sessions name (no such row needs to exist). */
+export const TEST_AUTHENTICATOR_ID = '00000000-0000-4000-8000-000000000001';
+
+/**
+ * A live session for `passwordHash` in the test D1, signed in with an
+ * authenticator app, as a Cookie header value (plain http: the plain name).
+ */
+export async function adminCookie(passwordHash: string, db: Db, input: { now?: Date } = {}): Promise<string> {
+  const session = await prepareSession({
+    passwordHash,
+    userAgent: 'vitest',
+    secondFactor: 'authenticator',
+    authenticatorId: TEST_AUTHENTICATOR_ID,
+    country: null,
+    now: input.now ?? new Date(),
+  });
+  await batch(session.statements({ sql: '1 = 1', params: [] }), { db });
+  return `${sessionCookieName(false)}=${session.token}`;
 }
 
 /**
