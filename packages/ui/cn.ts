@@ -15,6 +15,7 @@ export const FONT_SIZE_TOKENS: readonly string[] = Object.keys(studio.fontSize);
 export const FONT_WEIGHT_TOKENS: readonly string[] = Object.keys(studio.fontWeight);
 export const RADIUS_TOKENS: readonly string[] = Object.keys(studio.borderRadius);
 export const SHADOW_TOKENS: readonly string[] = Object.keys(studio.boxShadow);
+export const WIDTH_TOKENS: readonly string[] = Object.keys(studio.width);
 /** The preset's custom spacing keys (`theme.extend.spacing`): none today. */
 export const SPACING_TOKENS: readonly string[] = [];
 
@@ -28,6 +29,7 @@ export const twMerge = extendTailwindMerge({
       'font-size': [{ text: [...FONT_SIZE_TOKENS] }],
       'font-weight': [{ font: [...FONT_WEIGHT_TOKENS] }],
       shadow: [{ shadow: [...SHADOW_TOKENS] }],
+      w: [{ w: [...WIDTH_TOKENS] }],
     },
   },
 });

@@ -32,6 +32,7 @@ describe('theme contrast (AA, 4.5:1)', () => {
     ['live-fg', 'live-bg'],
     ['proofing-fg', 'proofing-bg'],
     ['draft-fg', 'draft-bg'],
+    ['draft-fg', 'surface'],
     ['scheduled-fg', 'scheduled-bg'],
     ['expired-fg', 'expired-bg'],
   ])('%s on %s', (text, surface) => {

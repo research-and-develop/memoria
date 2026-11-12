@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { Caption, Heading } from '@repo/ui/typography';
+import { PageHeader } from '@/components/admin/PageHeader';
 
 import { ButtonsShowcase } from './ButtonsShowcase';
 import { ColorSwatches } from './ColorSwatches';
@@ -20,10 +20,7 @@ export const metadata: Metadata = { title: 'Design', robots: { index: false, fol
 export default function DesignPage() {
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-1">
-        <Heading level={1}>Design system</Heading>
-        <Caption>Every value comes from packages/ui/theme/studio.mjs: edit it there and this page follows.</Caption>
-      </div>
+      <PageHeader title="Design system" description="Every value comes from packages/ui/theme/studio.mjs: edit it there and this page follows." />
       <DesignSection id="colors" title="Colour roles" note="Swatches paint the CSS variables the app uses; the ratio is the role as text on surface.">
         <ColorSwatches />
       </DesignSection>

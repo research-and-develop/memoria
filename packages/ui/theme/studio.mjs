@@ -135,10 +135,18 @@ export const boxShadow = {
 };
 
 export const maxWidth = {
-  /** The content column (Phase 2 sets the admin shell's own width). */
+  /** The content column of the studio (beside the sidebar). */
   content: '1264px',
   /** A comfortable reading width. */
   prose: '45rem',
+};
+
+/** Fixed widths of the studio shell (`w-sidebar`, `w-drawer`). */
+export const width = {
+  /** The desktop sidebar. */
+  sidebar: '220px',
+  /** The mobile navigation drawer (capped at 85vw by the drawer). */
+  drawer: '280px',
 };
 
 /** Pixel values the components need outside Tailwind (the browser chrome colour). */
@@ -147,5 +155,5 @@ export const meta = {
   themeColor: colors.ground,
 };
 
-export const studioTheme = { colors, fontSize, fontWeight, fontFamily, borderRadius, boxShadow, maxWidth, meta };
+export const studioTheme = { colors, fontSize, fontWeight, fontFamily, borderRadius, boxShadow, maxWidth, width, meta };
 export default studioTheme;

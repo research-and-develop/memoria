@@ -17,7 +17,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | Path | Holds |
 | --- | --- |
 | `apps/web/src/app/**` | pages (server components by default) and `api/**/route.ts` handlers |
-| `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `admin/` |
+| `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `admin/` (the studio shell: `AdminShell`, `nav.ts` = the sidebar's one registry, `PageHeader`, `icons.tsx`; `login/` = the sign-in steps) |
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
 | `apps/web/src/lib/auth/` | sign-in: `session.ts`, `requireAdmin.ts`; two-factor: `totp.ts`, `recoveryCodes.ts`, `setupCode.ts`, `twoFactorKeys.ts` (pure), `challenge.ts`, `secondFactor.ts` (the guarded batches), `codeStep.ts` (what every code route does first) |
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
@@ -222,6 +222,10 @@ before any work). The admin-write pattern above has no reference route until Pha
   identities: `useApi().execute` is stable per URL; wrap derived callbacks in `useCallback` on
   those. Dev StrictMode double-mounts: effects must clean up (useApi aborts on unmount).
 - `useApi` is bound to one URL; a per-row action gets its own component with its own `useApi`.
+- **An admin screen** is a page under `app/admin/(panel)/` that starts with `PageHeader` (its one
+  `<h1>`), plus its entry in `components/admin/nav.ts`; a later phase's screen stays listed as *Soon*
+  until its page exists (`nav.test.ts`; docs/recipes.md → An admin screen). No store, orders, prices or
+  clients screen is ever listed. Dialogs and drawers use `@repo/ui/dialog` (native `<dialog>`).
 - Mobile-first: every section must work from 360 px up.
 
 ## Testing

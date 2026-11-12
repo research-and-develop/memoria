@@ -54,6 +54,7 @@ export default {
       borderRadius: studio.borderRadius,
       boxShadow: studio.boxShadow,
       maxWidth: studio.maxWidth,
+      width: studio.width,
       // No custom spacing: Tailwind's scale. (A key here must also go into cn.ts SPACING_TOKENS.)
       spacing: {},
       ringColor: {
@@ -61,9 +62,12 @@ export default {
       },
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        // The navigation drawer slides in from the left (globals.css stops it under reduced motion).
+        'drawer-in': { from: { transform: 'translateX(-100%)' }, to: { transform: 'translateX(0)' } },
       },
       animation: {
         'fade-in': 'fade-in 150ms ease-out',
+        'drawer-in': 'drawer-in 200ms ease-out',
       },
     },
   },

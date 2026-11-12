@@ -1,7 +1,7 @@
 ---
 title: Recipes
 type: reference
-updated: 2026-11-09
+updated: 2026-11-12
 related: [../AGENTS.md, architecture.md]
 ---
 
@@ -35,6 +35,18 @@ A table whose rows a migration seeds and tests must keep (a singleton): `createT
 4. `route.test.ts` next to it: the real handler on a test D1 and the test platform
    (`useTestPlatform({ db: testDb.db, env })`), mocks only at the edges (Turnstile). Assert the
    persisted effect.
+
+## An admin screen
+
+1. `src/app/admin/(panel)/<path>/page.tsx`: a server component inside the studio shell (the
+   `(panel)` layout checks the session and draws the sidebar). Start with
+   `<PageHeader title="…" description="…" actions={…} />` (`components/admin/PageHeader.tsx`, the
+   page's one `<h1>`) in a `flex flex-col gap-7` column. Data through query modules; mutations through
+   admin API routes (above), from client islands with `useApi`.
+2. In the sidebar: its entry in `components/admin/nav.ts` (label, href, an icon from
+   `components/admin/icons.tsx`). A screen listed as *Soon* drops its `soonPhase` in the commit
+   that adds its page: `nav.test.ts` fails otherwise, both ways.
+3. Check it at 360 px (the top bar and the Menu drawer) and 1440 px (the sidebar).
 
 ## A var or a secret
 

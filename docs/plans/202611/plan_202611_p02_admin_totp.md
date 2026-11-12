@@ -544,6 +544,20 @@ and runs wrangler's own script with node: `wrangler d1 execute DB --local|--remo
    after the run: the QR shrank to ~120 px beside the key at 1440 (now `shrink-0`, 200 px); the first
    code now sets the app's "last used". The shell and Security parts come with M2 and M3.
 
+### Results (M2, 2026-11-12)
+
+- `npm run verify`: ts-check clean, 731 tests in 63 files. The OpenNext build passes.
+- In the built Worker (`wrangler dev` on 8788 with its own throwaway D1 and a session inserted there,
+  so the developer's local two-factor state was not touched): at 1440 px the sidebar (mark, New
+  gallery and the later screens as *Soon*, Dashboard current, Sign out at the foot) and the design
+  page; at 360 px the top bar, no horizontal scroll. Keyboard only: Tab → *Skip to content* → Menu;
+  Enter opens the drawer with focus on Close and the page scroll locked; Tab moves Dashboard →
+  Sign out and skips the *Soon* items; Esc closes it, focus back on Menu, scroll restored; widening
+  to 1440 px with the drawer open closes it. Fixed after the run: the skip link's padding (`not-sr-only`
+  reset it). Not checked: VoiceOver or TalkBack (no screen reader here).
+- Settings is listed as *Soon* until M3 adds its pages (`nav.test.ts` requires a page for every linked
+  item); the design page stays linked from the dashboard until then.
+
 ## Commits
 
 | # | Commit | Tasks | Extra gate |
@@ -566,7 +580,7 @@ Milestones: **M1** = commits 1–2 (two-factor sign-in works), **M2** = commit 3
 - [x] T2.3 Sign-in routes, session changes, guard
 - [x] T2.4 Sign-in UI
 - [x] T2.5 `admin:mfa` command
-- [ ] T2.6 Dialog and the studio shell
+- [x] T2.6 Dialog and the studio shell
 - [ ] T2.7 Settings shell and Security
 - [ ] T2.8 Docs and status
 - [ ] Verification 1–5
