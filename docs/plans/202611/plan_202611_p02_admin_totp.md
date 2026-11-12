@@ -1,7 +1,7 @@
 ---
 title: "Phase 2: Admin shell and two-factor sign-in"
 type: plan
-status: ready
+status: in-progress
 updated: 2026-11-12
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, ../../architecture.md, ../../../AGENTS.md]
 ---
@@ -527,18 +527,21 @@ writes it to a temporary `.sql` file, runs `npx wrangler d1 execute DB --local|-
 
 | # | Commit | Tasks | Extra gate |
 | --- | --- | --- | --- |
-| 1 | `feat(auth): TOTP, recovery and setup codes, the two-factor tables` | T2.1–T2.2 | `db:migrate:local` |
-| 2 | `feat(auth): two-step sign-in, first-time setup and the admin:mfa command` | T2.3–T2.5 | Verification 2 (sign-in), 3, 4 |
+| 1 | `feat(auth): TOTP, recovery and setup codes, the encryption key` | T2.2, the config key of T2.1 | — |
+| 2 | `feat(auth): two-step sign-in, first-time setup and the admin:mfa command` | T2.1, T2.3–T2.5 | `db:migrate:local`; Verification 2 (sign-in), 3, 4 |
 | 3 | `feat(admin): the studio shell` | T2.6 | Verification 5 (shell) |
 | 4 | `feat(admin): security settings` | T2.7 | Verification 2, 5 |
 | 5 | `docs: Phase 2 done` | T2.8 | — |
+
+The tables moved to commit 2 while building (2026-11-12): the rebuilt `admin_sessions` needs a second
+factor, which only commit 2's sign-in can give, so commit 1 alone would have broken sign-in.
 
 Milestones: **M1** = commits 1–2 (two-factor sign-in works), **M2** = commit 3, **M3** = commits 4–5.
 
 ## Checklist
 
 - [ ] T2.1 Migration, query modules, config key, `uqr`
-- [ ] T2.2 TOTP, codes, keys, user agent, country, `isOverLimit` (pure)
+- [x] T2.2 TOTP, codes, keys, user agent, country, `isOverLimit` (pure)
 - [ ] T2.3 Sign-in routes, session changes, guard
 - [ ] T2.4 Sign-in UI
 - [ ] T2.5 `admin:mfa` command

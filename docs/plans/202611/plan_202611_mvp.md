@@ -24,7 +24,7 @@ the detail for one phase lives only in that phase's plan.
 | --- | --- | --- | --- | --- |
 | 0 | [Foundation](plan_202611_p00_foundation.md) | rename, contact example removed, studio design system (tokens, Inter, primitives, `/admin/design`), CI on master, encrypted backups | — | done |
 | 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | done |
-| 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | ready |
+| 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | in-progress |
 | 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, SMTP, templates | 1 | placeholder |
 | 4 | [Studio settings](plan_202611_p04_studio_settings.md) | branding, gallery theming system and fonts, gallery defaults, presets, email settings | 2, 3 | placeholder |
 | 5 | [Galleries and upload](plan_202611_p05_galleries_upload.md) | new gallery, browser image pipeline, gallery manager, sharing | 1, 4 | placeholder |
@@ -45,7 +45,7 @@ their dependencies are done.
 | --- | --- |
 | Name | **Memoria** (Worker `memoria`, D1 `memoria`, R2 `memoria-media`, relay Worker `memoria-relay`). |
 | Hosting | Cloudflare Workers free tier now; a **core + platform adapters** so a Docker deployment can be added later without touching domain code (Phase 1). |
-| Users | One master user (the photographer). No team roles. **TOTP is required**, enrolled from an admin page. No passkeys (Phase 2). |
+| Users | One master user (the photographer). No team roles. **TOTP is required**; the first authenticator is enrolled at sign-in with a setup code from `npm run admin:mfa`. No passkeys (Phase 2). |
 | Email | **SMTP**, sent by a separate **relay Worker** that also runs small background jobs (Phase 3). |
 | Formats | JPEG, PNG, WebP only. No HEIC, TIFF, RAW or AVIF. |
 | Uploads | Usually Lightroom web exports (~2048 px sRGB JPEG). The uploaded file is kept as the original, **GPS stripped**, the rest of EXIF kept (Phase 5). |
@@ -114,7 +114,7 @@ D1 memoria                  shared by both Workers
 | Phase | Tables |
 | --- | --- |
 | 0 | drops `contact_messages` (never shipped) |
-| 2 | `admin_mfa`, `admin_recovery_codes` |
+| 2 | `admin_authenticators`, `admin_recovery_codes`, `admin_setup_codes`, `admin_mfa_challenges`; `admin_sessions` rebuilt |
 | 3 | `jobs` |
 | 4 | `presets` (studio settings live in the existing `site_settings`) |
 | 5 | `galleries`, `photo_sets`, `photos` |

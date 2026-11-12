@@ -80,7 +80,7 @@ export const POST = withErrorHandling(
     logger.info({ event: 'admin_login', session: session.sessionId.slice(0, 12) });
     platform.defer(pruneRateLimits());
 
-    const cookie = sessionCookie(token, isSecureRequest(req));
+    const cookie = sessionCookie(token, isSecureRequest(req.headers, req.url));
     const res = NextResponse.json({ data: { expiresAt: session.expiresAt } });
     res.cookies.set(cookie.name, cookie.value, cookie.options);
     return res;

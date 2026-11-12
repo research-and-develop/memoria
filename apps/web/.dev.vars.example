@@ -38,6 +38,13 @@ ADMIN_PASSWORD_HASH=pbkdf2-sha256$20000$xBlyF6CYfAzM56uMEF6qog==$fMOE3mH2XUr3KwE
 # `npx wrangler secret put HASH_SALT` with e.g. `openssl rand -base64 32`.
 HASH_SALT=local-dev-salt-change-me
 
+# Encrypts the authenticator secrets and keys the recovery-code hashes in D1
+# (two-factor sign-in; docs/architecture.md → Admin). 32 random bytes, base64.
+# Production: `npm run admin:mfa -- key`, then
+# `npx wrangler secret put TOTP_ENCRYPTION_KEY`. Losing or changing it disables
+# every authenticator: `npm run admin:mfa -- reset` and enrol again.
+TOTP_ENCRYPTION_KEY=TjocpXLxPwWOOLSvQD0EKj+XVOAyO4i+8+qFcI2RZtA=
+
 # --- Media (docs/deployment.md → Media) --------------------------------------
 # Signs the DEVELOPMENT-ONLY upload/read routes (/api/blobs/*), which stand in
 # for presigned S3 URLs locally. At least 32 characters, else the routes refuse.

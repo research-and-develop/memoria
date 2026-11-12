@@ -17,6 +17,20 @@ const text = (env: StringEnv, name: string): string => env[name]?.trim() ?? '';
 const optional = (env: StringEnv, name: string): string | null => text(env, name) || null;
 const origin = (env: StringEnv, name: string): string | null => optional(env, name)?.replace(/\/+$/, '') || null;
 
+/** Exactly 32 bytes of base64 (`npm run admin:mfa -- key`), else null. */
+export const TOTP_KEY_BYTES = 32;
+function key32(env: StringEnv, name: string): Uint8Array | null {
+  const value = text(env, name);
+  if (!value) return null;
+  try {
+    const binary = atob(value);
+    if (binary.length !== TOTP_KEY_BYTES) return null;
+    return Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
+
 export function parseConfig(env: StringEnv): Config {
   const devSigningSecret = text(env, 'MEDIA_DEV_SIGNING_SECRET');
   const s3 = {
@@ -29,7 +43,11 @@ export function parseConfig(env: StringEnv): Config {
     appName: text(env, 'APP_NAME') || 'Memoria',
     siteUrl: origin(env, 'SITE_URL'),
     isDevelopment: text(env, 'NEXTJS_ENV') === 'development',
-    admin: { email: text(env, 'ADMIN_EMAIL').toLowerCase(), passwordHash: text(env, 'ADMIN_PASSWORD_HASH') },
+    admin: {
+      email: text(env, 'ADMIN_EMAIL').toLowerCase(),
+      passwordHash: text(env, 'ADMIN_PASSWORD_HASH'),
+      totpKey: key32(env, 'TOTP_ENCRYPTION_KEY'),
+    },
     turnstile: { siteKey: text(env, 'TURNSTILE_SITE_KEY'), secretKey: text(env, 'TURNSTILE_SECRET_KEY') },
     hashSalt: text(env, 'HASH_SALT'),
     media: {

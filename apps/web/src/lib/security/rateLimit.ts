@@ -4,7 +4,7 @@ import { batch, run, type Options } from '@repo/db/client';
 import { logger } from '@repo/logger';
 
 import { hmacSha256Hex } from '@/lib/auth/crypto';
-import { deleteOldRateLimitsStatement, hitRateLimitStatement } from '@/lib/db/queries/rate_limits';
+import { deleteOldRateLimitsStatement, getRateLimitCount, hitRateLimitStatement } from '@/lib/db/queries/rate_limits';
 
 /**
  * Fixed-window rate limits on D1. Each rule is a bucket + a limit per window;
@@ -37,6 +37,16 @@ export async function hitRateLimits(
     }
   });
   return { limited: retryAfterSeconds > 0, retryAfterSeconds };
+}
+
+/**
+ * Has `rule`'s bucket reached its limit in the current window (`count >= limit`)?
+ * Reads only: for a lockout that counts FAILURES with `hitRateLimits` and is
+ * checked, without counting, before each attempt.
+ */
+export async function isOverLimit(rule: RateRule, opts?: Options & { now?: Date }): Promise<boolean> {
+  const now = opts?.now ?? new Date();
+  return (await getRateLimitCount(rule.bucket, windowStart(now, rule.windowSeconds), opts)) >= rule.limit;
 }
 
 /** Forget windows older than two days (run in `waitUntil` now and then). */

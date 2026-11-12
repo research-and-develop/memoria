@@ -22,7 +22,7 @@ export const POST = withErrorHandling(
   async (req: NextRequest) => {
     if (!isSameOrigin(req)) return forbiddenError({ reason: 'cross_origin' });
     const body = (await req.json().catch(() => ({}))) as { everywhere?: unknown };
-    const secure = isSecureRequest(req);
+    const secure = isSecureRequest(req.headers, req.url);
 
     if (body.everywhere === true) {
       const admin = await requireAdmin(req);

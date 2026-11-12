@@ -43,7 +43,7 @@ export async function requireAdmin(req: Request): Promise<RequireAdminResult> {
   if (method !== 'GET' && method !== 'HEAD' && !isSameOrigin(req)) {
     return { ok: false, response: forbiddenError({ reason: 'cross_origin' }) };
   }
-  const token = readCookie(req, sessionCookieName(isSecureRequest(req))) ?? readCookie(req, sessionCookieName(!isSecureRequest(req)));
+  const token = readCookie(req, sessionCookieName(isSecureRequest(req.headers, req.url))) ?? readCookie(req, sessionCookieName(!isSecureRequest(req.headers, req.url)));
   const session = await resolveSession(token, { passwordHash: adminPasswordHash() });
   if (!session) return { ok: false, response: unauthorizedError() };
   return { ok: true, ctx: { sessionId: session.sessionId } };

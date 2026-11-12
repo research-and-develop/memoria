@@ -75,8 +75,12 @@ export type Config = {
   siteUrl: string | null;
   /** `NEXTJS_ENV=development` (local dev and preview only; never set in production). */
   isDevelopment: boolean;
-  /** Empty email or hash = the admin login is closed. The email is lower-cased. */
-  admin: { email: string; passwordHash: string };
+  /**
+   * Empty email or hash = the admin login is closed. The email is lower-cased. `totpKey`: the
+   * 32-byte `TOTP_ENCRYPTION_KEY` that protects two-factor secrets; null = two-factor sign-in
+   * answers 503 (so the admin is closed too).
+   */
+  admin: { email: string; passwordHash: string; totpKey: Uint8Array | null };
   turnstile: { siteKey: string; secretKey: string };
   hashSalt: string;
   media: {

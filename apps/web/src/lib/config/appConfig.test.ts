@@ -11,6 +11,7 @@ const SECRETS = {
   ADMIN_PASSWORD_HASH: 'secret-admin-password-hash',
   TURNSTILE_SECRET_KEY: 'secret-turnstile-key',
   HASH_SALT: 'secret-hash-salt',
+  TOTP_ENCRYPTION_KEY: 'c2VjcmV0LXRvdHAta2V5LXNlY3JldC10b3RwLWtleSE=',
   MEDIA_DEV_SIGNING_SECRET: 'secret-media-dev-signing-secret-0123456789',
   MEDIA_S3_ACCESS_KEY_ID: 'secret-s3-access-key-id',
   MEDIA_S3_SECRET_ACCESS_KEY: 'secret-s3-secret-access-key',

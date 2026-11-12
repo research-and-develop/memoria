@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { MIN_SIGNING_SECRET_LENGTH, parseConfig } from './config';
 
 const SECRET = 'x'.repeat(MIN_SIGNING_SECRET_LENGTH);
+const KEY = Uint8Array.from({ length: 32 }, (_, i) => i);
+const KEY_B64 = btoa(String.fromCharCode(...KEY));
 const S3 = {
   MEDIA_S3_ENDPOINT: 'https://acct.r2.cloudflarestorage.com/',
   MEDIA_S3_BUCKET: 'memoria-media',
@@ -16,7 +18,7 @@ describe('parseConfig', () => {
       appName: 'Memoria',
       siteUrl: null,
       isDevelopment: false,
-      admin: { email: '', passwordHash: '' },
+      admin: { email: '', passwordHash: '', totpKey: null },
       turnstile: { siteKey: '', secretKey: '' },
       hashSalt: '',
       media: { devSigningSecret: null, publicBaseUrl: null, s3: null },
@@ -30,6 +32,7 @@ describe('parseConfig', () => {
       NEXTJS_ENV: 'development',
       ADMIN_EMAIL: ' Admin@Example.COM ',
       ADMIN_PASSWORD_HASH: ' pbkdf2$1 ',
+      TOTP_ENCRYPTION_KEY: ` ${KEY_B64} `,
       TURNSTILE_SITE_KEY: 'site',
       TURNSTILE_SECRET_KEY: 'secret',
       HASH_SALT: 'salt',
@@ -41,7 +44,7 @@ describe('parseConfig', () => {
       appName: 'Studio',
       siteUrl: 'https://photos.example.com',
       isDevelopment: true,
-      admin: { email: 'admin@example.com', passwordHash: 'pbkdf2$1' },
+      admin: { email: 'admin@example.com', passwordHash: 'pbkdf2$1', totpKey: KEY },
       turnstile: { siteKey: 'site', secretKey: 'secret' },
       hashSalt: 'salt',
       media: {
@@ -50,6 +53,16 @@ describe('parseConfig', () => {
         s3: { endpoint: 'https://acct.r2.cloudflarestorage.com', bucket: 'memoria-media', accessKeyId: 'AKID', secretAccessKey: 'shh' },
       },
     });
+  });
+
+  it.each([
+    ['32 bytes', KEY_B64, KEY],
+    ['31 bytes', btoa('x'.repeat(31)), null],
+    ['33 bytes', btoa('x'.repeat(33)), null],
+    ['not base64', '!!!not-base64!!!', null],
+    ['empty', '', null],
+  ])('TOTP_ENCRYPTION_KEY: %s', (_label, value, expected) => {
+    expect(parseConfig({ TOTP_ENCRYPTION_KEY: value }).admin.totpKey).toEqual(expected);
   });
 
   it.each([
