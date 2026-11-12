@@ -1,7 +1,7 @@
 ---
 title: "Phase 0: Foundation"
 type: plan
-status: in-progress
+status: done
 updated: 2026-11-12
 related: [plan_202611_mvp.md, ../../design/HANDOFF.md, ../../../AGENTS.md, ../../deployment.md]
 ---
@@ -489,7 +489,7 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.26 AGENTS.md rules
 - [x] T0.27 architecture.md, deployment.md
 - [x] Verification 1–4
-- [ ] Verification 5 (after the push)
+- [x] Verification 5 (after the push): CI green on `545ff44` (run 43189279316); `backup.yml` registered, dormant
 
 ## Open questions
 
