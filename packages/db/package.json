@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The D1 access layer (query/queryFirst/execute/statement/batch, getDb) and the test harness (an in-memory D1 with the migrations applied). Query modules shared by several apps go in queries/<table_name>/ here, with an explicit exports entry each.",
+  "description": "The database layer on the Db port of @repo/platform: statement (plain data), query/queryFirst/execute/batch, all/first/run/allRows/firstRow, getDb; rows.ts (pure converters); migrations.ts and test-utils.ts (an in-memory D1 with the migrations applied, test-only). Query modules shared by several apps go in queries/<table_name>/ here, with an explicit exports entry each.",
   "exports": {
     "./*": "./*.ts"
   }

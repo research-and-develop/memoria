@@ -34,7 +34,7 @@ describe('site_settings queries', () => {
 
   it('enforces the key shape in the schema, and a failed batch writes nothing', async () => {
     await expect(
-      batch([upsertSiteSettingStatement('seo', { title: 'x' }, opts()), upsertSiteSettingStatement('Bad Key', 1, opts())], opts()),
+      batch([upsertSiteSettingStatement('seo', { title: 'x' }), upsertSiteSettingStatement('Bad Key', 1)], opts()),
     ).rejects.toThrow(/CHECK constraint failed/);
     expect(await listSiteSettings(opts())).toEqual([]);
   });

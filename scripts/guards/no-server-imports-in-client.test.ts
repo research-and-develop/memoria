@@ -22,7 +22,8 @@ const CODE_EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
 const CLIENT_DIRECTIVE_RE = /^\s*['"]use client['"]\s*;?/m;
 
 /** What a client module may not end up importing. */
-const SERVER_ONLY_RE = /from\s+['"](?:@repo\/db\/client|@opennextjs\/cloudflare|wrangler)['"]|['"]server-only['"]/;
+const SERVER_ONLY_RE =
+  /from\s+['"](?:@repo\/db\/client|@repo\/platform\/current|@repo\/platform-cloudflare(?:\/[^'"]*)?|@opennextjs\/cloudflare|wrangler)['"]|['"]server-only['"]/;
 
 /** Value imports and re-exports; `import type` / `export type` are skipped. */
 const VALUE_IMPORT_RE = /(?:^|\n)\s*import\s+(?!type\s)(?:[^'"]*?\sfrom\s+)?['"]([^'"]+)['"]/g;
@@ -110,5 +111,9 @@ describe('client bundles never reach the server', () => {
     expect(resolveSpecifier('@repo/db/client', anchor)).toBeTruthy();
     expect(factsOf(path.join(ROOT, 'apps/web/src/lib/config/appConfig.ts')).isServerOnly).toBe(true);
     expect(factsOf(path.join(ROOT, 'packages/db/client.ts')).isServerOnly).toBe(true);
+    expect(factsOf(path.join(ROOT, 'packages/platform/current.ts')).isServerOnly).toBe(true);
+    expect(SERVER_ONLY_RE.test("import { d1Db } from '@repo/platform-cloudflare/d1';")).toBe(true);
+    expect(SERVER_ONLY_RE.test("import { getPlatform } from '@repo/platform/current';")).toBe(true);
+    expect(SERVER_ONLY_RE.test("import { isBlobKey } from '@repo/platform/media';")).toBe(false);
   });
 });

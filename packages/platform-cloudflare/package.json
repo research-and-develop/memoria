@@ -1,0 +1,10 @@
+{
+  "name": "@repo/platform-cloudflare",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Cloudflare adapters for the @repo/platform ports: D1 (and R2 from commit 5) behind Db and BlobStore, the Worker env as Config, ctx.waitUntil as defer. platform.ts builds a platform from any Worker's env; next.ts is the OpenNext wrapper behind @repo/platform/current. Only the files allowed by the platform-boundary guard may import this package. testing/ is test-only.",
+  "exports": {
+    "./*": "./*.ts"
+  }
+}

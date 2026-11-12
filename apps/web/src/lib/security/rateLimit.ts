@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { batch, type Options } from '@repo/db/client';
+import { batch, run, type Options } from '@repo/db/client';
 import { logger } from '@repo/logger';
 
 import { hmacSha256Hex } from '@/lib/auth/crypto';
@@ -25,12 +25,12 @@ export async function hitRateLimits(
 ): Promise<{ limited: boolean; retryAfterSeconds: number }> {
   const now = opts?.now ?? new Date();
   const results = await batch<{ count: number }>(
-    rules.map((r) => hitRateLimitStatement(r.bucket, windowStart(now, r.windowSeconds), opts)),
+    rules.map((r) => hitRateLimitStatement(r.bucket, windowStart(now, r.windowSeconds))),
     opts,
   );
   let retryAfterSeconds = 0;
   rules.forEach((rule, i) => {
-    const count = results[i]?.results?.[0]?.count ?? 0;
+    const count = results[i]?.rows[0]?.count ?? 0;
     if (count > rule.limit) {
       const windowEnd = Date.parse(windowStart(now, rule.windowSeconds)) + rule.windowSeconds * 1000;
       retryAfterSeconds = Math.max(retryAfterSeconds, Math.ceil((windowEnd - now.getTime()) / 1000));
@@ -42,7 +42,7 @@ export async function hitRateLimits(
 /** Forget windows older than two days (run in `waitUntil` now and then). */
 export function pruneRateLimits(opts?: Options & { now?: Date }): Promise<unknown> {
   const now = opts?.now ?? new Date();
-  return deleteOldRateLimitsStatement(new Date(now.getTime() - 2 * 24 * 3600 * 1000).toISOString(), opts).run();
+  return run(deleteOldRateLimitsStatement(new Date(now.getTime() - 2 * 24 * 3600 * 1000).toISOString()), opts);
 }
 
 /**

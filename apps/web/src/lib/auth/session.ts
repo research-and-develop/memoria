@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { batch, type Options } from '@repo/db/client';
+import { batch, run, type Options } from '@repo/db/client';
 
 import {
   createAdminSessionStatement,
@@ -54,9 +54,9 @@ export async function createSession(
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS).toISOString();
   await batch(
     [
-      deleteExpiredAdminSessionsStatement(now.toISOString(), opts),
-      createAdminSessionStatement({ id, passwordVersion: await passwordVersion(input.passwordHash), userAgent: input.userAgent, expiresAt }, opts),
-      auditStatement({ action: 'login', entity: 'session', entityId: id.slice(0, 12), summary: 'Signed in' }, opts),
+      deleteExpiredAdminSessionsStatement(now.toISOString()),
+      createAdminSessionStatement({ id, passwordVersion: await passwordVersion(input.passwordHash), userAgent: input.userAgent, expiresAt }),
+      auditStatement({ action: 'login', entity: 'session', entityId: id.slice(0, 12), summary: 'Signed in' }),
     ],
     opts,
   );
@@ -79,13 +79,13 @@ export async function resolveSession(
   const row = await getLiveAdminSession(id, now.toISOString(), opts);
   if (!row) return null;
   if (row.password_version !== (await passwordVersion(input.passwordHash))) {
-    await deleteAdminSessionStatement(id, opts).run();
+    await run(deleteAdminSessionStatement(id), opts);
     return null;
   }
   let expiresAt = row.expires_at;
   if (now.getTime() - Date.parse(row.last_seen_at) > SESSION_REFRESH_MS) {
     expiresAt = new Date(now.getTime() + SESSION_TTL_MS).toISOString();
-    await touchAdminSessionStatement(id, now.toISOString(), expiresAt, opts).run();
+    await run(touchAdminSessionStatement(id, now.toISOString(), expiresAt), opts);
   }
   return { sessionId: id, createdAt: row.created_at, expiresAt };
 }
@@ -94,7 +94,7 @@ export async function revokeSession(token: string | null | undefined, opts?: Opt
   if (!token) return;
   const id = await sha256Hex(token);
   await batch(
-    [deleteAdminSessionStatement(id, opts), auditStatement({ action: 'logout', entity: 'session', entityId: id.slice(0, 12), summary: 'Signed out' }, opts)],
+    [deleteAdminSessionStatement(id), auditStatement({ action: 'logout', entity: 'session', entityId: id.slice(0, 12), summary: 'Signed out' })],
     opts,
   );
 }

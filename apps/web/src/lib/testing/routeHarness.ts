@@ -1,9 +1,11 @@
 /**
  * Test-only helpers for route tests: requests that look like the browser's,
- * and an admin session to call admin routes with. The Cloudflare context and
- * the database are wired by each test file (`vi.mock('@opennextjs/cloudflare')`,
- * `useTestDb`).
+ * and an admin session to call admin routes with. The platform under vitest is
+ * the test platform (@repo/platform/testing/platform): each test file installs
+ * its database (`useTestDb(testDb.db)`) and, for config, its env.
  */
+import type { Db } from '@repo/platform/ports';
+
 import { NextRequest } from 'next/server';
 import { vi } from 'vitest';
 
@@ -24,7 +26,7 @@ export function jsonRequest(
 }
 
 /** A live session for `passwordHash` in the test D1, as a Cookie header value. */
-export async function adminCookie(passwordHash: string, db: D1Database): Promise<string> {
+export async function adminCookie(passwordHash: string, db: Db): Promise<string> {
   const { token } = await createSession({ passwordHash, userAgent: 'vitest' }, { db });
   return `${sessionCookieName(false)}=${token}`;
 }

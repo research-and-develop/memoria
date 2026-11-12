@@ -1,8 +1,9 @@
 /**
- * Row-conversion helpers shared by the query modules (dependency-free, so the
- * Worker entry may import them too). D1 returns JSON columns
- * as text and booleans as 0/1; a module converts its rows once, here-assisted,
- * so callers only ever see parsed values.
+ * Row-conversion helpers shared by the query modules. PURE and import-free, so
+ * `types.ts` files and the Worker entry may import them. SQLite returns JSON
+ * columns as text and booleans as 0/1; a module converts its rows once,
+ * here-assisted, so callers only ever see parsed values. The helpers that
+ * execute a statement (`allRows`, `firstRow`) live in @repo/db/client.
  */
 
 /** `[]`-defaulted JSON array of strings (chips, facts, groups). Anything else reads as empty. */
@@ -28,19 +29,7 @@ export function readJson<T>(json: string | null | undefined, fallback: T): T {
 export const toBool = (value: number | boolean | null | undefined): boolean => value === 1 || value === true;
 export const fromBool = (value: boolean): 0 | 1 => (value ? 1 : 0);
 
-/** All rows of an executed statement, converted. */
-export async function allRows<Db, Row>(stmt: D1PreparedStatement, convert: (row: Db) => Row): Promise<Row[]> {
-  const { results } = await stmt.all<Db>();
-  return results.map(convert);
-}
-
-/** The first row of an executed statement, converted, or null. */
-export async function firstRow<Db, Row>(stmt: D1PreparedStatement, convert: (row: Db) => Row): Promise<Row | null> {
-  const row = await stmt.first<Db>();
-  return row ? convert(row) : null;
-}
-
-/** The rows of one result of a `batch()`, converted. */
-export function batchRows<Db, Row>(result: D1Result<unknown> | undefined, convert: (row: Db) => Row): Row[] {
-  return ((result?.results ?? []) as Db[]).map(convert);
+/** The rows of one result of a `batch()` (a `BatchResult`), converted. */
+export function batchRows<DbRow, Row>(result: { readonly rows: readonly unknown[] } | undefined, convert: (row: DbRow) => Row): Row[] {
+  return ((result?.rows ?? []) as DbRow[]).map(convert);
 }

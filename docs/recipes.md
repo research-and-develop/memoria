@@ -15,7 +15,7 @@ Step lists for the common changes. Each ends the same way: `npm run verify`.
    timestamps with the `strftime` default, INTEGER 0/1 + CHECK booleans, every constraint named
    (`pk_things`, `ck_things_title`, `ix_things_created_at`). Guard: `migrations`.
 2. `apps/web/src/lib/db/queries/things/`: `types.ts` (`ThingRow`, `ThingDbRow`, `ThingInput`,
-   `THING_COLUMNS`, `toThingRow`), `read.ts`, `write.ts` (`*Statement` builders), `index.ts`
+   `THING_COLUMNS`, `toThingRow`), `read.ts`, `write.ts` (`*Statement` builders: pure, no `opts`), `index.ts`
    (`export *`), `things.test.ts` on `createTestDb()`. Copy `site_settings/` (or `admin_sessions/`).
 3. `npm run db:migrate:local`.
 4. Before deploying: is the migration safe for the code still running? (Add first, drop later.)

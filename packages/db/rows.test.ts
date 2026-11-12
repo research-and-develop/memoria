@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { BatchResult } from '@repo/platform/ports';
+
 import { batchRows, fromBool, readJson, readStringArray, toBool } from './rows';
 
 describe('row helpers', () => {
@@ -34,8 +36,8 @@ describe('row helpers', () => {
 
   it('round-trips booleans and converts a batch result', () => {
     expect([fromBool(true), fromBool(false)]).toEqual([1, 0]);
-    const result = { results: [{ n: 1 }, { n: 2 }], success: true, meta: {} } as unknown as D1Result<unknown>;
-    expect(batchRows(result, (row: { n: number }) => row.n * 10)).toEqual([10, 20]);
+    const result: BatchResult = { rows: [{ n: 1 }, { n: 2 }], changes: 0 };
+    expect(batchRows(result,(row: { n: number }) => row.n * 10)).toEqual([10, 20]);
     expect(batchRows(undefined, (row: { n: number }) => row.n)).toEqual([]);
   });
 });

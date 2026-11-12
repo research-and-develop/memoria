@@ -7,16 +7,22 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   resolve: {
-    alias: {
+    // An array (not an object) so an entry can be a regex: `find` strings match
+    // the specifier or its `/` subpaths, which would be wrong for the
+    // composition root below.
+    alias: [
       // apps/web's `@`. Packages never use it (guard:
       // scripts/guards/no-app-alias-in-packages.test.ts), so one alias serves
       // the whole suite. A second app with its own `@` needs its own projects.
-      '@': path.resolve(root, 'apps/web/src'),
+      { find: '@', replacement: path.resolve(root, 'apps/web/src') },
       // Next aliases these build-guard specifiers to vendored no-ops; vitest
       // does not, and the published `server-only` package throws on import.
-      'server-only': path.resolve(root, 'vitest.empty-module.ts'),
-      'client-only': path.resolve(root, 'vitest.empty-module.ts'),
-    },
+      { find: 'server-only', replacement: path.resolve(root, 'vitest.empty-module.ts') },
+      { find: 'client-only', replacement: path.resolve(root, 'vitest.empty-module.ts') },
+      // The composition root: under vitest, getPlatform() is the test platform
+      // (packages/platform/testing/platform.ts), never Cloudflare.
+      { find: /^@repo\/platform\/current$/, replacement: path.resolve(root, 'packages/platform/testing/current.ts') },
+    ],
   },
   test: {
     projects: [

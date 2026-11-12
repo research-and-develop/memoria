@@ -29,7 +29,9 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `packages/logger` | structured logger + secret redaction (zero deps) — `@repo/logger` |
 | `packages/core` | `AppError`, `isUuid`, `objectToUrlSearchParams`; `testing/` = the guards' source index |
 | `packages/api` | the HTTP envelope: `responses`, `withErrorHandling`, `publicErrorMessage`, `responseHeaders` |
-| `packages/db` | D1 client (`query`, `queryFirst`, `execute`, `statement`, `batch`, `getDb`), `rows` converters, `test-utils` |
+| `packages/platform` | the ports (`Db`, `BlobStore`, `Config`, `defer`: `ports.ts`), config parsing, media rules, blob tokens/URLs; `current.ts` = the composition root (`getPlatform()`); `testing/` = the test platform, `contract/` = the adapter contract suites |
+| `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `testing/proxy.ts` |
+| `packages/db` | the database layer on the `Db` port: `client.ts` (`statement`, `query`, `queryFirst`, `execute`, `batch`, `all`/`first`/`run`, `allRows`/`firstRow`, `getDb`), `rows.ts` (pure converters), `migrations.ts`, `test-utils` |
 | `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
 | `migrations/*.sql` | the authoritative D1 schema, applied by wrangler and by the test harness |
 | `scripts/guards/*.test.ts` | repo-wide rules enforced by the suite |
@@ -85,7 +87,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 - **A Tailwind preset cannot carry `content`** — each app spreads `uiContentGlobs` into its own
   `content` and excludes `*.test.ts(x)`. Guard: `tailwind-ui-content.test.ts`.
 - **A process-wide singleton lives on `globalThis`**, never a module-level `let` — Next's server
-  build duplicates modules across chunks (see `packages/db/client.ts`).
+  build duplicates modules across chunks (see `packages/platform-cloudflare/next.ts`).
 
 ## API routes (house pattern)
 
@@ -129,13 +131,15 @@ before any work). The admin-write pattern above has no reference route until Pha
   its executing function (see `site_settings/upsert.ts`).
 - **Reads between writes are not isolated.** Enforce invariants in the schema (UNIQUE/CHECK/FK) or in
   the write itself (`UPDATE … WHERE id = ? AND version = ?`, `INSERT … ON CONFLICT`, an audit row
-  `WHERE changes() > 0`), then check `meta.changes`. Never read-check-write across two round trips.
-  `meta.changes` also counts trigger writes: **compare it with 0, never with an exact count.**
-- **Placeholders are `?`.** `undefined` cannot be bound — pass `null`.
+  `WHERE changes() > 0`), then check `changes` (`run`/`execute` return `{ changes, lastRowId }`; each
+  `batch` result has `{ rows, changes }`). Never read-check-write across two round trips. `changes`
+  also counts trigger writes: **compare it with 0, never with an exact count.**
+- **Placeholders are `?`.** Parameters are strings, numbers or `null`: `undefined` and booleans throw in
+  `statement()` (pass `null`; `fromBool`).
 - **Types:** ids TEXT (`crypto.randomUUID()` in the app); timestamps TEXT ISO-8601 UTC with ms
   (`strftime('%Y-%m-%dT%H:%M:%fZ','now')`); booleans INTEGER 0/1 + CHECK; JSON TEXT + `json_valid()`.
-  The query module converts rows (parse JSON, 0/1 → boolean; helpers in `@repo/db/rows`); callers never
-  see raw columns. Render dates on the client with `@repo/ui/date`, on the server with
+  The query module converts rows (parse JSON, 0/1 → boolean; converters in `@repo/db/rows`, which stays
+  import-free; `allRows`/`firstRow` in `@repo/db/client`); callers never see raw columns. Render dates on the client with `@repo/ui/date`, on the server with
   `apps/web/src/lib/dates.ts` — never the host locale: guard `no-host-locale-date.test.ts`.
 - **Mind the free-tier row budget** (5M rows read, 100k rows written per day): every public-page query
   is indexed and bounded (`LIMIT`); no `count(*)`/full scans on request paths; counters are upserts.
@@ -148,8 +152,10 @@ before any work). The admin-write pattern above has no reference route until Pha
 - **Query modules:** `src/lib/db/queries/<table_name>/` (snake_case) with `types.ts` (`<Entity>Row`,
   `<Entity>DbRow`, `<Entity>Input`, the columns and the row converter), the reads (`get.ts`/`list.ts`
   or one `read.ts`), the writes (`write.ts`: `*Statement` builders plus executing helpers), an
-  `index.ts` barrel of `export *` lines, and `<table_name>.test.ts` on a test D1. Every function takes
-  `opts?: Options` LAST and threads it to the client.
+  `index.ts` barrel of `export *` lines, and `<table_name>.test.ts` on a test D1. **A `*Statement`
+  builder is pure**: it returns a `Statement` (`{ sql, params }`, plain data) and takes no `opts`. Every
+  function that executes takes `opts?: Options` LAST and threads it to the client (`first(stmt, opts)`,
+  `run(stmt, opts)`, `batch([...], opts)`). Domain code sees the `Db` port, never a D1 type.
 
 ## Client code
 
@@ -187,10 +193,13 @@ before any work). The admin-write pattern above has no reference route until Pha
 - vitest projects: **`node`** (`*.test.ts`: pure logic, D1 integration, routes, guards) and
   **`components`** (`*.test.tsx`, jsdom, no database).
 - **D1 tests need no setup**: `createTestDb()` (`@repo/db/test-utils`) starts an in-memory D1
-  through wrangler's `getPlatformProxy` and applies `migrations/`. One per test FILE
-  (`beforeAll`), `reset()` in `afterEach`, `dispose()` in `afterAll`. Pass `{ db: testDb.db }`.
+  through wrangler's `getPlatformProxy` and applies `migrations/`; `testDb.db` is the `Db` port. One per
+  test FILE (`beforeAll`), `reset()` in `afterEach`, `dispose()` in `afterAll`. Pass `{ db: testDb.db }`;
+  raw SQL in a test is `run(statement(…), { db: testDb.db })`.
+- **Under vitest, `@repo/platform/current` is the test platform** (alias in `vitest.config.ts`):
+  `getPlatform().name === 'test'`, never Cloudflare.
 - Routes → `route.test.ts` driving the real handler with `useTestDb(testDb.db)` (every un-scoped
-  query goes to the test D1; `useTestDb(null)` in afterEach). Mock only the edges: the Cloudflare
+  query goes to the test D1 through the test platform; `useTestDb(null)` in afterEach). Mock only the edges: the Cloudflare
   context, Turnstile, an email sender. Helpers: `src/lib/testing/routeHarness.ts`
   (`jsonRequest`, `adminCookie`, `params`, `atFixedTime` for fixed-window rate limits).
 - Pure business logic → a colocated pure helper with a **table-driven** test (`it.each`).

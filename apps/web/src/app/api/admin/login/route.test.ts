@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { run, statement } from '@repo/db/client';
 import { createTestDb, useTestDb, type TestDb } from '@repo/db/test-utils';
 
 import { hashPassword } from '@/lib/auth/password';
@@ -129,7 +130,7 @@ describe('sessions', () => {
 
   it('an expired session is refused', async () => {
     const cookie = await signIn();
-    await testDb.db.prepare("UPDATE admin_sessions SET expires_at = '2000-01-01T00:00:00.000Z'").run();
+    await run(statement("UPDATE admin_sessions SET expires_at = '2000-01-01T00:00:00.000Z'"), { db: testDb.db });
     expect((await requireAdmin(jsonRequest('/api/admin/x', undefined, { cookie }))).ok).toBe(false);
   });
 
