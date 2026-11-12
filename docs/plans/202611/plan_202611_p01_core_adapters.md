@@ -1,7 +1,7 @@
 ---
 title: "Phase 1: Core and adapters"
 type: plan
-status: ready
+status: in-progress
 updated: 2026-11-12
 related: [plan_202611_mvp.md, plan_202611_p00_foundation.md, ../../architecture.md, ../../../AGENTS.md]
 ---
@@ -489,9 +489,9 @@ Git Bash, repo root.
 
 ## Checklist
 
-- [ ] T1.1 Workspaces linked, lock committed; ports, config, media rules, tokens, memory store, test platform
-- [ ] T1.2 `blobUrls`
-- [ ] T1.3 Contract suites; memory store passes
+- [x] T1.1 Workspaces linked, lock committed; ports, config, media rules, tokens, memory store, test platform
+- [x] T1.2 `blobUrls`
+- [x] T1.3 Contract suites; memory store passes
 - [ ] T1.4 `@repo/platform-cloudflare` (D1, env, platform, next, proxy); composition root; vitest alias
 - [ ] T1.5 `@repo/db` on the ports; call sites; client-import guard; `Db` contract on D1
 - [ ] T1.6 Config, auth, login on the platform

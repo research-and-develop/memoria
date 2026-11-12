@@ -1,0 +1,10 @@
+{
+  "name": "@repo/platform",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The platform ports (Db, BlobStore, Config, defer) and everything about them that is not tied to a platform: config parsing, media rules, blob tokens and URLs, the in-memory blob store, the contract suites and the test platform. Nothing here may import Cloudflare (guard: platform-boundary); adapters live in @repo/platform-cloudflare. contract/ and testing/ are test-only.",
+  "exports": {
+    "./*": "./*.ts"
+  }
+}
