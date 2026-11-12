@@ -2,7 +2,7 @@
 title: "Phase 11: Dashboard and analytics"
 type: plan
 status: placeholder
-updated: 2026-11-11
+updated: 2026-11-12
 related: [plan_202611_mvp.md]
 ---
 
@@ -30,7 +30,7 @@ The studio dashboard shows what needs attention and how galleries are used; per-
 ## Known open questions
 
 - Activity feed: derived from existing tables, or an `activity` table written alongside each event?
-- Privacy notice text for visitors (IP, device, email).
+- Privacy notice text for visitors (IP, device, the name or email given at download).
 
 ## To be written
 

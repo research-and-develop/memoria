@@ -2,7 +2,7 @@
 title: "Phase 8: Review and delivery"
 type: plan
 status: placeholder
-updated: 2026-11-11
+updated: 2026-11-12
 related: [plan_202611_mvp.md]
 ---
 
@@ -24,7 +24,7 @@ The photographer reviews a submitted selection, exports filenames to Lightroom/C
 
 - [ ] T8.1 Selections screen: lists, filters (notes, retouch)
 - [ ] T8.2 Filename export: space/comma/newline, strip extensions, copy, .txt, .csv with notes
-- [ ] T8.3 Retouch checklist, billing summary (display only), reopen, message the client
+- [ ] T8.3 Retouch checklist, reopen, message the client
 - [ ] T8.4 Deliver: upload edits → replace proofs → one email to the client; unlock "after selection" downloads
 
 ## Known open questions

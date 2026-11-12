@@ -19,7 +19,7 @@ The project wiki. Conventions: [wiki-conventions.md](wiki-conventions.md).
   scope, architecture in brief, phase order — `draft`
   - [p00 Foundation](plans/202611/plan_202611_p00_foundation.md) — `done`
   - [p01 Core and adapters](plans/202611/plan_202611_p01_core_adapters.md) — `done`
-  - [p02 Admin shell and TOTP](plans/202611/plan_202611_p02_admin_totp.md) — `placeholder`
+  - [p02 Admin shell and TOTP](plans/202611/plan_202611_p02_admin_totp.md) — `ready`
   - [p03 Relay Worker and email](plans/202611/plan_202611_p03_relay_email.md) — `placeholder`
   - [p04 Studio settings](plans/202611/plan_202611_p04_studio_settings.md) — `placeholder`
   - [p05 Galleries and upload](plans/202611/plan_202611_p05_galleries_upload.md) — `placeholder`

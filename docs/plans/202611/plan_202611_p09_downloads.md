@@ -18,11 +18,11 @@ Clients download single photos or whole sets as ZIPs built in their browser, wit
 - **Depends on:** Phase 6
 - **Unblocks:** Phase 11 (download counts)
 - **Mockups:** `NewGallery.dc.html` (Downloads), `ClientGallery.dc.html`, `ClientLightbox.dc.html`, `Mobile.dc.html`
-- **Scope (feature IDs):** J1–J3, F4 (email at download), F5 (PIN)
+- **Scope (feature IDs):** J1–J3, F4 (name or email at download), F5 (PIN)
 
 ## Draft tasks
 
-- [ ] T9.1 Download API: checks mode, PIN, email; returns original keys
+- [ ] T9.1 Download API: checks mode, PIN and the downloader's name or email (required: no anonymous downloads); returns original keys
 - [ ] T9.2 Single-photo download; share sheet ("Save to Photos") on phones
 - [ ] T9.3 Browser ZIP: `client-zip`, stream to disk (`showSaveFilePicker`), ~500 MB parts elsewhere, progress, per set
 - [ ] T9.4 `download_events` + counters

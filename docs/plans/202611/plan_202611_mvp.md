@@ -24,7 +24,7 @@ the detail for one phase lives only in that phase's plan.
 | --- | --- | --- | --- | --- |
 | 0 | [Foundation](plan_202611_p00_foundation.md) | rename, contact example removed, studio design system (tokens, Inter, primitives, `/admin/design`), CI on master, encrypted backups | — | done |
 | 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | done |
-| 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | placeholder |
+| 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | ready |
 | 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, SMTP, templates | 1 | placeholder |
 | 4 | [Studio settings](plan_202611_p04_studio_settings.md) | branding, gallery theming system and fonts, gallery defaults, presets, email settings | 2, 3 | placeholder |
 | 5 | [Galleries and upload](plan_202611_p05_galleries_upload.md) | new gallery, browser image pipeline, gallery manager, sharing | 1, 4 | placeholder |
@@ -54,7 +54,8 @@ their dependencies are done.
 | Gallery fonts | The photographer chooses a font pairing per gallery (default in Studio settings) from a registry; adding a font is one registry entry. Only the chosen pairing is downloaded by clients (Phase 4, T4.7). |
 | Image delivery | Chosen per gallery at creation. Default **public**: R2 on a custom domain, unguessable keys, served by the CDN (no Worker requests). Option **protected**: every image checked by the Worker, one Worker request per image (Phase 6). |
 | ZIP downloads | Built **in the client's browser** (Phase 9). |
-| Analytics | Email asked only at download time. Per visitor: browser, OS, device, country/city, IP (full IP kept 30 days) (Phase 11). |
+| Analytics | A **name or an email is asked before any download** (user, 2026-11-12), so every download is attributed, never anonymous; nothing is asked to view. Per visitor: browser, OS, device, country/city, IP (full IP kept 30 days) (Phase 11). |
+| No sales | **No sales features at all** (user, 2026-11-12): no store, orders, prices or billing. A gallery may limit how many photos a selection includes; nothing is priced. |
 
 ### Phase 1 decisions (2026-11-12)
 
@@ -75,12 +76,12 @@ Feature IDs refer to the grouping used when the scope was cut (2026-11-10).
 - **In:** A1 single admin, A3 (TOTP only), A4 sessions list · B1–B8 branding and defaults ·
   C1–C6 gallery creation and presets · D1–D4, D5–D6 (browser-side), D10 replace with edited ·
   E1–E7 gallery manager · F1–F8 access and sharing (F3 depends on open question 1) ·
-  G1–G5, G7–G9 client gallery · H1–H9 proofing (H7 = price shown, not charged) ·
+  G1–G5, G7–G9 client gallery · H1–H6, H8–H9 proofing ·
   I1, I2, I4–I7 review and delivery · J1–J3 downloads · K1, K2 (hide, delete web sizes), K3, K4 ·
   L1–L5, L7 dashboard and analytics.
 - **Out:** A2 team roles · D7 HEIC/TIFF · D8 automatic cover pick (first landscape photo instead) ·
   D9 Lightroom/Capture One import · G6 slideshow music · I3 Lightroom plugin · J4 emailed ZIP link ·
-  K2 cold storage · L6 server health · M Find me, guest uploads, video · N payments, print store ·
+  K2 cold storage · L6 server health · M Find me, guest uploads, video · N payments, print store, H7 extra-photo prices · a Clients screen (clients are seen per gallery) ·
   O integrations, webhooks, API (for now) · P storage/backups/domain screens, GDPR tooling.
 
 ## Architecture in brief
