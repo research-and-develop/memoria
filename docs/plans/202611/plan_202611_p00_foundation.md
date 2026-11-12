@@ -483,7 +483,7 @@ Commit 5 is one commit on purpose: every caller breaks the moment the old tokens
 - [x] T0.20 Button
 - [x] T0.21 Form fields
 - [x] T0.22 Layout primitives, Pill
-- [ ] T0.23 Toggle, Segmented
+- [x] T0.23 Toggle, Segmented
 - [x] T0.24 Callers
 - [ ] T0.25 `/admin/design`
 - [ ] T0.26 AGENTS.md rules
