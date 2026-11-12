@@ -374,8 +374,9 @@ sweep of abandoned uploads, a cookieless media domain (index, open question 3).
   - `@repo/platform/contract/*` imported only from `*.test.ts`;
   - allowed files: `packages/platform-cloudflare/**`, `packages/platform/current.ts`,
     `packages/db/test-utils.ts`, `apps/web/worker.ts`, `next.config.mjs`, `open-next.config.ts`,
-    `scripts/guards/platform-boundary.test.ts` and `scripts/guards/wrangler-config.test.ts` (their
-    samples and regexes name the banned identifiers);
+    `scripts/guards/platform-boundary.test.ts`, `scripts/guards/wrangler-config.test.ts` and
+    `scripts/guards/no-server-imports-in-client.test.ts` (their samples and regexes name the banned
+    identifiers); `vi.mock()` of a banned module counts as an import;
   - comments stripped; self-test: a bad sample per rule and a good one containing the string
     `"npx wrangler secret put"`; asserts the sentinel `apps/web/src/lib/auth/requireAdmin.ts` was scanned.
 
@@ -495,7 +496,7 @@ Git Bash, repo root.
 - [x] T1.4 `@repo/platform-cloudflare` (D1, env, platform, next, proxy); composition root; vitest alias
 - [x] T1.5 `@repo/db` on the ports; call sites; client-import guard; `Db` contract on D1
 - [x] T1.6 Config, auth, login on the platform
-- [ ] T1.7 Guard `platform-boundary`
+- [x] T1.7 Guard `platform-boundary`
 - [ ] T1.8 R2 binding, adapter, proxy spike, contract on R2, `wrangler-config` rows
 - [ ] T1.9 Dev routes, `media:probe`, CORS file
 - [ ] T1.10 Docs, index and consumer plans

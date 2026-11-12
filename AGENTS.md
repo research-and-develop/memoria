@@ -218,7 +218,9 @@ before any work). The admin-write pattern above has no reference route until Pha
 `no-one-off-text-size`, `tailwind-merge-via-ui`, `no-raw-colors` (colours only as theme roles),
 `wrangler-config` (`cloudflare-env.d.ts` fresh, no secret in `vars`, every hard-coded Worker name = `name`),
 `migrations` (numbering, named constraints, no transaction control),
-`file-size` (700 lines prod / 800 tests; allowlist `file-size-allowlist.json`).
+`file-size` (700 lines prod / 800 tests; allowlist `file-size-allowlist.json`),
+`platform-boundary` (no `@opennextjs/cloudflare`, `wrangler`, `@repo/platform-cloudflare`, `cloudflare:*`,
+`getCloudflareContext()` or Cloudflare runtime type outside the adapters; contract suites only in tests).
 
 - Need a repo-wide rule? **Add a guard test, not a linter.**
 - A guard reads source through `readSourceFiles` from `@repo/core/testing/sourceIndex` (one
