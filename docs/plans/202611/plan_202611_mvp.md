@@ -25,8 +25,9 @@ the detail for one phase lives only in that phase's plan.
 | 0 | [Foundation](plan_202611_p00_foundation.md) | rename, contact example removed, studio design system (tokens, Inter, primitives, `/admin/design`), CI on master, encrypted backups | — | done |
 | 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | done |
 | 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | done |
-| 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, SMTP, templates | 1 | placeholder |
-| 4 | [Studio settings](plan_202611_p04_studio_settings.md) | branding, gallery theming system and fonts, gallery defaults, presets, email settings | 2, 3 | placeholder |
+| 2b | [Settings in the database](plan_202611_p02b_settings_db.md) | the admin account in D1 (Settings → Security), studio name and website address (Settings → Studio), env only as defaults | 2 | draft |
+| 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, mail adapters (SMTP, Brevo, SES, Microsoft 365), Settings → Emails, security notices | 1, 2b | draft |
+| 4 | [Studio settings](plan_202611_p04_studio_settings.md) | branding, gallery theming system and fonts, gallery defaults, presets, email template text and sender branding | 2, 2b, 3 | placeholder |
 | 5 | [Galleries and upload](plan_202611_p05_galleries_upload.md) | new gallery, browser image pipeline, gallery manager, sharing | 1, 4 | placeholder |
 | 6 | [Client gallery](plan_202611_p06_client_gallery.md) | access gate, gallery, lightbox, mobile, protected delivery | 5 | placeholder |
 | 7 | [Proofing](plan_202611_p07_proofing.md) | favourites, lists, comments, retouch, review and submit | 3, 6 | placeholder |
@@ -46,7 +47,7 @@ their dependencies are done.
 | Name | **Memoria** (Worker `memoria`, D1 `memoria`, R2 `memoria-media`, relay Worker `memoria-relay`). |
 | Hosting | Cloudflare Workers free tier now; a **core + platform adapters** so a Docker deployment can be added later without touching domain code (Phase 1). |
 | Users | One master user (the photographer). No team roles. **TOTP is required**; the first authenticator is enrolled at sign-in with a setup code from `npm run admin:mfa`. No passkeys (Phase 2). |
-| Email | **SMTP**, sent by a separate **relay Worker** that also runs small background jobs (Phase 3). |
+| Email | Sent by a separate **relay Worker** (which also runs small background jobs) through SMTP, Brevo, Amazon SES or Microsoft 365 (Phase 3). |
 | Formats | JPEG, PNG, WebP only. No HEIC, TIFF, RAW or AVIF. |
 | Uploads | Usually Lightroom web exports (~2048 px sRGB JPEG). The uploaded file is kept as the original, **GPS stripped**, the rest of EXIF kept (Phase 5). |
 | Generated sizes | As few as possible, configurable per gallery at creation. Default: one ~800 px WebP grid thumbnail; a 2048 px display copy only when the upload is larger or the gallery is watermarked (Phase 5). |
@@ -55,6 +56,8 @@ their dependencies are done.
 | Image delivery | Chosen per gallery at creation. Default **public**: R2 on a custom domain, unguessable keys, served by the CDN (no Worker requests). Option **protected**: every image checked by the Worker, one Worker request per image (Phase 6). |
 | ZIP downloads | Built **in the client's browser** (Phase 9). |
 | Analytics | A **name or an email is asked before any download** (user, 2026-11-12), so every download is attributed, never anonymous; nothing is asked to view. Per visitor: browser, OS, device, country/city, IP (full IP kept 30 days) (Phase 11). |
+| Settings | **What the photographer may change lives in D1 and is edited in the studio** (user, 2026-11-13): the sign-in email and password, studio name, website address, email delivery, later branding. Env vars are deploy-level secrets plus defaults for development and a first install (Phase 2b). |
+| Email adapters | SMTP (own client), Brevo, Amazon SES, Microsoft 365 (Graph, OAuth) behind one `Mailer` port (user, 2026-11-13); Google later (Phase 3). |
 | No sales | **No sales features at all** (user, 2026-11-12): no store, orders, prices or billing. A gallery may limit how many photos a selection includes; nothing is priced. |
 
 ### Phase 1 decisions (2026-11-12)
@@ -115,6 +118,7 @@ D1 memoria                  shared by both Workers
 | --- | --- |
 | 0 | drops `contact_messages` (never shipped) |
 | 2 | `admin_authenticators`, `admin_recovery_codes`, `admin_setup_codes`, `admin_mfa_challenges`; `admin_sessions` rebuilt |
+| 2b | `admin_account` (the `studio` row in `site_settings`) |
 | 3 | `jobs` |
 | 4 | `presets` (studio settings live in the existing `site_settings`) |
 | 5 | `galleries`, `photo_sets`, `photos` |

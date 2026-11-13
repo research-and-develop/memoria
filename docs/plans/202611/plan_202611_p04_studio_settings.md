@@ -50,7 +50,7 @@ The photographer sets the studio's branding and the defaults every new gallery s
   `components/admin/settings/nav.ts`. Branding, Watermarks and Emails are listed as *Soon* (phase 4):
   each one's page is `app/admin/(panel)/settings/<id>/page.tsx`, and its entry drops `soonPhase` in
   the same commit (`nav.test.ts` fails otherwise).
-- A section is a stack of `SecuritySection`-style cards (`components/admin/security/SecuritySection.tsx`:
+- A section is a stack of `SettingsCard`s (`components/admin/settings/SettingsCard.tsx`, promoted in Phase 2b;
   a `<h2>`, a line, an action); promote it to `components/admin/settings/` when a second section uses it.
 - Saving settings is an ordinary admin write; only two-factor and device changes need the confirm window.
 
