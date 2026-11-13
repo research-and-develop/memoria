@@ -151,11 +151,49 @@ describe('POST /api/admin/login (step 1: the password)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('is closed (503) until the admin email and password hash are configured', async () => {
+  it('is closed (503) while there is no account, with no command in the message', async () => {
     env.ADMIN_PASSWORD_HASH = '';
     const res = await login(jsonRequest('/api/admin/login', credentials()));
     expect(res.status).toBe(503);
-    expect(await res.json()).toMatchObject({ errorCode: 'ADMIN_NOT_CONFIGURED' });
+    const body = (await res.json()) as { errorCode: string; error: string; details?: { message?: string } };
+    expect(body.errorCode).toBe('ADMIN_NOT_CONFIGURED');
+    expect(JSON.stringify(body)).not.toMatch(/npm|admin:mfa/);
+  });
+
+  it('checks the rate limit and Turnstile before saying the account is missing', async () => {
+    env.ADMIN_PASSWORD_HASH = '';
+    turnstile.result = { ok: false, reason: 'invalid' };
+    expect((await login(jsonRequest('/api/admin/login', credentials()))).status).toBe(400);
+    turnstile.result = { ok: true };
+    await atFixedTime(async () => {
+      const headers = { 'cf-connecting-ip': '203.0.113.99' };
+      for (let i = 0; i < 10; i++) await login(jsonRequest('/api/admin/login', credentials(), { headers }));
+      expect((await login(jsonRequest('/api/admin/login', credentials(), { headers }))).status).toBe(429);
+    });
+  });
+
+  describe('the account in the database (Phase 2b)', () => {
+    const NEW_PASSWORD = 'the-database-password-456';
+    async function saveAccount(email: string, hash: string) {
+      await run(statement("INSERT INTO admin_account (id, email, password_hash, set_by) VALUES (1, ?, ?, 'studio')", [email, hash]), { db: testDb.db });
+    }
+
+    it('signs in with the database account, and the env one stops working', async () => {
+      await seedAuthenticator(testDb.db);
+      await saveAccount('owner@example.com', await hashPassword(NEW_PASSWORD, 1_000));
+      expect((await login(jsonRequest('/api/admin/login', credentials()))).status).toBe(401);
+      expect((await login(jsonRequest('/api/admin/login', credentials({ email: 'owner@example.com' })))).status).toBe(401);
+      const res = await login(jsonRequest('/api/admin/login', credentials({ email: 'Owner@Example.com', password: NEW_PASSWORD })));
+      expect(await res.json()).toEqual({ data: { next: 'code' } });
+    });
+
+    it('needs no env account once the database has one', async () => {
+      await seedAuthenticator(testDb.db);
+      env.ADMIN_EMAIL = '';
+      env.ADMIN_PASSWORD_HASH = '';
+      await saveAccount('owner@example.com', await hashPassword(NEW_PASSWORD, 1_000));
+      expect((await login(jsonRequest('/api/admin/login', credentials({ email: 'owner@example.com', password: NEW_PASSWORD })))).status).toBe(200);
+    });
   });
 
   it('validates the body', async () => {

@@ -21,9 +21,9 @@ describe('the test platform', () => {
   it('parses the env live on every call', () => {
     const env: Record<string, string> = { ADMIN_EMAIL: 'a@b.c' };
     useTestPlatform({ env });
-    expect(testPlatform.config().admin.email).toBe('a@b.c');
+    expect(testPlatform.config().bootstrap.adminEmail).toBe('a@b.c');
     env.ADMIN_EMAIL = 'X@Y.Z';
-    expect(testPlatform.config().admin.email).toBe('x@y.z');
+    expect(testPlatform.config().bootstrap.adminEmail).toBe('x@y.z');
   });
 
   it('uses the given parts, and a fresh memory store by default', async () => {

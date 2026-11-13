@@ -3,7 +3,9 @@
  * for two-factor sign-in (plan p02 → The CLI). Local D1 by default; `--remote`
  * for production (needs `wrangler login`).
  *
- *   list     authenticators, recovery codes, live sessions, a live setup code, the lockout
+ *   list     the account, authenticators, recovery codes, live sessions, a live setup code, the lockout
+ *   password a new generated password for the account (plan p02b); `--email <address>` also sets
+ *            the email, and is required while there is no account in the database
  *   setup    a one-time setup code to enrol the FIRST authenticator (valid 1 hour)
  *   reset    remove every authenticator, recovery code, challenge and session; print a new setup code
  *   unlock   clear the sign-in lockout (and the sign-in rate limits)
@@ -20,28 +22,46 @@ import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
+import { parseEmailAddress } from '../packages/core/email';
+import { generatePassword } from '../apps/web/src/lib/auth/generatePassword';
+import { hashPassword } from '../apps/web/src/lib/auth/password';
 import { generateSetupCode, normaliseSetupCode, SETUP_CODE_TTL_MS, setupCodeId } from '../apps/web/src/lib/auth/setupCode';
-import { listStatements, resetStatements, setupStatements, unlockStatements } from '../apps/web/src/lib/db/queries/admin_two_factor_cli/sql';
+import { listStatements, passwordStatements, resetStatements, setupStatements, unlockStatements } from '../apps/web/src/lib/db/queries/admin_two_factor_cli/sql';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = path.join(ROOT, 'apps', 'web');
 
-export const COMMANDS = ['list', 'setup', 'reset', 'unlock', 'key'] as const;
+export const COMMANDS = ['list', 'password', 'setup', 'reset', 'unlock', 'key'] as const;
 export type Command = (typeof COMMANDS)[number];
-export type Args = { command: Command; remote: boolean; yes: boolean };
+/** `email`: only with `password` (lower-cased); null = keep the account's. */
+export type Args = { command: Command; remote: boolean; yes: boolean; email: string | null };
 
-const USAGE = 'Usage: npm run admin:mfa -- <list|setup|reset|unlock|key> [--remote] [--yes]';
+const USAGE = 'Usage: npm run admin:mfa -- <list|password|setup|reset|unlock|key> [--email <address>] [--remote] [--yes]';
 
 export function parseArgs(argv: readonly string[]): Args | { error: string } {
-  const flags = argv.filter((a) => a.startsWith('-'));
-  const words = argv.filter((a) => !a.startsWith('-'));
+  const rest: string[] = [];
+  let email: string | null | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i] ?? '';
+    if (arg === '--email' || arg.startsWith('--email=')) {
+      const value = arg === '--email' ? argv[++i] : arg.slice('--email='.length);
+      const parsed = parseEmailAddress(value ?? '');
+      if (!parsed) return { error: `--email needs a valid email address. ${USAGE}` };
+      email = parsed.toLowerCase();
+    } else {
+      rest.push(arg);
+    }
+  }
+  const flags = rest.filter((a) => a.startsWith('-'));
+  const words = rest.filter((a) => !a.startsWith('-'));
   const unknown = flags.filter((f) => f !== '--remote' && f !== '--yes' && f !== '-y');
   if (unknown.length) return { error: `Unknown option ${unknown.join(', ')}. ${USAGE}` };
   if (words.length !== 1 || !COMMANDS.includes(words[0] as Command)) return { error: USAGE };
   const command = words[0] as Command;
   const remote = flags.includes('--remote');
   if (command === 'key' && remote) return { error: '`key` does not touch a database: drop --remote.' };
-  return { command, remote, yes: flags.includes('--yes') || flags.includes('-y') };
+  if (email !== undefined && command !== 'password') return { error: '--email goes with `password` only.' };
+  return { command, remote, yes: flags.includes('--yes') || flags.includes('-y'), email: email ?? null };
 }
 
 /** The D1 database_id in wrangler.jsonc, or null while it is the all-zeros placeholder (no production D1 yet). */
@@ -55,6 +75,8 @@ export function remotePlan(command: Exclude<Command, 'key'>): string {
   switch (command) {
     case 'list':
       return 'Read the two-factor state of the PRODUCTION database.';
+    case 'password':
+      return 'Replace the sign-in password in the PRODUCTION database with a new one (everyone is signed out).';
     case 'setup':
       return 'Store a new setup code in the PRODUCTION database (only if no authenticator is registered).';
     case 'reset':
@@ -108,8 +130,30 @@ async function storeSetupCode(remote: boolean, reset: boolean): Promise<void> {
   console.log('Sign in with the email and password, then enter this code to connect an authenticator app.');
 }
 
+async function setPassword(email: string | null, remote: boolean): Promise<void> {
+  const password = generatePassword();
+  const statements = passwordStatements({ email, passwordHash: await hashPassword(password), auditId: crypto.randomUUID(), now: new Date().toISOString() });
+  const stored = runD1(statements, remote).at(-1)?.results?.[0]?.email;
+  if (typeof stored !== 'string') {
+    console.log('No account in the database yet: pass --email <address> to create it.');
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`\nSign-in for ${stored} (every device is signed out):\n\n    email:    ${stored}\n    password: ${password}\n`);
+  console.log('Give this to the photographer; they choose their own in Settings → Security.');
+  console.log('This password is shown once and not stored anywhere else.');
+  console.log(`Sign-in also needs TOTP_ENCRYPTION_KEY on the Worker and an authenticator (\`npm run admin:mfa -- setup${remote ? ' --remote' : ''}\` for the first one).`);
+}
+
+export function describeAccount(row: Record<string, unknown> | undefined): string {
+  if (!row?.email) return 'Account: none in the database (ADMIN_EMAIL / ADMIN_PASSWORD_HASH from env are used if set)';
+  const who = row.set_by === 'cli' ? 'the command line' : row.set_by === 'studio' ? 'the photographer' : 'env (carried over)';
+  return `Account: ${String(row.email)} (database, password set by ${who}, ${String(row.updated_at).slice(0, 16).replace('T', ' ')})`;
+}
+
 function printList(results: StatementOutput[]): void {
   const rows = (i: number) => results[i]?.results ?? [];
+  console.log(describeAccount(rows(5)[0]));
   const apps = rows(0);
   console.log(`Authenticator apps: ${apps.length}`);
   for (const a of apps) console.log(`  - ${String(a.label)}  (added ${String(a.created_at).slice(0, 10)}, last used ${a.last_used_at ? String(a.last_used_at).slice(0, 16).replace('T', ' ') : 'never'})`);
@@ -167,6 +211,8 @@ export async function main(argv: readonly string[]): Promise<void> {
       printList(runD1(listStatements({ now: now.toISOString(), dayStart: `${now.toISOString().slice(0, 10)}T00:00:00.000Z` }), args.remote));
       return;
     }
+    case 'password':
+      return setPassword(args.email, args.remote);
     case 'setup':
       return storeSetupCode(args.remote, false);
     case 'reset':

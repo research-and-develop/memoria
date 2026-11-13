@@ -7,6 +7,7 @@ import { run } from '@repo/db/client';
 import { logger } from '@repo/logger';
 import { getPlatform } from '@repo/platform/current';
 
+import { readAdminAccount } from '@/lib/auth/account';
 import { challengeCookie, challengeCookieName, challengeIdFromToken, clearedChallengeCookie, startSignInChallenge } from '@/lib/auth/challenge';
 import { noStore, notConfigured, signInError, signInLocked } from '@/lib/auth/codeStep';
 import { constantTimeEqualStrings } from '@/lib/auth/crypto';
@@ -35,8 +36,9 @@ const WRONG = 'Wrong email or password.';
 /**
  * Sign-in step 1: the password. Order matters: same-origin → parse → count
  * the attempt (rate limit) → the code lockout (before the password, so it
- * reveals nothing) → Turnstile → credentials (email and password always both
- * checked, so timing does not reveal which was wrong) → a challenge for step 2.
+ * reveals nothing) → Turnstile → the account (D1, else env: lib/auth/account.ts;
+ * none → 503, D2b.11) → credentials (email and password always both checked, so
+ * timing does not reveal which was wrong) → a challenge for step 2.
  * No session exists yet: `next` says which step the page shows.
  */
 export const POST = withErrorHandling(
@@ -48,13 +50,6 @@ export const POST = withErrorHandling(
 
     const platform = getPlatform();
     const config = platform.config();
-    const { email: adminEmail, passwordHash } = config.admin;
-    if (!adminEmail || !passwordHash) {
-      throw new AppError('Admin login is not configured', 'ADMIN_NOT_CONFIGURED', {
-        status: 503,
-        message: 'The admin sign-in is not configured yet.',
-      });
-    }
 
     const ip = clientIp(req);
     const now = new Date();
@@ -80,7 +75,16 @@ export const POST = withErrorHandling(
       });
     }
 
-    const emailOk = constantTimeEqualStrings(parsed.value.email, adminEmail);
+    const account = await readAdminAccount();
+    if (!account) {
+      logger.error({ event: 'admin_not_configured', hint: 'npm run admin:mfa -- password --email <address> [--remote]' });
+      throw new AppError('Admin login is not configured', 'ADMIN_NOT_CONFIGURED', {
+        status: 503,
+        message: 'Sign-in is not set up yet. Ask whoever installed this site.',
+      });
+    }
+    const { passwordHash } = account;
+    const emailOk = constantTimeEqualStrings(parsed.value.email.trim().toLowerCase(), account.email);
     const passwordOk = await verifyPassword(parsed.value.password, passwordHash);
     if (!emailOk || !passwordOk) {
       logger.info({ event: 'admin_login_failed' });

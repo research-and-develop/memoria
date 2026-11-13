@@ -1,10 +1,20 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { run, statement } from '@repo/db/client';
+import { createTestDb, type TestDb } from '@repo/db/test-utils';
 import { resetTestPlatform, useTestPlatform } from '@repo/platform/testing/platform';
 
 import { getAppConfig } from './appConfig';
 
-afterEach(() => resetTestPlatform());
+let testDb: TestDb;
+beforeAll(async () => {
+  testDb = await createTestDb();
+});
+afterEach(async () => {
+  resetTestPlatform();
+  await testDb.reset();
+});
+afterAll(() => testDb.dispose());
 
 /** Every secret the env can hold, each with a value that is easy to spot. */
 const SECRETS = {
@@ -18,20 +28,30 @@ const SECRETS = {
 };
 
 describe('getAppConfig', () => {
-  it('hands the client the public values', () => {
-    useTestPlatform({ env: { APP_NAME: ' Studio ', TURNSTILE_SITE_KEY: 'site-key' } });
-    expect(getAppConfig()).toEqual({ appName: 'Studio', turnstileSiteKey: 'site-key' });
+  it('hands the client the public values', async () => {
+    useTestPlatform({ db: testDb.db, env: { APP_NAME: ' Studio ', TURNSTILE_SITE_KEY: 'site-key' } });
+    expect(await getAppConfig()).toEqual({ appName: 'Studio', turnstileSiteKey: 'site-key' });
   });
 
-  it('defaults the name and leaves the site key empty', () => {
-    expect(getAppConfig()).toEqual({ appName: 'Memoria', turnstileSiteKey: '' });
+  it('defaults the name and leaves the site key empty', async () => {
+    useTestPlatform({ db: testDb.db });
+    expect(await getAppConfig()).toEqual({ appName: 'Memoria', turnstileSiteKey: '' });
   });
 
-  it('never carries a secret', () => {
+  it('takes the studio name from Settings → Studio', async () => {
+    useTestPlatform({ db: testDb.db, env: { APP_NAME: 'Env' } });
+    await run(statement("INSERT INTO site_settings (key, value) VALUES ('studio', ?)", [JSON.stringify({ name: 'North Light', siteUrl: null })]), {
+      db: testDb.db,
+    });
+    expect((await getAppConfig()).appName).toBe('North Light');
+  });
+
+  it('never carries a secret', async () => {
     useTestPlatform({
+      db: testDb.db,
       env: { ...SECRETS, ADMIN_EMAIL: 'admin@example.com', MEDIA_S3_ENDPOINT: 'https://acct.example.com', MEDIA_S3_BUCKET: 'bucket' },
     });
-    const serialised = JSON.stringify(getAppConfig());
+    const serialised = JSON.stringify(await getAppConfig());
     for (const value of Object.values(SECRETS)) expect(serialised).not.toContain(value);
     expect(serialised).not.toContain('admin@example.com');
   });

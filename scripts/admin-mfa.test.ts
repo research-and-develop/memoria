@@ -1,19 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
-import { d1Args, parseArgs, parseD1Output, remoteDatabaseId, remotePlan } from './admin-mfa';
+import { d1Args, describeAccount, parseArgs, parseD1Output, remoteDatabaseId, remotePlan } from './admin-mfa';
 
 describe('admin:mfa arguments', () => {
   it.each([
-    [['setup'], { command: 'setup', remote: false, yes: false }],
-    [['reset', '--remote'], { command: 'reset', remote: true, yes: false }],
-    [['--remote', 'unlock', '--yes'], { command: 'unlock', remote: true, yes: true }],
-    [['list', '-y'], { command: 'list', remote: false, yes: true }],
-    [['key'], { command: 'key', remote: false, yes: false }],
+    [['setup'], { command: 'setup', remote: false, yes: false, email: null }],
+    [['reset', '--remote'], { command: 'reset', remote: true, yes: false, email: null }],
+    [['--remote', 'unlock', '--yes'], { command: 'unlock', remote: true, yes: true, email: null }],
+    [['list', '-y'], { command: 'list', remote: false, yes: true, email: null }],
+    [['key'], { command: 'key', remote: false, yes: false, email: null }],
+    [['password'], { command: 'password', remote: false, yes: false, email: null }],
+    [['password', '--email', ' Owner@Example.com ', '--remote'], { command: 'password', remote: true, yes: false, email: 'owner@example.com' }],
+    [['password', '--email=owner@example.com'], { command: 'password', remote: false, yes: false, email: 'owner@example.com' }],
   ])('%j', (argv, expected) => {
     expect(parseArgs(argv)).toEqual(expected);
   });
 
-  it.each([[[]], [['nope']], [['setup', 'reset']], [['setup', '--force']], [['key', '--remote']]])('refuses %j', (argv) => {
+  it.each([
+    [[]],
+    [['nope']],
+    [['setup', 'reset']],
+    [['setup', '--force']],
+    [['key', '--remote']],
+    [['password', '--email']],
+    [['password', '--email', "o'wner@example.com"]],
+    [['password', '--email', 'not-an-email']],
+    [['setup', '--email', 'owner@example.com']],
+  ])('refuses %j', (argv) => {
     expect(parseArgs(argv)).toHaveProperty('error');
   });
 });
@@ -27,6 +40,7 @@ describe('--remote', () => {
 
   it('says what it will do before asking', () => {
     expect(remotePlan('reset')).toMatch(/PRODUCTION.*signed out/);
+    expect(remotePlan('password')).toMatch(/PRODUCTION.*signed out/);
     expect(remotePlan('list')).toMatch(/Read/);
   });
 
@@ -40,5 +54,14 @@ describe('parseD1Output', () => {
   it('reads the JSON after any banner wrangler prints', () => {
     expect(parseD1Output('▲ [WARNING] something\n[{"results":[{"a":1}],"success":true}]')).toEqual([{ results: [{ a: 1 }], success: true }]);
     expect(() => parseD1Output('no json')).toThrow(/no JSON/);
+  });
+});
+
+describe('describeAccount', () => {
+  it('names the account and who set its password, or says there is none', () => {
+    expect(describeAccount(undefined)).toMatch(/none in the database/);
+    expect(describeAccount({ email: 'owner@example.com', set_by: 'cli', updated_at: '2026-11-13T10:00:00.000Z' })).toBe(
+      'Account: owner@example.com (database, password set by the command line, 2026-11-13 10:00)',
+    );
   });
 });

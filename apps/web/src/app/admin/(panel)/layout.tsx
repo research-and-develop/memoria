@@ -19,5 +19,5 @@ export const metadata: Metadata = {
 export default async function AdminPanelLayout({ children }: { children: React.ReactNode }) {
   const session = await getAdminSession();
   if (!session) redirect('/admin/login');
-  return <AdminShell appName={getAppConfig().appName}>{children}</AdminShell>;
+  return <AdminShell appName={(await getAppConfig()).appName}>{children}</AdminShell>;
 }

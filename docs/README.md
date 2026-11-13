@@ -20,7 +20,8 @@ The project wiki. Conventions: [wiki-conventions.md](wiki-conventions.md).
   - [p00 Foundation](plans/202611/plan_202611_p00_foundation.md) — `done`
   - [p01 Core and adapters](plans/202611/plan_202611_p01_core_adapters.md) — `done`
   - [p02 Admin shell and TOTP](plans/202611/plan_202611_p02_admin_totp.md) — `done`
-  - [p03 Relay Worker and email](plans/202611/plan_202611_p03_relay_email.md) — `placeholder`
+  - [p02b Settings in the database](plans/202611/plan_202611_p02b_settings_db.md) — `in-progress`
+  - [p03 Relay Worker and email](plans/202611/plan_202611_p03_relay_email.md) — `draft`
   - [p04 Studio settings](plans/202611/plan_202611_p04_studio_settings.md) — `placeholder`
   - [p05 Galleries and upload](plans/202611/plan_202611_p05_galleries_upload.md) — `placeholder`
   - [p06 Client gallery](plans/202611/plan_202611_p06_client_gallery.md) — `placeholder`

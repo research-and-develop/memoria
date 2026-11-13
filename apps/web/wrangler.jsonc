@@ -46,6 +46,8 @@
   // Plain, non-secret config. Secrets go in `.dev.vars` locally and
   // `wrangler secret put` in production — never here (the guard checks names).
   "vars": {
+    // The studio name and website address are DEFAULTS: Settings → Studio (D1)
+    // wins once saved (plan p02b).
     "APP_NAME": "Memoria",
     // The canonical origin (canonical URLs, robots.txt, email links). Empty = the
     // origin of each request (workers.dev, preview URLs, localhost).

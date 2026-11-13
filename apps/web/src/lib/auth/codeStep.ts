@@ -11,6 +11,7 @@ import { CHALLENGE_MAX_ATTEMPTS, countChallengeAttempt, deleteChallengeStatement
 import { ipKey } from '@/lib/security/rateLimit';
 import { clientCountry, clientIp, isSecureRequest, readCookie } from '@/lib/security/request';
 
+import { readAdminAccount } from './account';
 import { challengeCookieName, clearedChallengeCookie, loadSignInChallenge, type SignInChallenge } from './challenge';
 import { hitCodeRateLimits, isSignInLocked, recordCodeFailure, type SignedIn, type SignInContext } from './secondFactor';
 import { sessionCookie, type CookieSpec } from './session';
@@ -71,7 +72,8 @@ export async function beginCodeStep(
   const secure = isSecureRequest(req.headers, req.url);
   const config = getPlatform().config();
   const now = new Date();
-  const loaded = await loadSignInChallenge(readCookie(req.headers, challengeCookieName(secure)), { passwordHash: config.admin.passwordHash, now }, opts);
+  const passwordHash = (await readAdminAccount(opts))?.passwordHash ?? '';
+  const loaded = await loadSignInChallenge(readCookie(req.headers, challengeCookieName(secure)), { passwordHash, now }, opts);
   if (loaded.status === 'already_enrolled') return { ok: false, response: alreadyEnrolled(secure) };
   if (loaded.status === 'none') return { ok: false, response: challengeExpired(secure) };
   const { challenge } = loaded;
@@ -99,7 +101,7 @@ export async function beginCodeStep(
 
   const ctx: SignInContext = {
     keys: await twoFactorKeys(config.admin.totpKey),
-    passwordHash: config.admin.passwordHash,
+    passwordHash,
     userAgent: req.headers.get('user-agent') ?? '',
     country: clientCountry(req.headers),
     now,

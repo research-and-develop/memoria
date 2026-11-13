@@ -13,6 +13,7 @@ import { SetupCodeForm } from '@/components/admin/login/SetupCodeForm';
 import { StartOver } from '@/components/admin/login/StartOver';
 import { StepHeading } from '@/components/admin/login/StepHeading';
 import { LoginForm } from '@/components/admin/LoginForm';
+import { getAdminAccount } from '@/lib/auth/account.cached';
 import { challengeCookieName, loadSignInChallenge } from '@/lib/auth/challenge';
 import { getAdminSession } from '@/lib/auth/requireAdmin';
 import { pendingSecret } from '@/lib/auth/secondFactor';
@@ -21,6 +22,7 @@ import { otpauthUri } from '@/lib/auth/totp';
 import { twoFactorKeys } from '@/lib/auth/twoFactorKeys';
 import { defaultAuthenticatorLabel } from '@/lib/auth/userAgent';
 import { isSecureRequest } from '@/lib/security/request';
+import { getStudio } from '@/lib/settings/studio.cached';
 
 export const metadata: Metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -51,7 +53,9 @@ async function Step({ next }: { next: string }) {
   const config = getPlatform().config();
   const h = await headers();
   const token = (await cookies()).get(challengeCookieName(isSecureRequest(h)))?.value;
-  const loaded = await loadSignInChallenge(token, { passwordHash: config.admin.passwordHash, now: new Date() });
+  const account = await getAdminAccount();
+  if (!account) return <LoginForm />;
+  const loaded = await loadSignInChallenge(token, { passwordHash: account.passwordHash, now: new Date() });
   if (loaded.status !== 'live') return <LoginForm />;
 
   const { challenge } = loaded;
@@ -70,12 +74,13 @@ async function Step({ next }: { next: string }) {
       </div>
     );
   }
+  const studio = await getStudio();
   return (
     <EnrollForm
       secret={secret}
-      otpauthUri={otpauthUri({ issuer: config.appName, account: config.admin.email, secret })}
+      otpauthUri={otpauthUri({ issuer: studio.name, account: account.email, secret })}
       defaultLabel={defaultAuthenticatorLabel(h.get('user-agent'))}
-      appName={config.appName}
+      appName={studio.name}
       next={next}
     />
   );

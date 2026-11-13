@@ -1,11 +1,13 @@
 /**
- * The SQL of `npm run admin:mfa` (scripts/admin-mfa.ts, plan p02 → The CLI).
+ * The SQL of `npm run admin:mfa` (scripts/admin-mfa.ts, plan p02 → The CLI;
+ * `password`: plan p02b).
  *
  * NO IMPORTS: the command runs under tsx, outside Next, and cannot load
  * `@repo/db/client` (server-only). It sends plain SQL to
  * `wrangler d1 execute DB --command`, which takes no parameters, so every
  * value is checked by shape before it is written into a statement: a 64-hex
- * id, a UUID, an ISO-8601 UTC timestamp. Anything else throws.
+ * id, a UUID, an ISO-8601 UTC timestamp, an email address, a password hash.
+ * Anything else throws.
  *
  * Order matters where a command removes things (D2.13): what could grant a
  * new session goes first (setup codes, authenticators, recovery codes), then
@@ -21,7 +23,14 @@ function checked(value: string, shape: RegExp, what: string): string {
   return `'${value}'`;
 }
 
+/** After `parseEmailAddress` and lower-casing: no quote can reach the statement. */
+const ACCOUNT_EMAIL = /^[a-z0-9._+-]{1,64}@[a-z0-9.-]{3,253}$/;
+/** `pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>` (lib/auth/password.ts). */
+const PASSWORD_HASH = /^pbkdf2-sha256\$\d{4,6}\$[A-Za-z0-9+/=]{16,120}\$[A-Za-z0-9+/=]{16,120}$/;
+
 export const hex64 = (value: string) => checked(value, HEX64, '64-hex id');
+export const accountEmail = (value: string) => checked(value, ACCOUNT_EMAIL, 'email address');
+export const passwordHash = (value: string) => checked(value, PASSWORD_HASH, 'password hash');
 export const uuid = (value: string) => checked(value, UUID, 'UUID');
 export const isoTime = (value: string) => checked(value, ISO, 'ISO-8601 UTC timestamp');
 
@@ -65,6 +74,33 @@ export function unlockStatements(): string[] {
   return [`DELETE FROM rate_limits WHERE bucket LIKE ${SIGN_IN_BUCKETS_LIKE}`];
 }
 
+/**
+ * `password` (plan p02b, D2b.8): store a new password hash, set by the CLI
+ * (`set_by = 'cli'`: the photographer is asked to choose their own). With an
+ * email, the account is created or its email replaced; without one, only an
+ * existing account changes. The developer wins: no check on the old hash. Then,
+ * only if the account now holds the new hash: an audit row, every sign-in
+ * challenge and session ended. The last SELECT reads the account back (no row =
+ * there was no account and no email was given).
+ */
+export function passwordStatements(input: { email: string | null; passwordHash: string; auditId: string; now: string }): string[] {
+  const hash = passwordHash(input.passwordHash);
+  const now = isoTime(input.now);
+  const holds = `EXISTS (SELECT 1 FROM admin_account WHERE id = 1 AND password_hash = ${hash})`;
+  const save =
+    input.email === null
+      ? `UPDATE admin_account SET password_hash = ${hash}, set_by = 'cli', updated_at = ${now} WHERE id = 1`
+      : `INSERT INTO admin_account (id, email, password_hash, set_by, updated_at) VALUES (1, ${accountEmail(input.email)}, ${hash}, 'cli', ${now}) ` +
+        "ON CONFLICT (id) DO UPDATE SET email = excluded.email, password_hash = excluded.password_hash, set_by = 'cli', updated_at = excluded.updated_at";
+  return [
+    save,
+    `INSERT INTO audit_log (id, action, entity, entity_id, summary) SELECT ${uuid(input.auditId)}, 'update', 'admin_account', '1', 'Password set from the command line' WHERE ${holds}`,
+    `DELETE FROM admin_mfa_challenges WHERE ${holds}`,
+    `DELETE FROM admin_sessions WHERE ${holds}`,
+    `SELECT email FROM admin_account WHERE id = 1 AND password_hash = ${hash}`,
+  ];
+}
+
 /** What `list` shows, one SELECT per section (in this order). */
 export function listStatements(input: { now: string; dayStart: string }): string[] {
   const now = isoTime(input.now);
@@ -74,5 +110,6 @@ export function listStatements(input: { now: string; dayStart: string }): string
     `SELECT second_factor, user_agent, country, created_at, last_seen_at FROM admin_sessions WHERE expires_at > ${now} ORDER BY last_seen_at DESC LIMIT 20`,
     `SELECT max(expires_at) AS expires_at FROM admin_setup_codes WHERE expires_at > ${now}`,
     `SELECT coalesce(max(count), 0) AS failures FROM rate_limits WHERE bucket = ${CODE_FAILURE_BUCKET} AND window_start = ${isoTime(input.dayStart)}`,
+    'SELECT email, set_by, updated_at FROM admin_account WHERE id = 1',
   ];
 }

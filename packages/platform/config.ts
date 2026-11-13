@@ -40,14 +40,14 @@ export function parseConfig(env: StringEnv): Config {
     secretAccessKey: optional(env, 'MEDIA_S3_SECRET_ACCESS_KEY'),
   };
   return {
-    appName: text(env, 'APP_NAME') || 'Memoria',
-    siteUrl: origin(env, 'SITE_URL'),
-    isDevelopment: text(env, 'NEXTJS_ENV') === 'development',
-    admin: {
-      email: text(env, 'ADMIN_EMAIL').toLowerCase(),
-      passwordHash: text(env, 'ADMIN_PASSWORD_HASH'),
-      totpKey: key32(env, 'TOTP_ENCRYPTION_KEY'),
+    bootstrap: {
+      appName: text(env, 'APP_NAME') || 'Memoria',
+      siteUrl: origin(env, 'SITE_URL'),
+      adminEmail: text(env, 'ADMIN_EMAIL').toLowerCase(),
+      adminPasswordHash: text(env, 'ADMIN_PASSWORD_HASH'),
     },
+    isDevelopment: text(env, 'NEXTJS_ENV') === 'development',
+    admin: { totpKey: key32(env, 'TOTP_ENCRYPTION_KEY') },
     turnstile: { siteKey: text(env, 'TURNSTILE_SITE_KEY'), secretKey: text(env, 'TURNSTILE_SECRET_KEY') },
     hashSalt: text(env, 'HASH_SALT'),
     media: {

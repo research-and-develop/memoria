@@ -70,17 +70,29 @@ export type S3Config = { endpoint: string; bucket: string; accessKeyId: string; 
  * secrets: server code only. The public subset reaches the browser through the app's `AppConfig`.
  */
 export type Config = {
-  appName: string;
-  /** The canonical origin, without a trailing slash; null = the origin of each request. */
-  siteUrl: string | null;
+  /**
+   * The env DEFAULTS of studio-level settings (plan p02b, D2b.1–3): what a fresh install and local
+   * development start from. A value saved in the studio (D1) wins, so domain code never reads these
+   * directly: `readAdminAccount()` (apps/web lib/auth/account.ts) and `readStudio()` (lib/settings)
+   * do. Guard: scripts/guards/settings-through-store.test.ts.
+   */
+  bootstrap: {
+    /** `APP_NAME`, default "Memoria". */
+    appName: string;
+    /** `SITE_URL`: an origin without a trailing slash; null = the origin of each request. */
+    siteUrl: string | null;
+    /** `ADMIN_EMAIL`, lower-cased; empty = none. */
+    adminEmail: string;
+    /** `ADMIN_PASSWORD_HASH`, trimmed; empty = none. */
+    adminPasswordHash: string;
+  };
   /** `NEXTJS_ENV=development` (local dev and preview only; never set in production). */
   isDevelopment: boolean;
   /**
-   * Empty email or hash = the admin login is closed. The email is lower-cased. `totpKey`: the
-   * 32-byte `TOTP_ENCRYPTION_KEY` that protects two-factor secrets; null = two-factor sign-in
-   * answers 503 (so the admin is closed too).
+   * `totpKey`: the 32-byte `TOTP_ENCRYPTION_KEY` that protects two-factor secrets; null = two-factor
+   * sign-in answers 503 (so the admin is closed too).
    */
-  admin: { email: string; passwordHash: string; totpKey: Uint8Array | null };
+  admin: { totpKey: Uint8Array | null };
   turnstile: { siteKey: string; secretKey: string };
   hashSalt: string;
   media: {

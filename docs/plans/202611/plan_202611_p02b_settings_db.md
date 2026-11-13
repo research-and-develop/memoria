@@ -1,7 +1,7 @@
 ---
 title: "Phase 2b: Settings in the database"
 type: plan
-status: draft
+status: in-progress
 updated: 2026-11-13
 related: [plan_202611_mvp.md, plan_202611_p02_admin_totp.md, plan_202611_p03_relay_email.md, ../../architecture.md, ../../deployment.md, ../../../AGENTS.md]
 ---
@@ -296,7 +296,7 @@ Milestones: **M1** = commits 1–2, **M2** = commits 3–4.
 
 ## Checklist
 
-- [ ] T2b.1 Account table, `Config.bootstrap`, effective account, readers, CLI, guard
+- [x] T2b.1 Account table, `Config.bootstrap`, effective account, readers, CLI, guard
 - [ ] T2b.2 Sign-in card and account routes
 - [ ] T2b.3 Studio settings and section
 - [ ] T2b.4 Docs and status

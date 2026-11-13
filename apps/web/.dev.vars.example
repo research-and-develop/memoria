@@ -27,10 +27,14 @@ TURNSTILE_SITE_KEY=1x00000000000000000000AA
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 
 # --- Admin login (docs/architecture.md → Admin) ------------------------------
+# DEVELOPMENT AND FIRST INSTALL ONLY. The sign-in account lives in D1
+# (`admin_account`) once it is saved in Settings → Security or created with
+# `npm run admin:mfa -- password --email <address>`; from then on these two are
+# ignored. Production needs neither: create the account with the command
+# (`--remote`) and do not set these secrets (plan p02b, D2b.2).
 ADMIN_EMAIL=admin@example.local
 # The hash of the LOCAL password "local-dev-password-2026", made by
-# `npm run admin:hash-password`. Never use it in production:
-# `npx wrangler secret put ADMIN_PASSWORD_HASH` with a new one.
+# `npm run admin:hash-password`.
 ADMIN_PASSWORD_HASH=pbkdf2-sha256$20000$xBlyF6CYfAzM56uMEF6qog==$fMOE3mH2XUr3KwEcMVYnLQgfXjWKGEJDbmXJKmBNF40=
 
 # A random secret mixed into the hash of a visitor's IP for rate limiting, so

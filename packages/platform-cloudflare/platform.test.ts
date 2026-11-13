@@ -18,7 +18,7 @@ describe('cloudflarePlatform', () => {
     const env = { ...bindings, ADMIN_EMAIL: ' A@B.C ' };
     const platform = cloudflarePlatform(env, () => {});
     expect(platform.name).toBe('cloudflare');
-    expect(platform.config().admin.email).toBe('a@b.c');
+    expect(platform.config().bootstrap.adminEmail).toBe('a@b.c');
   });
 
   it('hands deferred work to waitUntil at call time, with failures caught', async () => {

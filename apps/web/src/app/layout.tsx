@@ -15,7 +15,7 @@ import { monoFont, textFont } from './fonts';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { appName } = getAppConfig();
+  const { appName } = await getAppConfig();
   return {
     metadataBase: new URL(await getSiteUrl()),
     title: { default: appName, template: `%s | ${appName}` },
@@ -33,8 +33,8 @@ export const viewport: Viewport = {
  * `variable` classes on <html>; the theme's font stacks read them, and globals.css
  * holds system fallbacks.
  */
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const config = getAppConfig();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const config = await getAppConfig();
   return (
     <html lang="en" className={`${textFont.variable} ${monoFont.variable}`} data-scroll-behavior="smooth">
       <body className="bg-ground font-sans text-body text-ink antialiased">

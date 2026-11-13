@@ -15,10 +15,9 @@ const S3 = {
 describe('parseConfig', () => {
   it('closes every feature on an empty env', () => {
     expect(parseConfig({})).toEqual({
-      appName: 'Memoria',
-      siteUrl: null,
+      bootstrap: { appName: 'Memoria', siteUrl: null, adminEmail: '', adminPasswordHash: '' },
       isDevelopment: false,
-      admin: { email: '', passwordHash: '', totpKey: null },
+      admin: { totpKey: null },
       turnstile: { siteKey: '', secretKey: '' },
       hashSalt: '',
       media: { devSigningSecret: null, publicBaseUrl: null, s3: null },
@@ -41,10 +40,9 @@ describe('parseConfig', () => {
       ...S3,
     });
     expect(config).toEqual({
-      appName: 'Studio',
-      siteUrl: 'https://photos.example.com',
+      bootstrap: { appName: 'Studio', siteUrl: 'https://photos.example.com', adminEmail: 'admin@example.com', adminPasswordHash: 'pbkdf2$1' },
       isDevelopment: true,
-      admin: { email: 'admin@example.com', passwordHash: 'pbkdf2$1', totpKey: KEY },
+      admin: { totpKey: KEY },
       turnstile: { siteKey: 'site', secretKey: 'secret' },
       hashSalt: 'salt',
       media: {
@@ -93,6 +91,6 @@ describe('parseConfig', () => {
     ['blank', '  ', null],
     ['slashes only', '//', null],
   ])('SITE_URL %s → null', (_label, value, expected) => {
-    expect(parseConfig({ SITE_URL: value }).siteUrl).toBe(expected);
+    expect(parseConfig({ SITE_URL: value }).bootstrap.siteUrl).toBe(expected);
   });
 });

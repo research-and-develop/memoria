@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { getPlatform } from '@repo/platform/current';
 import { Mono, Text } from '@repo/ui/typography';
 
 import { RecoveryCodesBanner } from '@/components/admin/RecoveryCodesBanner';
@@ -12,6 +11,7 @@ import { SecondFactorProvider } from '@/components/admin/security/SecondFactor';
 import { SecuritySection } from '@/components/admin/security/SecuritySection';
 import { SessionsSection, type SessionItem } from '@/components/admin/security/SessionsSection';
 import { getAdminSession } from '@/lib/auth/requireAdmin';
+import { getStudio } from '@/lib/settings/studio.cached';
 import { defaultAuthenticatorLabel, describeUserAgent } from '@/lib/auth/userAgent';
 import { listAdminAuthenticatorSummaries } from '@/lib/db/queries/admin_authenticators';
 import { getRecoveryCodeStatus } from '@/lib/db/queries/admin_recovery_codes';
@@ -24,11 +24,11 @@ export const dynamic = 'force-dynamic';
 export default async function SecurityPage() {
   const session = await getAdminSession();
   if (!session) redirect('/admin/login');
-  const config = getPlatform().config();
-  const [apps, recovery, sessions] = await Promise.all([
+  const [apps, recovery, sessions, studio] = await Promise.all([
     listAdminAuthenticatorSummaries(),
     getRecoveryCodeStatus(),
     listLiveAdminSessions(new Date().toISOString()),
+    getStudio(),
   ]);
   const labels = new Map(apps.map((a) => [a.id, a.label]));
   const sessionItems: SessionItem[] = sessions.map((s) => ({
@@ -52,10 +52,10 @@ export default async function SecurityPage() {
         <RecoveryCodesBanner status={recovery} linked={false} />
         <AuthenticatorsSection
           apps={apps.map((a) => ({ id: a.id, label: a.label, createdAt: a.created_at, lastUsedAt: a.last_used_at }))}
-          appName={config.appName}
+          appName={studio.name}
           defaultLabel={defaultAuthenticatorLabel((await headers()).get('user-agent'))}
         />
-        <RecoveryCodesSection status={recovery} appName={config.appName} />
+        <RecoveryCodesSection status={recovery} appName={studio.name} />
         <SessionsSection sessions={sessionItems} />
         <SecuritySection id="password" title="Password" description="To change your password, see the deployment guide. Changing it signs out every device.">
           <details className="font-sans text-body-sm text-ink-2">
