@@ -1,8 +1,8 @@
 import { Card } from '@repo/ui/layout';
 import { Heading, Text } from '@repo/ui/typography';
 
-/** One section of Settings → Security: a card with its `<h2>`, a line under it, and an action on the right. */
-export function SecuritySection({
+/** One card of a Settings section (Security, Studio, later Emails): its `<h2>`, a line under it, and an action on the right. */
+export function SettingsCard({
   id,
   title,
   description,

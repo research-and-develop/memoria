@@ -9,10 +9,10 @@ import { useApi } from '@repo/ui/hooks/useApi';
 import { Heading, Text } from '@repo/ui/typography';
 
 import { RecoveryCodesPanel } from '@/components/admin/login/RecoveryCodesPanel';
+import { SettingsCard } from '@/components/admin/settings/SettingsCard';
 
 import { ConfirmDialog } from './ConfirmDialog';
 import { isSignedOut, useConfirmThen } from './SecondFactor';
-import { SecuritySection } from './SecuritySection';
 
 export type RecoveryStatus = { total: number; unused: number; acknowledged: boolean };
 
@@ -48,7 +48,7 @@ export function RecoveryCodesSection({ status, appName }: { status: RecoveryStat
 
   const tone = recoveryTone(status.unused);
   return (
-    <SecuritySection
+    <SettingsCard
       id="recovery-codes"
       title="Recovery codes"
       description="Each one signs you in once, instead of a code from your phone."
@@ -102,6 +102,6 @@ export function RecoveryCodesSection({ status, appName }: { status: RecoveryStat
           </div>
         </Dialog>
       ) : null}
-    </SecuritySection>
+    </SettingsCard>
   );
 }

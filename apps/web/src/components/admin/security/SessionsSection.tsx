@@ -10,9 +10,9 @@ import { Pill } from '@repo/ui/layout';
 import { Text } from '@repo/ui/typography';
 
 import { FormNote } from '@/components/admin/login/StepHeading';
+import { SettingsCard } from '@/components/admin/settings/SettingsCard';
 
 import { isSignedOut, useConfirmThen } from './SecondFactor';
-import { SecuritySection } from './SecuritySection';
 
 export type SessionItem = {
   id: string;
@@ -55,7 +55,7 @@ export function SessionsSection({ sessions }: { sessions: SessionItem[] }) {
   };
 
   return (
-    <SecuritySection
+    <SettingsCard
       id="sessions"
       title="Signed-in devices"
       description="A device stays signed in for 14 days without use, and at most 90 days."
@@ -78,7 +78,7 @@ export function SessionsSection({ sessions }: { sessions: SessionItem[] }) {
           No other devices are signed in.
         </Text>
       )}
-    </SecuritySection>
+    </SettingsCard>
   );
 }
 

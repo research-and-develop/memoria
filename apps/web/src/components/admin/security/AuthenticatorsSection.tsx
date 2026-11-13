@@ -13,10 +13,10 @@ import { Heading, Text } from '@repo/ui/typography';
 import { AuthenticatorSetup } from '@/components/admin/login/AuthenticatorSetup';
 import { cleanDigits, CodeField } from '@/components/admin/login/CodeField';
 import { FormNote } from '@/components/admin/login/StepHeading';
+import { SettingsCard } from '@/components/admin/settings/SettingsCard';
 
 import { ConfirmDialog } from './ConfirmDialog';
 import { isSignedOut, useConfirmThen } from './SecondFactor';
-import { SecuritySection } from './SecuritySection';
 
 export type AuthenticatorItem = { id: string; label: string; createdAt: string; lastUsedAt: string | null };
 
@@ -45,7 +45,7 @@ export function AuthenticatorsSection({ apps, appName, defaultLabel }: { apps: A
   };
 
   return (
-    <SecuritySection
+    <SettingsCard
       id="authenticators"
       title="Authenticator apps"
       description="A code from any of these apps signs you in."
@@ -77,7 +77,7 @@ export function AuthenticatorsSection({ apps, appName, defaultLabel }: { apps: A
           }}
         />
       ) : null}
-    </SecuritySection>
+    </SettingsCard>
   );
 }
 
