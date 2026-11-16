@@ -48,6 +48,11 @@ export async function readMailSetup(opts?: Options): Promise<MailSetup | null> {
   return env ? { source: 'env', from: { email: env.from }, replyTo: null, transport: { provider: 'smtp', smtp: env.smtp } } : null;
 }
 
+/** Email can be sent: mail settings are saved, or the env fallback is set (development). */
+export async function isMailConfigured(opts?: Options): Promise<boolean> {
+  return (await readMailSettings(opts)) !== null || getPlatform().config().bootstrap.mail !== null;
+}
+
 /** Why the env fallback is off although it is half set (`SMTP_PORT must be a port number`), or null. */
 export function envMailProblem(): string | null {
   return getPlatform().config().bootstrap.mailProblem;

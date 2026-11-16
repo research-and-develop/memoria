@@ -1,4 +1,4 @@
-import { firstRow, run, statement, type Options, type Statement } from '@repo/db/client';
+import { firstRow, run, statement, type Options, type SqlValue, type Statement } from '@repo/db/client';
 
 import { toClaimedJob, type ClaimedJob, type ClaimedJobDbRow, type JobFence, type JobInput } from './types';
 
@@ -28,6 +28,26 @@ const insertValues = (input: JobInput) => [
  */
 export function enqueueJobStatement(input: JobInput): Statement {
   return statement(`INSERT INTO jobs (${INSERT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (dedupe_key) DO NOTHING`, insertValues(input));
+}
+
+/**
+ * Enqueue only when `condition` holds, in the caller's batch: a security notice exists only if its
+ * event happened (plan p03, D3.19). `condition` is SQL for a WHERE (`changes() > 0` right after the
+ * statement it is about, or an `EXISTS (…)`); its `?` take `params`. No dedupe key.
+ */
+export function conditionalEnqueueJobStatement(input: JobInput, condition: string, params: readonly SqlValue[]): Statement {
+  return statement(`INSERT INTO jobs (${INSERT_COLUMNS}) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${condition}`, [...insertValues(input), ...params]);
+}
+
+/**
+ * The admin's Retry on a failed email (Settings → Emails): back to pending with its attempts reset.
+ * Only a failed email: a running, pending or sent one is left alone (changes 0).
+ */
+export function retryFailedEmailStatement(input: { id: string; now: string }): Statement {
+  return statement(
+    `UPDATE jobs SET status = 'pending', attempts = 0, run_after = ?, finished_at = NULL, last_error = NULL, updated_at = ? WHERE id = ? AND kind = 'email' AND status = 'failed'`,
+    [input.now, input.now, input.id],
+  );
 }
 
 /**

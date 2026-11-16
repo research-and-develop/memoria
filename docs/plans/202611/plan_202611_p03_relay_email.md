@@ -882,8 +882,8 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 - [x] T3.7 Brevo, SES, Microsoft 365 adapters
 - [x] T3.8 Mail settings, secrets, settings key, `relayMailer` (as `mailerForTransport`)
 - [x] T3.9 Theme tokens, context, layout, templates, the email job, views
-- [ ] T3.10 Settings → Emails and its routes
-- [ ] T3.11 Security notices
+- [x] T3.10 Settings → Emails and its routes
+- [x] T3.11 Security notices
 - [ ] T3.12 Docs and status
 - [ ] Verification 1–5
 
@@ -919,6 +919,41 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 - `runDueJobs` takes a test-only `handlerCapMs`; it catches its own errors (`relay_drain_failed`).
 - An unknown error a handler throws keeps only its name in `last_error` (its message may hold an
   address).
+
+**Commit 4 (T3.10, T3.11), 2026-11-16.** Different from the design above:
+
+- **A failed job keeps its payload** (`params`, `via`); only a sent one drops them. The design dropped
+  them on failure too, which made Retry impossible: the local end-to-end check caught it (a retried
+  test email failed `JOB_INVALID`). Failed jobs are pruned after 30 days like the rest.
+- **The D3.18 snapshot is the email payload's own `via` field** (not inside `params`), dropped with
+  `params` when the email is sent (`PRIVATE_PAYLOAD_FIELDS` in the runner).
+- **Notices are built by `securityNotices()`** (`lib/email/notices.ts`): it reads the switch and
+  whether email is set up once, then returns a builder; each notice is a conditional insert
+  (`conditionalEnqueueJobStatement`, `jobStatement(…, { when })`). No `cache()`: the module stays
+  React-free.
+- **The lockout notice is a second write** after the lock's batch, by the one request whose upsert
+  returns `count === limit`: ordinary wrong codes read nothing extra. If that write fails the lock
+  stands without a notice.
+- **One extra template, `security.notices-off`** (the last notice). `removeAuthenticator`'s audit now
+  chains on the notice's `changes()` (1 exactly when the delete happened).
+- **The test email answers 409 `MAIL_NOT_CONFIGURED`** when there is no way to send (instead of a job
+  that fails at once).
+- **A saved SMTP provider cannot point at Mailpit** (public DNS names only, a certificate checked):
+  Verification 2 used the env fallback for Mailpit and Brevo with a fake key for the failure path.
+- Settings → Emails sits after Security in the settings list; Branding and Watermarks stay *Soon*.
+- **The local `RELAY` binding** (two `wrangler dev`s) connects, but some nudges were lost
+  (`relay_nudge_failed: Network connection lost`); the cron and `dev:relay`'s loop deliver. Production:
+  Verification 4.
+
+**Verification 2 and 5 (local), 2026-11-16**: the built app (`wrangler dev`, port 8788) and the relay
+(8790) on one scratch D1, the example env, Mailpit in Docker; 20 checks passed: first enrolment → the
+sign-in notice in Mailpit (to the account email); a test email queued (202), *Sent*, in Mailpit;
+notices off asks for a code, sends the last notice; on needs none; Brevo saved with a code still open,
+the stored key `v1:…`, the form shows "Saved — leave empty to keep"; a test email through Brevo with a
+fake key failed `BREVO_401` (configuration), Retry queued it again and it ran again (not `JOB_INVALID`);
+the list shows the failure and Retry; no audit row holds an address or a key. At 360 px no sideways
+scroll, rows stack; 1440 px reads well. Not yet done: Verification 2b (real provider accounts), the
+120-character Cyrillic subject by eye (unit-tested), a screen reader.
 
 **Smoke deploy, 2026-11-16** (the owner's go-ahead; recommended after M1):
 

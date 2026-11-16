@@ -14,6 +14,8 @@ import {
   MAX_CONFIRM_FAILURES,
   openConfirmWindowStatement,
 } from '@/lib/db/queries/admin_sessions';
+import { securityNotices } from '@/lib/email/notices';
+import { nudgeRelay } from '@/lib/jobs/enqueue';
 
 import { noStore, signInError } from './codeStep';
 import type { CodeInput } from './parseCodeInput';
@@ -80,8 +82,11 @@ export async function confirmWithCode(
     const normalised = normaliseRecoveryCode(input.recoveryCode);
     if (normalised) {
       const id = await keys.recoveryCodeId(normalised);
-      const results = await batch([useRecoveryCodeStatement({ id, now: iso, challengeId: null }), open], opts);
+      // After the window opens, chained on it like the window on the code: written only if both happened.
+      const notice = (await securityNotices(opts))('security.recovery-code-used', { at: iso }, { now, when: { sql: 'changes() > 0', params: [] } });
+      const results = await batch([useRecoveryCodeStatement({ id, now: iso, challengeId: null }), open, ...(notice ? [notice] : [])], opts);
       if ((results[1]?.changes ?? 0) > 0) {
+        if (notice) nudgeRelay();
         logger.info({ event: 'admin_recovery_code_used', purpose: 'confirm' });
         return { ok: true, verifiedUntil: until, recoveryCodesLeft: (await getRecoveryCodeStatus(opts)).unused };
       }

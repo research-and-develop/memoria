@@ -204,8 +204,9 @@ rewrite the envelope sender), its SPF include, and a DMARC record (`v=DMARC1; p=
 **Locally**: run [Mailpit](https://mailpit.axllent.org/) (`docker run -d --rm --name mailpit -p
 1025:1025 -p 8025:8025 axllent/mailpit`; the inbox is http://localhost:8025). With no provider saved,
 the `.dev.vars` fallback (`MAIL_FROM`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURITY=none`,
-in `apps/relay/.dev.vars` copied from its example) sends there. Start `npm run dev:relay`, then queue a
-test email by hand (until Settings → Emails has its button), from `apps/web`:
+in `apps/relay/.dev.vars` copied from its example; the app needs the same lines in `apps/web/.dev.vars`
+to show email as set up) sends there. Start `npm run dev:relay`, then Settings → Emails → Send test
+email. Without the app (a relay-only check), queue one by hand from `apps/web`:
 
 ```sh
 NOW=$(node -e "console.log(new Date().toISOString())"); ID=$(node -e "console.log(crypto.randomUUID())")
@@ -213,7 +214,9 @@ npx wrangler d1 execute DB --local --command "INSERT INTO jobs (id, kind, payloa
 ```
 
 The relay's 10-second loop sends it; the job ends `done` (`SELECT status, last_error FROM jobs`).
-To see a `535`, start Mailpit with `--smtp-auth-file` and a wrong `SMTP_PASSWORD`.
+To see a `535`, start Mailpit with `--smtp-auth-file` and a wrong `SMTP_PASSWORD`. A provider saved
+in Settings → Emails cannot point at Mailpit (a saved SMTP host must be a public DNS name with a valid
+certificate): try the HTTPS providers with their free tier or sandbox instead.
 
 ## Two-factor sign-in
 

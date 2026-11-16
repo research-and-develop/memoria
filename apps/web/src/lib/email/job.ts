@@ -5,9 +5,10 @@ import { isHeaderSafe } from '@repo/platform/mail/mime';
 import type { MailAddress } from '@repo/platform/ports';
 
 import { readAdminAccount } from '@/lib/auth/account';
-import { jobStatement } from '@/lib/jobs/enqueue';
+import { jobStatement, type JobCondition } from '@/lib/jobs/enqueue';
 import { JobError, type JobKind } from '@/lib/jobs/types';
-import { envMailProblem, readMailSetup } from '@/lib/settings/mail';
+import { envMailProblem, readMailSetup, unsealMailSettings } from '@/lib/settings/mail';
+import { parseMailSettings, type MailSettings } from '@/lib/settings/parseMailSettings';
 import { readStudio } from '@/lib/settings/studio';
 
 import { emailContext } from './context';
@@ -19,7 +20,12 @@ import { emailTemplate } from './templates/registry';
  */
 export type EmailRecipient = { email: string; name?: string } | { account: true };
 
-export type EmailPayload = { template: string; to: EmailRecipient; params: unknown };
+/**
+ * `via`: send through these mail settings (secrets sealed) instead of the current ones: the notice
+ * that the mail settings changed goes out through the PREVIOUS settings (D3.18), so a redirect cannot
+ * swallow its own warning. Dropped when the job ends (runner → PRIVATE_PAYLOAD_FIELDS).
+ */
+export type EmailPayload = { template: string; to: EmailRecipient; params: unknown; via?: MailSettings };
 
 /** Email: 6 attempts, after 1, 5, 30, 120 and 480 minutes (D3.9). The test email gets 1. */
 export const EMAIL_MAX_ATTEMPTS = 6;
@@ -45,10 +51,12 @@ export const emailJob: JobKind<EmailPayload> = {
     const recipient = parseRecipient(to);
     const parsed = template.parse(params);
     if (!recipient || parsed === null) return { ok: false, unknown: false };
-    return { ok: true, value: { template: id, to: recipient, params: parsed } };
+    if (payload.via === undefined) return { ok: true, value: { template: id, to: recipient, params: parsed } };
+    const via = parseMailSettings(payload.via);
+    return via.ok ? { ok: true, value: { template: id, to: recipient, params: parsed, via: via.value } } : { ok: false, unknown: false };
   },
   async run(payload, ctx) {
-    const setup = await readMailSetup();
+    const setup = payload.via ? await unsealMailSettings(payload.via) : await readMailSetup();
     if (!setup) throw new MailError('MAIL_NOT_CONFIGURED', { configuration: true, detail: envMailProblem() ?? undefined });
     const studio = await readStudio();
     const to = await resolveRecipient(payload.to);
@@ -94,6 +102,18 @@ async function resolveRecipient(to: EmailRecipient): Promise<MailAddress> {
  * An email as a statement for the caller's batch (AGENTS.md → Data rules), then `nudgeRelay()`.
  * Throws on a template or parameters that do not parse (a programming error).
  */
-export function emailJobStatement(input: { template: string; to: EmailRecipient; params: unknown; now: Date; maxAttempts?: number; ref?: string; id?: string }) {
-  return jobStatement(emailJob, { template: input.template, to: input.to, params: input.params }, { now: input.now, maxAttempts: input.maxAttempts, ref: input.ref, id: input.id });
+export function emailJobStatement(input: {
+  template: string;
+  to: EmailRecipient;
+  params: unknown;
+  now: Date;
+  via?: MailSettings;
+  maxAttempts?: number;
+  ref?: string;
+  id?: string;
+  /** Write it only if this holds (a notice exists only if its event happened). */
+  when?: JobCondition;
+}) {
+  const payload = { template: input.template, to: input.to, params: input.params, ...(input.via ? { via: input.via } : {}) };
+  return jobStatement(emailJob, payload, { now: input.now, maxAttempts: input.maxAttempts, ref: input.ref, id: input.id, when: input.when });
 }

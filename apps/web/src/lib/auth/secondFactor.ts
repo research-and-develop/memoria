@@ -24,6 +24,9 @@ import {
 import { deleteExpiredAdminSessionsStatement } from '@/lib/db/queries/admin_sessions';
 import { deleteSetupCodesAfterStatement, spendSetupCodeStatement } from '@/lib/db/queries/admin_setup_codes';
 import { conditionalAuditStatement } from '@/lib/db/queries/audit_log';
+import { securityNotices, type NoticeBuilder } from '@/lib/email/notices';
+import type { SignInMethod } from '@/lib/email/templates/security';
+import { nudgeRelay } from '@/lib/jobs/enqueue';
 import { hitRateLimitStatement } from '@/lib/db/queries/rate_limits';
 import { hitRateLimits, isOverLimit, windowStart, type RateRule } from '@/lib/security/rateLimit';
 
@@ -33,6 +36,7 @@ import { normaliseSetupCode, setupCodeId } from './setupCode';
 import { prepareSession } from './session';
 import { base32Decode, generateTotpSecret, matchTotp, type TotpCandidate } from './totp';
 import { authenticatorAad, pendingSecretAad, type TwoFactorKeys } from './twoFactorKeys';
+import { describeUserAgent } from './userAgent';
 
 /**
  * Checking second factors and writing what a right one grants, each in ONE
@@ -77,8 +81,48 @@ export async function recordCodeFailure(opts?: Options & { now?: Date }): Promis
   );
   const count = hit?.rows[0]?.count ?? 0;
   logger.info({ event: 'admin_code_failed', failuresToday: count });
-  if (count === CODE_FAILURE_RULE.limit) logger.warn({ event: 'admin_sign_in_locked' });
+  if (count === CODE_FAILURE_RULE.limit) {
+    logger.warn({ event: 'admin_sign_in_locked' });
+    await lockedNotice(window, now, opts);
+  }
 }
+
+/**
+ * The lock notice (plan p03, D3.19). Only the failure whose count reached the limit gets here (the
+ * upsert returns the new count, so exactly one request sees it): ordinary failures read nothing
+ * more. It follows the lock's own batch: the lock is already written; the notice is conditioned on
+ * it still being in force.
+ */
+async function lockedNotice(window: string, now: Date, opts?: Options): Promise<void> {
+  const notice = (await securityNotices(opts))(
+    'security.locked',
+    { at: now.toISOString() },
+    {
+      now,
+      when: {
+        sql: 'EXISTS (SELECT 1 FROM rate_limits WHERE bucket = ? AND window_start = ? AND count >= ?)',
+        params: [CODE_FAILURE_RULE.bucket, window, CODE_FAILURE_RULE.limit],
+      },
+    },
+  );
+  if (!notice) return;
+  await run(notice, opts);
+  nudgeRelay();
+}
+
+/**
+ * The sign-in notice for a sign-in batch (D3.19): written only if the session was created (the
+ * sign-in audit's own condition). Appended last, after every statement whose result is read.
+ */
+function signInNotice(notices: NoticeBuilder, sessionId: string, ctx: SignInContext, method: SignInMethod): Statement | null {
+  return notices(
+    'security.sign-in',
+    { at: ctx.now.toISOString(), method, device: describeUserAgent(ctx.userAgent), country: ctx.country },
+    { now: ctx.now, when: { sql: 'EXISTS (SELECT 1 FROM admin_sessions WHERE id = ?)', params: [sessionId] } },
+  );
+}
+
+const optional = (statement: Statement | null): Statement[] => (statement ? [statement] : []);
 
 export type SignInContext = {
   keys: TwoFactorKeys;
@@ -133,12 +177,14 @@ export async function signInWithCode(challenge: SignInChallenge, code: string, c
 
   const now = ctx.now.toISOString();
   const session = await prepareSession({ ...ctx, secondFactor: 'authenticator', authenticatorId: match.id });
+  const notice = signInNotice(await securityNotices(opts), session.id, ctx, 'code');
   const results = await batch(
     [
       useAuthenticatorStepStatement({ id: match.id, step: match.step, now, challengeId: challenge.id }),
       ...session.statements(SESSION_CREATED),
       deleteChallengeAfterSessionStatement(challenge.id, session.id),
       deleteExpiredAdminSessionsStatement(now),
+      ...optional(notice),
     ],
     opts,
   );
@@ -146,6 +192,7 @@ export async function signInWithCode(challenge: SignInChallenge, code: string, c
     // Another request used this step first, or the challenge went away.
     return { ok: false, reason: (await stillLive(challenge.id, now, opts)) ? 'replayed' : 'expired' };
   }
+  if (notice) nudgeRelay();
   return { ok: true, token: session.token, sessionId: session.id, expiresAt: session.expiresAt };
 }
 
@@ -160,18 +207,22 @@ export async function signInWithRecoveryCode(
   if (!normalised) return { ok: false, reason: 'invalid' };
   const now = ctx.now.toISOString();
   const session = await prepareSession({ ...ctx, secondFactor: 'recovery_code', authenticatorId: null });
+  // One notice: the sign-in, by recovery code (not a second "recovery code used").
+  const notice = signInNotice(await securityNotices(opts), session.id, ctx, 'recovery-code');
   const results = await batch(
     [
       useRecoveryCodeStatement({ id: await ctx.keys.recoveryCodeId(normalised), now, challengeId: challenge.id }),
       ...session.statements(SESSION_CREATED),
       deleteChallengeAfterSessionStatement(challenge.id, session.id),
       deleteExpiredAdminSessionsStatement(now),
+      ...optional(notice),
     ],
     opts,
   );
   if ((results[1]?.changes ?? 0) === 0) {
     return { ok: false, reason: (await stillLive(challenge.id, now, opts)) ? 'invalid' : 'expired' };
   }
+  if (notice) nudgeRelay();
   const { unused } = await getRecoveryCodeStatus(opts);
   logger.info({ event: 'admin_recovery_code_used', left: unused });
   return { ok: true, token: session.token, sessionId: session.id, expiresAt: session.expiresAt, recoveryCodesLeft: unused };
@@ -232,6 +283,7 @@ export async function enrolFirstAuthenticator(
   const recoveryCodes = generateRecoveryCodes();
   const recoveryIds = await Promise.all(recoveryCodes.map((code) => ctx.keys.recoveryCodeId(code)));
   const session = await prepareSession({ ...ctx, secondFactor: 'authenticator', authenticatorId });
+  const notice = signInNotice(await securityNotices(opts), session.id, ctx, 'setup');
   const anchor = { sql: authenticatorExistsSql, params: [authenticatorId] };
   const statements: Statement[] = [
     spendSetupCodeStatement({ setupCodeId: challenge.setup_code_id, challengeId: challenge.id, now }),
@@ -248,11 +300,13 @@ export async function enrolFirstAuthenticator(
     // Only this challenge: another device's 'enroll' challenge is answered ALREADY_ENROLLED when it comes back.
     deleteChallengeAfterSessionStatement(challenge.id, session.id),
     deleteExpiredAdminSessionsStatement(now),
+    ...optional(notice),
   ];
   const results = await batch(statements, opts);
   if ((results[1]?.changes ?? 0) === 0) {
     return { ok: false, reason: (await hasAdminAuthenticator(opts)) ? 'already_enrolled' : 'expired' };
   }
+  if (notice) nudgeRelay();
   logger.info({ event: 'admin_enrolled', authenticator: authenticatorId });
   return { ok: true, token: session.token, sessionId: session.id, expiresAt: session.expiresAt, recoveryCodes };
 }

@@ -1,11 +1,16 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { all, run, statement } from '@repo/db/client';
+import { all, batch, run, statement } from '@repo/db/client';
 import { createTestDb, type TestDb } from '@repo/db/test-utils';
 
 import {
   cancelPendingJobsStatement,
   claimDueJob,
+  conditionalEnqueueJobStatement,
+  getEmailJob,
+  listRecentEmailJobs,
+  oldestUnsentEmailDueAt,
+  retryFailedEmailStatement,
   completeJob,
   deferJob,
   enqueueJobStatement,
@@ -220,5 +225,50 @@ describe('the table refuses bad rows', () => {
   ])('%s', async (_name, sql) => {
     await enqueue({ id: 'x' });
     await expect(run(statement(sql), opts())).rejects.toThrow();
+  });
+});
+
+describe('Settings → Emails statements', () => {
+  it('a conditional enqueue writes only when its condition holds (changes() of the previous statement)', async () => {
+    await enqueue({ id: 'a' });
+    const results = await batch(
+      [
+        statement(`UPDATE jobs SET priority = 1 WHERE id = 'a'`),
+        conditionalEnqueueJobStatement(job({ id: 'n1' }), 'changes() > 0', []),
+        statement(`UPDATE jobs SET priority = 1 WHERE id = 'missing'`),
+        conditionalEnqueueJobStatement(job({ id: 'n2' }), 'changes() > 0', []),
+        conditionalEnqueueJobStatement(job({ id: 'n3' }), 'EXISTS (SELECT 1 FROM jobs WHERE id = ?)', ['a']),
+      ],
+      opts(),
+    );
+    expect(results.map((r) => r.changes)).toEqual([1, 1, 0, 0, 1]);
+    expect((await all<{ id: string }>(statement('SELECT id FROM jobs ORDER BY id'), opts())).map((r) => r.id)).toEqual(['a', 'n1', 'n3']);
+  });
+
+  it('retry: only a failed email, attempts reset, finished_at cleared', async () => {
+    await enqueue({ id: 'e1', kind: 'email' });
+    await enqueue({ id: 'e2', kind: 'email' });
+    await enqueue({ id: 'h1', kind: 'housekeeping' });
+    await run(statement(`UPDATE jobs SET status = 'failed', attempts = 3, finished_at = ?, last_error = 'SMTP_550' WHERE id IN ('e1', 'h1')`, [at(1)]), opts());
+    const retry = (id: string) => run(retryFailedEmailStatement({ id, now: at(5) }), opts());
+    expect((await retry('e1')).changes).toBe(1);
+    expect(await getJob('e1', opts())).toMatchObject({ status: 'pending', attempts: 0, run_after: at(5), finished_at: null, last_error: null });
+    expect((await retry('e1')).changes).toBe(0);
+    expect((await retry('e2')).changes).toBe(0);
+    expect((await retry('h1')).changes).toBe(0);
+  });
+
+  it('reads: an email by id (not another kind), the recent ones newest first, the oldest never tried', async () => {
+    await enqueue({ id: 'e1', kind: 'email', now: at(0), runAfter: at(0) });
+    await enqueue({ id: 'e2', kind: 'email', now: at(3), runAfter: at(3) });
+    await enqueue({ id: 'h1', kind: 'housekeeping', now: at(4) });
+    expect((await getEmailJob('e1', opts()))?.id).toBe('e1');
+    expect(await getEmailJob('h1', opts())).toBeNull();
+    expect((await listRecentEmailJobs(20, opts())).map((j) => j.id)).toEqual(['e2', 'e1']);
+    expect((await listRecentEmailJobs(1, opts())).map((j) => j.id)).toEqual(['e2']);
+    expect(await oldestUnsentEmailDueAt(at(-1), opts())).toBeNull();
+    expect(await oldestUnsentEmailDueAt(at(10), opts())).toBe(at(0));
+    await run(statement(`UPDATE jobs SET attempts = 1 WHERE id = 'e1'`), opts());
+    expect(await oldestUnsentEmailDueAt(at(10), opts())).toBe(at(3));
   });
 });

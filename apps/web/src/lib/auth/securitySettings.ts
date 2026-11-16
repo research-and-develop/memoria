@@ -31,6 +31,8 @@ import {
   deleteRecoveryCodeSessionsStatement,
 } from '@/lib/db/queries/admin_sessions';
 import { auditStatement, conditionalAuditStatement } from '@/lib/db/queries/audit_log';
+import { securityNotices } from '@/lib/email/notices';
+import { nudgeRelay } from '@/lib/jobs/enqueue';
 
 import { generateRecoveryCodes } from './recoveryCodes';
 import { passwordVersion } from './session';
@@ -42,6 +44,9 @@ import { authenticatorAad, pendingSecretAad, type TwoFactorKeys } from './twoFac
  * and its audit row in one batch. The routes check the session and the
  * confirm window first (D2.9).
  */
+
+/** An app's name as a notice shows it: no control or format character, ≤ 80 characters. */
+const noticeLabel = (label: string): string => Array.from(label.replace(/[\p{Cc}\p{Cf}]/gu, '')).slice(0, 80).join('') || 'Authenticator app';
 
 export type Enrollment = { enrollmentId: string; secret: string; otpauthUri: string; expiresAt: string };
 
@@ -99,6 +104,11 @@ export async function addAuthenticator(
   }
 
   const id = crypto.randomUUID();
+  const notice = (await securityNotices(opts))(
+    'security.authenticator-added',
+    { at: now, label: noticeLabel(input.label) },
+    { now: input.now, when: { sql: authenticatorExistsSql, params: [id] } },
+  );
   const results = await batch(
     [
       insertAuthenticatorStatement({
@@ -114,12 +124,14 @@ export async function addAuthenticator(
         id,
       ]),
       deleteChallengeAfterAuthenticatorStatement(challenge.id, id),
+      ...(notice ? [notice] : []),
     ],
     opts,
   );
   if ((results[0]?.changes ?? 0) === 0) {
     return { ok: false, reason: (await countAdminAuthenticators(opts)) >= MAX_AUTHENTICATORS ? 'too_many_apps' : 'not_found' };
   }
+  if (notice) nudgeRelay();
   logger.info({ event: 'admin_authenticator_added', authenticator: id });
   return { ok: true, id };
 }
@@ -142,13 +154,26 @@ export async function renameAuthenticator(id: string, label: string, opts?: Opti
 }
 
 /** Remove an app and end the sessions it signed in (but not this one). Never the last app. */
-export async function removeAuthenticator(id: string, currentSessionId: string, opts?: Options): Promise<'removed' | 'not_found' | 'last'> {
+export async function removeAuthenticator(
+  id: string,
+  currentSessionId: string,
+  opts?: Options & { now?: Date },
+): Promise<'removed' | 'not_found' | 'last'> {
   const app = await getAdminAuthenticatorSummary(id, opts);
   if (!app) return 'not_found';
+  const now = opts?.now ?? new Date();
+  // Right after the delete, before its audit: the notice is written only if the delete happened,
+  // and the audit's `changes() > 0` then reads the notice's (1 exactly when the delete happened).
+  const notice = (await securityNotices(opts))(
+    'security.authenticator-removed',
+    { at: now.toISOString(), label: noticeLabel(app.label) },
+    { now, when: { sql: 'changes() > 0', params: [] } },
+  );
   const results = await batch(
     [
       deleteAuthenticatorSessionsStatement(id, currentSessionId),
       deleteAuthenticatorStatement(id),
+      ...(notice ? [notice] : []),
       conditionalAuditStatement(
         { action: 'delete', entity: 'authenticator', entityId: id, summary: `Removed authenticator app “${app.label}”` },
         'changes() > 0',
@@ -158,23 +183,32 @@ export async function removeAuthenticator(id: string, currentSessionId: string, 
     opts,
   );
   if ((results[1]?.changes ?? 0) === 0) return (await getAdminAuthenticatorSummary(id, opts)) ? 'last' : 'not_found';
+  if (notice) nudgeRelay();
   logger.info({ event: 'admin_authenticator_removed', authenticator: id });
   return 'removed';
 }
 
 /** A new set of 10 recovery codes replaces the old one; sessions signed in with an old code end (not this one). */
-export async function regenerateRecoveryCodes(currentSessionId: string, keys: TwoFactorKeys, opts?: Options): Promise<string[]> {
+export async function regenerateRecoveryCodes(currentSessionId: string, keys: TwoFactorKeys, opts?: Options & { now?: Date }): Promise<string[]> {
   const codes = generateRecoveryCodes();
   const ids = await Promise.all(codes.map((code) => keys.recoveryCodeId(code)));
+  const now = opts?.now ?? new Date();
+  const notice = (await securityNotices(opts))(
+    'security.recovery-codes-regenerated',
+    { at: now.toISOString() },
+    { now, when: { sql: 'EXISTS (SELECT 1 FROM admin_recovery_codes WHERE id = ?)', params: [ids[0] ?? ''] } },
+  );
   await batch(
     [
       deleteAllRecoveryCodesStatement(),
       ...ids.map((id) => insertRecoveryCodeStatement(id)),
       deleteRecoveryCodeSessionsStatement(currentSessionId),
       auditStatement({ action: 'update', entity: 'recovery_codes', summary: 'Generated new recovery codes' }),
+      ...(notice ? [notice] : []),
     ],
     opts,
   );
+  if (notice) nudgeRelay();
   return codes;
 }
 

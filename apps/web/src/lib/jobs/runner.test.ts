@@ -230,6 +230,13 @@ describe('runDueJobs', () => {
     expect(await all(statement('SELECT id FROM jobs'))).toEqual([]);
   });
 
+  it('a failed job keeps its params (an admin Retry must be able to send it)', async () => {
+    mailer.failWith(new MailError('SMTP_550', { permanent: true }));
+    const id = await enqueue('test.mail', { payload: { params: { name: 'Maria' } } });
+    await drain();
+    expect(await getJob(id)).toMatchObject({ status: 'failed', payload: { v: 1, params: { name: 'Maria' } } });
+  });
+
   it('logs never contain an address or a parameter', async () => {
     const spies = (['debug', 'info', 'warn', 'error'] as const).map((level) => vi.spyOn(logger, level));
     mailer.failWith(new MailError('SMTP_550', { permanent: true, detail: 'rejected <***>' }));

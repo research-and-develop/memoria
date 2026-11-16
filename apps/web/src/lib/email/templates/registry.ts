@@ -1,5 +1,6 @@
 import type { AnyEmailTemplate, EmailContext, RenderedEmail } from '../types';
 
+import { SECURITY_TEMPLATES } from './security';
 import { testTemplate } from './test';
 
 /**
@@ -8,9 +9,9 @@ import { testTemplate } from './test';
  * makes its job wait, not fail (runner → UNKNOWN_KIND). A template is never removed while jobs may
  * still use it. Pure: no `server-only`, so the app can render a preview (Phase 5).
  */
-export const EMAIL_TEMPLATES: Readonly<Record<string, AnyEmailTemplate>> = {
-  [testTemplate.id]: testTemplate as AnyEmailTemplate,
-};
+export const EMAIL_TEMPLATES: Readonly<Record<string, AnyEmailTemplate>> = Object.fromEntries(
+  [testTemplate, ...SECURITY_TEMPLATES].map((t) => [t.id, t as AnyEmailTemplate]),
+);
 
 export function emailTemplate(id: string): AnyEmailTemplate | null {
   return Object.hasOwn(EMAIL_TEMPLATES, id) ? (EMAIL_TEMPLATES[id] ?? null) : null;

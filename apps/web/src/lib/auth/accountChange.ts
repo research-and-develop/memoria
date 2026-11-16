@@ -2,12 +2,14 @@ import 'server-only';
 
 import type { NextResponse } from 'next/server';
 
-import { batch, type Options } from '@repo/db/client';
+import { batch, type Options, type Statement } from '@repo/db/client';
 import { logger } from '@repo/logger';
 
 import { endSignInsAfterPasswordStatements, saveAdminAccountStatement } from '@/lib/db/queries/admin_account';
 import { countConfirmFailureStatement, deleteSessionAtFailureCapStatement, MAX_CONFIRM_FAILURES } from '@/lib/db/queries/admin_sessions';
 import { conditionalAuditStatement } from '@/lib/db/queries/audit_log';
+import { securityNotices } from '@/lib/email/notices';
+import { nudgeRelay } from '@/lib/jobs/enqueue';
 import { hitRateLimits } from '@/lib/security/rateLimit';
 
 import { noStore, signInError } from './codeStep';
@@ -78,9 +80,24 @@ export function accountChanged(): NextResponse {
  */
 export async function changeAccountEmail(ctx: AdminContext, email: string, now: Date, opts?: Options): Promise<boolean> {
   const { account } = ctx;
+  // Both addresses are told (D3.19), the old one first. Each notice is chained on the statement
+  // before it (`changes() > 0`): the save, then the first notice. The audit after them reads the
+  // last notice's changes, which is 1 exactly when the save happened.
+  const notices = await securityNotices(opts);
+  const chained = { sql: 'changes() > 0', params: [] };
+  const told: Statement[] = [];
+  for (const [address, role] of [
+    [account.email, 'old'],
+    [email, 'new'],
+  ] as const) {
+    if (role === 'new' && address === account.email) continue;
+    const notice = notices('security.email-changed', { at: now.toISOString(), role }, { now, when: chained, to: { email: address } });
+    if (notice) told.push(notice);
+  }
   const results = await batch(
     [
       saveAdminAccountStatement({ email, passwordHash: account.passwordHash, setBy: account.setBy, expectedHash: account.passwordHash, now: now.toISOString() }),
+      ...told,
       conditionalAuditStatement(
         { action: 'update', entity: 'admin_account', entityId: '1', summary: 'Changed the sign-in email', details: { fields: ['email'] } },
         'changes() > 0',
@@ -91,6 +108,7 @@ export async function changeAccountEmail(ctx: AdminContext, email: string, now: 
   );
   const saved = (results[0]?.changes ?? 0) > 0;
   if (saved) logger.info({ event: 'admin_account_email_changed', session: ctx.sessionId.slice(0, 12) });
+  if (saved && told.length > 0) nudgeRelay();
   return saved;
 }
 
@@ -102,6 +120,11 @@ export async function changeAccountEmail(ctx: AdminContext, email: string, now: 
 export async function changeAccountPassword(ctx: AdminContext, newPassword: string, now: Date, opts?: Options): Promise<boolean> {
   const { account } = ctx;
   const passwordHash = await hashPassword(newPassword);
+  const notice = (await securityNotices(opts))(
+    'security.password-changed',
+    { at: now.toISOString() },
+    { now, when: { sql: 'EXISTS (SELECT 1 FROM admin_account WHERE password_hash = ?)', params: [passwordHash] } },
+  );
   const results = await batch(
     [
       saveAdminAccountStatement({ email: account.email, passwordHash, setBy: 'studio', expectedHash: account.passwordHash, now: now.toISOString() }),
@@ -111,10 +134,12 @@ export async function changeAccountPassword(ctx: AdminContext, newPassword: stri
         [],
       ),
       ...endSignInsAfterPasswordStatements(passwordHash),
+      ...(notice ? [notice] : []),
     ],
     opts,
   );
   const saved = (results[0]?.changes ?? 0) > 0;
   if (saved) logger.info({ event: 'admin_account_password_changed', session: ctx.sessionId.slice(0, 12) });
+  if (saved && notice) nudgeRelay();
   return saved;
 }

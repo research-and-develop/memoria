@@ -1,7 +1,7 @@
-import type { Statement } from '@repo/db/client';
+import type { SqlValue, Statement } from '@repo/db/client';
 import { getPlatform } from '@repo/platform/current';
 
-import { enqueueJobStatement } from '@/lib/db/queries/jobs';
+import { conditionalEnqueueJobStatement, enqueueJobStatement } from '@/lib/db/queries/jobs';
 
 import type { JobKind } from './types';
 
@@ -23,7 +23,7 @@ export const MAX_PAYLOAD_BYTES = 8 * 1024;
 export function jobStatement<P extends Record<string, unknown>>(
   kind: JobKind<unknown>,
   payload: P,
-  opts: { now: Date; runAfter?: Date; ref?: string; dedupeKey?: string; id?: string; maxAttempts?: number },
+  opts: { now: Date; runAfter?: Date; ref?: string; dedupeKey?: string; id?: string; maxAttempts?: number; when?: JobCondition },
 ): { id: string; statement: Statement } {
   const stored = { ...payload, v: kind.version };
   if (!kind.parse(stored).ok) throw new Error(`jobStatement: the ${kind.kind} payload does not parse`);
@@ -31,21 +31,26 @@ export function jobStatement<P extends Record<string, unknown>>(
   if (new TextEncoder().encode(json).length > MAX_PAYLOAD_BYTES) throw new Error(`jobStatement: the ${kind.kind} payload is over ${MAX_PAYLOAD_BYTES} bytes`);
   const id = opts.id ?? crypto.randomUUID();
   const now = opts.now.toISOString();
-  return {
+  const input = {
     id,
-    statement: enqueueJobStatement({
-      id,
-      kind: kind.kind,
-      payload: json,
-      priority: kind.priority,
-      maxAttempts: opts.maxAttempts ?? kind.maxAttempts,
-      runAfter: (opts.runAfter ?? opts.now).toISOString(),
-      ref: opts.ref ?? null,
-      dedupeKey: opts.dedupeKey ?? null,
-      now,
-    }),
+    kind: kind.kind,
+    payload: json,
+    priority: kind.priority,
+    maxAttempts: opts.maxAttempts ?? kind.maxAttempts,
+    runAfter: (opts.runAfter ?? opts.now).toISOString(),
+    ref: opts.ref ?? null,
+    dedupeKey: opts.dedupeKey ?? null,
+    now,
   };
+  if (opts.when && opts.dedupeKey) throw new Error('jobStatement: a conditional job takes no dedupe key');
+  return { id, statement: opts.when ? conditionalEnqueueJobStatement(input, opts.when.sql, opts.when.params) : enqueueJobStatement(input) };
 }
+
+/**
+ * Write the job only if this holds when its statement runs (a WHERE, `?` bound to `params`): a
+ * security notice exists only if its event happened (plan p03, D3.19).
+ */
+export type JobCondition = { sql: string; params: readonly SqlValue[] };
 
 /**
  * Wake the relay after a batch that wrote a job: it runs within seconds. A hint, after the

@@ -166,7 +166,9 @@ async function finishFailed(
   log: Record<string, unknown>,
   opts?: Options,
 ): Promise<Outcome> {
-  const ok = await failJob({ id: job.id, attempts: job.attempts, now: clock().toISOString(), lastError, payload: finishedPayload(job.payload) }, opts);
+  // A failed job keeps its payload: the admin may Retry it (Settings → Emails); housekeeping deletes
+  // it after 30 days.
+  const ok = await failJob({ id: job.id, attempts: job.attempts, now: clock().toISOString(), lastError, payload: null }, opts);
   if (!ok) {
     logger.warn({ event: 'job_lease_lost', ...log });
     return 'leaseLost';
@@ -176,12 +178,16 @@ async function finishFailed(
 }
 
 /**
- * A finished job keeps no parameters (they may name people, plan p03 D3.11), plus what the handler
- * returned (the provider's message id, D3.20); null = unchanged.
+ * Payload fields dropped when a job is done: `params` may name people (plan p03, D3.11); `via` is a
+ * snapshot of the previous mail settings, secrets sealed (D3.18). A FAILED job keeps them, so a
+ * Retry can send it; it is deleted 30 days after it ended (housekeeping).
  */
+export const PRIVATE_PAYLOAD_FIELDS = ['params', 'via'] as const;
+
+/** The payload of a finished job: the private fields dropped, the handler's result kept (D3.20); null = unchanged. */
 function finishedPayload(payload: Record<string, unknown>, result?: Record<string, unknown>): string | null {
-  if (!('params' in payload) && !result) return null;
-  const { params: _dropped, ...rest } = payload;
+  if (!PRIVATE_PAYLOAD_FIELDS.some((f) => f in payload) && !result) return null;
+  const rest = Object.fromEntries(Object.entries(payload).filter(([key]) => !(PRIVATE_PAYLOAD_FIELDS as readonly string[]).includes(key)));
   return JSON.stringify({ ...rest, ...result, v: payload.v });
 }
 

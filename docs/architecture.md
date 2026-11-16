@@ -239,6 +239,18 @@ first time    step 2  POST /api/admin/login/setup   the setup code from `npm run
   session in the last 5 minutes (`admin_sessions.verified_until`, NULL after sign-in; the API answers
   `403 SECOND_FACTOR_REQUIRED`, the page asks for a code and retries once: `SecondFactorProvider`).
   Wrong codes count toward the lockout, and five on one session end it (`lib/auth/confirm.ts`).
+- **Settings → Emails** (`/admin/settings/emails`, Phase 3): how email is sent (the provider, its
+  credentials, From, reply-to; saving needs a code, the secret is sealed and never shown again), a test
+  email with its live status, the security-email switch (off needs a code and sends one last notice),
+  and the last 20 emails with their reason and Retry on a failed one. A banner says when emails have
+  waited more than 10 minutes untried (the relay is not running). Logic: `lib/email/admin.ts`.
+- **Security notices** (D3.19): a new sign-in, an authenticator added or removed, new recovery codes, a
+  recovery code used to confirm, the email (to the old and the new address) or the password changed,
+  the mail settings changed (sent through the PREVIOUS settings, a sealed snapshot in the job's `via`),
+  notices turned off, sign-in locked. Each is an `email` job in the event's own batch, written only if
+  the event happened (`securityNotices()` in `lib/email/notices.ts` → a conditional insert); none when
+  notices are off or email is not set up. The lockout notice is a separate write by the one request
+  that reaches the limit (ordinary wrong codes read nothing extra). The CLI sends none.
 - **Gate**: `app/admin/(panel)/layout.tsx` redirects pages; every admin API route calls `requireAdmin`
   itself (a page gate never protects an API). Guard: `admin-routes-require-admin`.
 
@@ -302,7 +314,8 @@ relay: readMailSetup() → { from, replyTo, transport }        lib/settings/mail
 - **Templates** (`lib/email/templates/`): pure `render(params, ctx)` → `{ subject, text, html }` in the
   shared layout (`layout.ts`: inline styles, the studio theme's colours through `tokenHex`, every value
   escaped). Links only through `ctx.link(path)` = the website address + a path.
-- **Retries**: 6 attempts after 1, 5, 30, 120, 480 minutes; the test email gets one.
+- **Retries**: 6 attempts after 1, 5, 30, 120, 480 minutes; the test email gets one. A sent email
+  drops its `params` and `via`; a failed one keeps them so the admin can Retry it (pruned after 30 days).
 
 ## Data
 
