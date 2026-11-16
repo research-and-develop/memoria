@@ -11,6 +11,7 @@ export type SettingsSection = {
 };
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
+  { id: 'studio', label: 'Studio', href: '/admin/settings/studio' },
   { id: 'security', label: 'Security', href: '/admin/settings/security' },
   { id: 'branding', label: 'Branding', href: '/admin/settings/branding', soonPhase: 4 },
   { id: 'watermarks', label: 'Watermarks', href: '/admin/settings/watermarks', soonPhase: 4 },

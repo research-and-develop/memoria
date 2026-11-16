@@ -298,7 +298,7 @@ Milestones: **M1** = commits 1–2, **M2** = commits 3–4.
 
 - [x] T2b.1 Account table, `Config.bootstrap`, effective account, readers, CLI, guard
 - [x] T2b.2 Sign-in card and account routes
-- [ ] T2b.3 Studio settings and section
+- [x] T2b.3 Studio settings and section
 - [ ] T2b.4 Docs and status
 - [ ] Verification 1–5
 
