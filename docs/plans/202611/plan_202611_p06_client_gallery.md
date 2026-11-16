@@ -31,8 +31,8 @@ analyses the options, recommends one with numbers and a measurement plan, and th
 - Link previews (WhatsApp, Facebook) show the title and studio name, and the cover for link-access
   galleries; nothing is indexed (`X-Robots-Tag`).
 - **Measured on the free plan** (Verification 4): a gallery view costs one Worker request for the page
-  (plus one per further set or page of photos), median ≤ 3 ms and p95 ≤ 6 ms of CPU; images and
-  scripts cost no Worker request.
+  plus one per further set or page of photos (a password gallery adds the gate's POST and a reload
+  once), median ≤ 3 ms and p95 ≤ 6 ms of CPU; images and scripts cost no Worker request.
 - `npm run ts-check` and `npm run test` green; `npm run preview` serves galleries through `worker.ts`.
 
 **After the first usable version (M2):** protected image delivery (every image through `worker.ts`);
@@ -121,8 +121,8 @@ assets: **neither runs the Worker**. So the only Worker work is producing the pa
   and the lightbox are client-side; server-rendering the grid would buy nothing (galleries are
   `noindex`, so no SEO), and link previews only need the head, which `worker.ts` injects.
 - **It scales with the photographer's success**: client traffic is where the volume is (many visitors);
-  the admin is one person. At ~2 Worker requests per view, 100k requests a day is ~50k gallery views a
-  day.
+  the admin is one person. At 1–2 Worker requests per view (the page, plus a set switch), 100k requests
+  a day is 50–100k gallery views a day.
 - **D remains the owner's call for the admin side**: the sign-in page (26 ms) and every admin screen and
   upload route of Phase 5 run through Next and exceed 10 ms. Today they answer 200; the day the tail shows
   `exceededCpu`, or if spikes S6.1/S6.2 fail, take Workers Paid. On Paid, B is still the better gallery.
@@ -132,9 +132,9 @@ assets: **neither runs the Worker**. So the only Worker work is producing the pa
 
 | # | When | What | Pass |
 | --- | --- | --- | --- |
-| S6.1 | commit 1, local (`npm run preview`) | a `force-static` page under its own root layout builds to a static HTML file; a build step copies it into `.open-next/assets/__gallery/shell.html`; `worker.ts` serves it for `/g/x` through `env.ASSETS` with a marker replaced | the page renders and hydrates; the response is built without calling Next (the routing moves into `src/lib/edge/route.ts` → `routeEdge(request, env, ctx, next)`, tested with a `next` that throws; `worker.ts` only passes `openNext.fetch`) |
+| S6.1 | commit 1, local (`npm run preview`) | a `force-static` page under the static root layout builds to `.next/server/app/gallery-shell.html`; `build:app` copies it into `.open-next/assets/__gallery/shell.html`; `worker.ts` serves it for `/g/x` through `env.ASSETS` with a marker replaced | the page renders and hydrates; the response is built without calling Next (the routing moves into `src/lib/edge/route.ts` → `routeEdge(request, env, ctx, next)`, tested with a `next` that throws; `worker.ts` only passes `openNext.fetch`) |
 | S6.2 | commit 2, local | `worker.ts` imports a module that runs import-free statement builders through `d1Db(env.DB)`; wrangler bundles it | `build:worker` passes; guard `edge-graph` passes; the bundle grows < 20 KB |
-| S6.3 | after M1, production (the owner deploys) | `npm run measure:cpu -- https://<host>/g/<slug> 50` on a link gallery of 300 photos in 3 sets, and on `/g/<slug>/data?set=<id>`; the same on a password gallery with its cookie | median ≤ 3 ms, p95 ≤ 6 ms; else profile and decide (cache the JSON, smaller pages, or D) |
+| S6.3 | after M1, production (the owner deploys) | `npm run measure:cpu -- https://<host>/g/<slug> 50` on a link gallery of 300 photos in 3 sets (capture-time sort), and on `/g/<slug>/data?set=<id>`; the same on a password gallery with its cookie; the first request after a new deploy (a cold isolate: `worker.ts` imports OpenNext's worker statically, so its module evaluation is paid at startup) | median ≤ 3 ms, p95 ≤ 6 ms; else profile and decide (cache the JSON, smaller pages, or D) |
 | S6.4 | during Phase 5 and 6 use | `npm run wrangler -- tail memoria --format json` filtered on `outcome` | no `exceededCpu`; any → bring decision D to the owner |
 
 ## Decisions
@@ -142,16 +142,16 @@ assets: **neither runs the Worker**. So the only Worker work is producing the pa
 | # | Decision | Why |
 | --- | --- | --- |
 | D6.1 | **Option B (proposed, the owner decides)**: `/g/<slug>` is answered by `worker.ts` before Next loads: the prebuilt shell from the assets, with the gallery's head, theme attributes and first page of data injected. `/g/<slug>/data` answers further sets and pages. | The CPU analysis above. |
-| D6.2 | **The shell is a static Next page under its own root layout**: the current `app/layout.tsx` moves to `app/(studio)/layout.tsx` (with `page.tsx` and `admin/`); `app/(gallery)/layout.tsx` is the gallery root (no D1, no `getAppConfig`, `GALLERY_FONT_CLASSES`, `globals.css`); `app/(gallery)/gallery-shell/page.tsx` is `force-static` and renders `<GalleryApp />`. `scripts/gallery-shell.mjs` (run by `build:worker` after OpenNext) copies its prerendered HTML into `.open-next/assets/__gallery/shell.html` and fails the build if it is missing or a marker is not found exactly once. | One build, one set of hashed chunks; the shell is the same for every gallery, so it is an asset; Next tooling (Tailwind, fonts, React) unchanged. |
-| D6.3 | **Injection by markers, not `HTMLRewriter`**: the shell contains `<html data-gallery-shell="">`, `<meta name="memoria-gallery-head">` and an empty `<script id="__gallery" type="application/json">`; a pure `injectGallery(shell, view)` replaces each once (attributes, `<title>` + description + Open Graph tags, the JSON with `<` escaped as `<`). | Runs in workerd **and** in Node (so `next dev` and vitest use the same function); the shell is our own static file, so markers are reliable; a build check guards them. |
-| D6.4 | **One handler, two hosts**: `handleGalleryRequest(request, deps)` (`src/lib/edge/gallery/handler.ts`, import-free of Next and `server-only`) takes `deps = { db: Db, shell(): Promise<string>, cache: JsonCache, config: EdgeGalleryConfig, now }`. Production: `worker.ts` builds `deps` from `env` (`d1Db(env.DB)`, `env.ASSETS`, `caches.default`). Development: Next route handlers `app/(gallery)/g/[slug]/route.ts` and `…/data/route.ts` build `deps` from `getPlatform()` and fetch the shell from `/gallery-shell` (unreachable in production: `worker.ts` answers first). | `npm run dev` keeps working; the tested code is the deployed code; `npm run preview` exercises the `worker.ts` path. |
-| D6.5 | **Edge-safe SQL**: `statement()` and `Statement` move to an import-free `@repo/db/statement` (re-exported by `@repo/db/client`); the gallery's public reads are builders in `lib/db/queries/galleries/public.ts` (and `photos/public.ts`) importing only `@repo/db/statement` and `@repo/db/rows`; the handler executes them on the `Db` port it is given. Guard **`edge-graph`** (the `relay-graph` walker from `apps/web/worker.ts`) refuses `server-only`, `@repo/db/client`, `@repo/platform/current`, `next`, `react`, `@opennextjs/*` (except the generated `.open-next/worker.js`) and prints the chain. | SQL stays in the query modules (AGENTS.md); no wrangler `alias` that could also rewrite OpenNext's bundle; the boundary is checked. |
-| D6.6 | **The view JSON** (`GalleryView`, versioned `v: 1`): `gallery` (title, date, purpose, welcome note, cover `{ id, w, h, color, rev, ext }` or null, theme, accent, font, grid, `protect` = right-click deterrent, studio `{ name, website }`), `media` (the public base URL), `sets` (`{ id, name, count }`), `page` (`{ setId, photos: [id, w, h, color, rev, ext][], next }`, ≤ 500 photos), `gate` (instead of everything but the title and studio when the password is missing), `turnstileSiteKey` on the gate. The browser builds URLs with Phase 5's pure `thumbKey`/`displayKey`. No filenames (Phase 7 adds them when "show filenames" is on), no client data, no password. | Compact (~60 bytes a photo); an original key cannot be built into a public URL (private bucket); one shape for the page and `/data`. |
-| D6.7 | **Cache the JSON, not the HTML**: per request one indexed read of the gallery row by slug (1 row) decides access and gives `content_version`; the set and photo JSON is cached in `caches.default` under `https://cache.internal/g/<id>/<content_version>/<setId>/<cursor>` for 1 day (`ctx.waitUntil(put)`); a miss reads ≤ 50 sets and ≤ 500 photos. On `workers.dev` the cache is inert and every view reads D1 (still ~2–3 ms). | Access is decided fresh on every request; an admin change is visible at once (a new version = a new key); D1 rows read per cached view = 1. |
-| D6.8 | **Access**: link galleries need nothing beyond the slug. Password galleries: `POST /api/g/[slug]/access` (a **Next** route: rare, and the house pattern for a public write) checks same-origin, Turnstile, then the rate limits (10 per IP and gallery per 15 minutes; 100 failures per gallery per hour), decrypts the password and compares in constant time, then sets `mg_<first 12 hex of the id>` = `v1.<password_version>.<expiry>.<HMAC>` — `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS, `Path=/g/<slug>`, 30 days. The HMAC key is HKDF(`SETTINGS_ENCRYPTION_KEY`, info `memoria:gallery-access:v1`), verified in `worker.ts` with Web Crypto. | No PBKDF2 on a public path; a password change (`password_version + 1`) ends every cookie; the public-write rule of AGENTS.md (Turnstile and the rate limit before any write) is kept. |
-| D6.9 | **Preview links for drafts**: `POST /api/admin/galleries/[id]/preview-link` mints `/g/<slug>?preview=<exp>.<HMAC(id, exp)>` (1 hour, the same key, another HKDF info); it opens a draft and skips the password. | *View as client* before publishing, without an admin session check in `worker.ts`. |
+| D6.2 | **The shell is a static Next page under ONE static root layout**: `app/layout.tsx` keeps only `<html suppressHydrationWarning>`, `<body>`, the fonts and `globals.css` and loses `force-dynamic`; `getAppConfig`, `generateMetadata` and `AppProvider` move to `app/(studio)/layout.tsx` (`force-dynamic` there, with `page.tsx` and `admin/`); `app/(gallery)/layout.tsx` is nested (no D1, `GALLERY_FONT_CLASSES`); `app/(gallery)/gallery-shell/page.tsx` is `force-static`, has **no metadata** and renders `<GalleryApp />`. OpenNext puts prerendered HTML into its cache (`createCacheAssets`), not the assets, so `scripts/gallery-shell.mjs` copies **`apps/web/.next/server/app/gallery-shell.html`** into `.open-next/assets/__gallery/shell.html` and fails the build if it is missing or a marker is not found exactly once. It runs in a new `build:app` script (OpenNext build, then the copy) that `build:worker`, `preview` and `deploy` all call. | One build, one set of hashed chunks; the shell is the same for every gallery, so it is an asset; one root layout avoids the experimental `globalNotFound` flag and keeps the existing `not-found`/`error` pages working. |
+| D6.3 | **Injection by markers, not `HTMLRewriter`**: `<html` gets the `data-gallery-*` and `lang` attributes (React does not warn: `suppressHydrationWarning` on `<html>`); a `<meta name="memoria-gallery-head">` in the head becomes `<title>`, description and Open Graph tags; the view JSON is inserted as `<script id="__gallery" type="application/json">` **just before `</body>`, outside React's tree** (`<` escaped as `<`). `GalleryApp` renders a fixed placeholder on its first (hydration) render and reads `#__gallery` through `useSyncExternalStore`, so server and client markup agree. A pure `injectGallery(shell, view)` does all three. | Runs in workerd **and** in Node (so `next dev` and vitest use the same function); the shell is our own static file, so markers are reliable; a build check guards them; no hydration mismatch. |
+| D6.4 | **One handler, two hosts**: `handleGalleryRequest(request, deps)` (`src/lib/edge/gallery/handler.ts`, import-free of Next and `server-only`) takes `deps = { db: Db, shell(): Promise<string>, cache: JsonCache, config: EdgeGalleryConfig, now }` — **structural types only** (no Cloudflare type: guard `platform-boundary`, like `routes.ts`'s own `EdgeEnv`). Production: **`worker.ts` itself** builds `deps` (`d1Db(env.DB)`, `env.ASSETS`, `caches.default`; it is the one web file the guard allows to touch Cloudflare). Development: Next route handlers `app/(gallery)/g/[slug]/route.ts` and `…/data/route.ts` (GET and HEAD) build `deps` from `getPlatform()` and fetch the shell from `/gallery-shell`; they **answer 404 unless `NEXTJS_ENV=development`** (like the blob routes), because any `/g/*` request `worker.ts` does not match would otherwise reach them in production. `isGalleryPath` matches exactly `/g/<slug>` and `/g/<slug>/data` (lower-case slug shape, no trailing slash, GET/HEAD); anything else under `/g/` gets the 404 asset from `worker.ts`. | `npm run dev` keeps working; the tested code is the deployed code; `npm run preview` exercises the `worker.ts` path; no unauthenticated fall-through. |
+| D6.5 | **Edge-safe SQL**: `statement()` and `Statement` move to an import-free `@repo/db/statement` (its own `exports` entry in `packages/db/package.json`; re-exported by `@repo/db/client`); the public reads are builders in `lib/db/queries/galleries/public.ts`, `photo_sets/public.ts`, `photos/public.ts` and `site_settings/public.ts`, importing only `@repo/db/statement` and `@repo/db/rows`, imported **by path, never through the `export *` barrels**; the handler executes them on the `Db` port it is given. Phase 5's `parseGallerySettings` and `keys.ts` must be import-free too (they are in the walk). Guard **`edge-graph`** (the `relay-graph` walker from `apps/web/worker.ts`, with an empty alias map) refuses `server-only`, `@repo/db/client`, `@repo/platform/current`, `next`, `react`, `@opennextjs/*` (except the generated `.open-next/worker.js`) and prints the chain. | SQL stays in the query modules (AGENTS.md); no wrangler `alias` that could also rewrite OpenNext's bundle; the boundary is checked. |
+| D6.6 | **The view JSON** (`GalleryView`, versioned `v: 1`): `gallery` (id, slug, title, date, purpose, welcome note — plain text, rendered as text and escaped in the description tag, never HTML —, cover `{ id, w, h, color, rev, ext }` or null, theme, accent, font, grid, `protect` = right-click deterrent), `studio` (`{ name, website }`, read per request, not cached: D6.7), `media` (the public base URL), `sets` (`{ id, name, count }`), `page` (`{ setId, photos: [id, w, h, color, rev, ext][], next }`, ≤ 500 photos), `gate` (instead of everything but the title and studio when the password is missing), `turnstileSiteKey` on the gate. The browser builds URLs with Phase 5's pure `thumbKey`/`displayKey` (gallery id + photo fields). No filenames (Phase 7 adds them when "show filenames" is on), no client data, no password. | Compact (~80 bytes a photo, ~40 KB per 500 before gzip); an original key cannot be built into a public URL (private bucket); one shape for the page and `/data`. |
+| D6.7 | **Cache the photo JSON, not the HTML**: each request runs one D1 batch of two indexed reads — the gallery row by slug (access, `content_version`) and the `studio` row of `site_settings` (name and website, so a studio rename shows at once; without a row, `APP_NAME` from env: `lib/edge/gallery/config.ts` joins the `settings-through-store` allow-list for that one default). The sets and photo page are cached in `caches.default` under `https://cache.internal/g/<id>/<content_version>/<setId>/<sort>/<cursor>` for 1 day (`ctx.waitUntil(put)`); a miss reads ≤ 50 sets and ≤ 500 photos through Phase 5's per-sort indexes (`ix_photos_set_order`, `ix_photos_set_taken`), with a cursor per sort. On `workers.dev` the cache is inert and every view reads D1 (still ~2–3 ms). | Access is decided fresh on every request; an admin change is visible at once (a new version = a new key); D1 rows read per cached view = 2. |
+| D6.8 | **Access**: link galleries need nothing beyond the slug. Password galleries: `POST /api/g/[slug]/access` (a **Next** route: rare, and the house pattern for a public write) checks same-origin, Turnstile, then the rate limits (10 per IP and gallery per 15 minutes; 100 failures per gallery per hour), decrypts the password and compares in constant time, then sets `mg_<first 12 hex of the id>` = `v1.<password_version>.<expiry>.<MAC>` with **MAC = HMAC-SHA256(key, `access|v1|<full gallery id>|<password_version>|<expiry>`)** — `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS, `Path=/g/<slug>`, 30 days. The key is HKDF(`SETTINGS_ENCRYPTION_KEY`, info `memoria:gallery-access:v1`); `worker.ts` rejects a malformed or past expiry first, then checks with `crypto.subtle.verify` (constant time). | No PBKDF2 on a public path; the full id in the MAC stops a cookie of gallery A opening gallery B; a password change (`password_version + 1`) ends every cookie; the public-write rule of AGENTS.md (Turnstile and the rate limit before any write) is kept. |
+| D6.9 | **Preview links open drafts only**: `POST /api/admin/galleries/[id]/preview-link` mints `/g/<slug>?preview=<exp>.<MAC>`, MAC = HMAC(key, `preview|v1|<full gallery id>|<exp>`), 1 hour, a key from another HKDF info. It opens a **draft** (a password draft too, since the photographer is previewing); on a published gallery it is ignored (the normal access rules apply). The client forwards `preview` to `/g/<slug>/data`; `worker.ts` never logs query strings. Not revocable within its hour (accepted: it shows only what the photographer is about to publish). | *View as client* before publishing, without an admin session check in `worker.ts`; a leaked preview link never bypasses a published gallery's password. |
 | D6.10 | **A view writes nothing.** The `visitors` table and the visitor cookie move to **Phase 7** (created at the first favourite or name prompt); view counters are Phase 11's (aggregated, never a write per photo view). | The view path stays read-only and cacheable; Phase 6 needs no migration. |
-| D6.11 | **Responses from `worker.ts` set their own headers**: `securityHeaders` from `src/lib/security/headers.mjs` (imported relatively) with the media origin from env, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` (the slug of a link gallery is its secret), `Cache-Control: private, no-store` for the page, `private, max-age=60` for `/data`; no analytics beacon on gallery pages. | Outside Next none of the site headers apply (Phase 1's finding). |
+| D6.11 | **Responses from `worker.ts` set their own headers**: `securityHeaders` from `src/lib/security/headers.mjs` (imported relatively) with the media origin from env (the `media` option Phase 5 D5.16 adds to `contentSecurityPolicy`; this phase depends on it), `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` (the slug of a link gallery is its secret), `Cache-Control: private, no-store` for the page, `private, max-age=60` for `/data`; no analytics beacon on gallery pages. | Outside Next none of the site headers apply (Phase 1's finding). |
 | D6.12 | **Link previews**: `og:title` = the gallery title, `og:description` = the studio name, `og:image` = the cover's display copy **only for link-access galleries**; a password gallery's preview has no image. `robots.txt` stays open (bots must fetch the page to read the tags). | Galleries are private; a password gallery should not leak a photo through a shared preview. |
 | D6.13 | **Grids are computed in the browser** from the known sizes: justified rows (target row height, last row not stretched), masonry (shortest column, row-major reading order), square (cover crop). Pure functions, table-tested. Thumbnails `loading="lazy"` with the placeholder colour as background; pages of 500 loaded as the user nears the end. | No layout shift (sizes are known), chronological order kept, no server work. |
 | D6.14 | **Lightbox**: a native `<dialog>` (`@repo/ui/dialog`) in the lightbox palette (a `lightbox` theme in Phase 4's `gallery.mjs`, the T6.7 values), the photo id in the URL hash (`#p=<id>`: Back closes it, a link opens it), ←/→/Esc, swipe (pointer events), the next and previous display copies preloaded, a filmstrip of thumbnails, the counter. | Keyboard and screen-reader behaviour from the platform; shareable photo links inside the gallery. |
@@ -166,7 +166,7 @@ assets: **neither runs the Worker**. So the only Worker work is producing the pa
 ```
 GET /g/<slug>                    worker.ts → handleGalleryRequest
   slug shape? no → 404 (the static not-found asset)
-  galleryBySlug (1 row: id, status, access, password_version, content_version, settings, cover…)
+  one D1 batch: galleryBySlug (id, status, access, password_version, content_version, settings, cover…) + the studio row
     none, deleted, or draft without a valid ?preview → 404
     password and no valid mg_ cookie → injectGallery(shell, gateView)        (no photos, no cover)
   cache.get(g/<id>/<cv>/<firstSet>/0) ?? (sets + photos page from D1 → cache.put in waitUntil)
@@ -180,16 +180,20 @@ scripts, styles, fonts           /_next/static/…                              
 ### Modules
 
 ```
-apps/web/worker.ts                      + if (isGalleryPath(pathname)) return handleGalleryRequest(request, edgeDeps(env, ctx))
+apps/web/worker.ts                      routeEdge(request, env, ctx, openNext.fetch); builds the gallery deps from env
+                                        (d1Db(env.DB), env.ASSETS, caches.default): the only file touching Cloudflare
 apps/web/src/lib/edge/gallery/
   handler.ts      routing inside /g/<slug>(/data); access; cache; responses (pure deps)
   view.ts         rows → GalleryView (pure; never reads password or client fields)
   inject.ts       injectGallery(shell, view, head) (pure, D6.3)
   access.ts       accessCookie sign/verify, previewToken sign/verify (Web Crypto, pure)
   headers.ts      galleryHeaders(config) from headers.mjs (pure)
-  deps.ts         EdgeGalleryDeps, JsonCache, EdgeGalleryConfig types
-apps/web/src/lib/edge/edgeDeps.ts       production deps from env (d1Db, ASSETS, caches.default): imported by worker.ts only
-apps/web/src/app/(gallery)/layout.tsx   gallery root layout (static)
+  deps.ts         EdgeGalleryDeps, JsonCache, EdgeGalleryConfig (structural types, no Cloudflare type)
+  config.ts       edgeGalleryConfig(env-shaped record) (pure; the APP_NAME default, D6.7)
+apps/web/src/lib/edge/route.ts          routeEdge: /healthz, isGalleryPath → handler, else next (pure deps)
+apps/web/src/app/layout.tsx             the one root layout, now static (html, body, fonts, globals)
+apps/web/src/app/(studio)/layout.tsx    getAppConfig, generateMetadata, AppProvider; force-dynamic
+apps/web/src/app/(gallery)/layout.tsx   gallery layout (static, nested)
 apps/web/src/app/(gallery)/gallery-shell/page.tsx   force-static: <GalleryApp/>
 apps/web/src/app/(gallery)/g/[slug]/route.ts, data/route.ts   development host of the same handler (D6.4)
 apps/web/src/app/api/g/[slug]/access/route.ts                  the gate (D6.8)
@@ -198,18 +202,20 @@ apps/web/src/components/gallery/        GalleryApp, GalleryHeader, Cover, SetTab
 apps/web/src/lib/gallery/layout.ts      justified / masonry / square (pure)
 packages/db/statement.ts                statement(), Statement (import-free, D6.5)
 apps/web/src/lib/db/queries/galleries/public.ts, photos/public.ts, photo_sets/public.ts
-scripts/gallery-shell.mjs               copy + marker check (D6.2)
+scripts/gallery-shell.mjs               copy + marker check (D6.2), run by the new `build:app` script
 scripts/guards/edge-graph.test.ts       D6.5
 ```
 
 - `EdgeGalleryConfig` = `{ mediaBaseUrl, accessKey (CryptoKey, derived once per isolate and kept on
   globalThis by key fingerprint), turnstileSiteKey, isDevelopment }`, parsed from env by a pure
   `edgeGalleryConfig(env)` (no `parseConfig` dependency unless the `edge-graph` guard accepts its imports).
+- The studio row is parsed by Phase 2b's `parseStudioInput` if its imports pass `edge-graph`, else by a
+  narrow pure parser beside the handler (name and website only).
 - Public reads: `galleryBySlugStatement(slug)` (`WHERE slug = ? AND deleted_at IS NULL`, the columns the
   view needs), `publicSetsStatement(galleryId)` (`ORDER BY position LIMIT 50`), `publicPhotosStatement(setId, cursor, 500)`
-  (`WHERE set_id = ? AND status = 'ready' AND hidden = 0 ORDER BY <the gallery's sort>, id`, served by
-  `ix_photos_set_order`; the capture-time sort uses `taken_at, position`). Rows read per uncached view:
-  1 + sets + ≤ 500.
+  (`WHERE set_id = ? AND status = 'ready' AND hidden = 0 ORDER BY <the gallery's sort>`, served by
+  `ix_photos_set_order` (position) or `ix_photos_set_taken` (capture time), each with its own cursor;
+  a filename sort is applied in the browser within the page). Rows read per uncached view: 2 + sets + ≤ 500.
 
 ### The client app (`components/gallery/`)
 
@@ -255,16 +261,19 @@ scripts/guards/edge-graph.test.ts       D6.5
 
 ### A. Foundations (spikes first)
 
-- **T6.1** S6.1: split the root layouts (`(studio)` and `(gallery)`), the `gallery-shell` page,
-  `scripts/gallery-shell.mjs` in `build:worker`, `worker.ts` serving the shell for `/g/*` in preview;
-  record the result here. Global not-found handling for two root layouts checked.
-- **T6.2** S6.2: `@repo/db/statement`; the public statement builders; guard `edge-graph` (walker shared
-  with `relay-graph`, self-tests: `worker.ts` → `server-only` caught, `@repo/db/rows` passes).
+- **T6.1** S6.1: the static root layout and the `(studio)` / `(gallery)` layouts, the `gallery-shell`
+  page, `scripts/gallery-shell.mjs` and the `build:app` script (used by `build:worker`, `preview`,
+  `deploy`), `routeEdge` and `worker.ts` serving the shell for `/g/*` in preview; record the result here;
+  the existing not-found and error pages still render.
+- **T6.2** S6.2: `@repo/db/statement` (+ its `exports` entry); the public statement builders; guard
+  `edge-graph` (walker shared with `relay-graph`, empty alias map; self-tests: `worker.ts` →
+  `server-only` caught, `@repo/db/rows` passes, a barrel import of a query module caught).
 
 ### B. The gallery path
 
-- **T6.3** `lib/edge/gallery/*` (handler, view, inject, access, headers), `edgeDeps.ts`, the development
-  route handlers, the JSON cache, `worker.ts` wiring.
+- **T6.3** `lib/edge/gallery/*` (handler, view, inject, access, headers, config), the development route
+  handlers (404 outside development), the JSON cache, the deps built in `worker.ts`; the
+  `settings-through-store` allow-list entry for `config.ts`.
 - **T6.4** The gate route (Turnstile, rate limits, cookie) and the preview-link route; the manager's
   *View as client* uses it (Phase 5's button).
 
@@ -296,10 +305,11 @@ scripts/guards/edge-graph.test.ts       D6.5
 | Test | What |
 | --- | --- |
 | `lib/gallery/layout.test.ts` | table: justified rows for known sizes and widths (row heights, last row not stretched, a panorama alone on a row); masonry columns and row-major order; square; 0 and 1 photo; width changes |
-| `edge/gallery/access.test.ts` | cookie: valid; tampered signature; another gallery; old `password_version`; expired; malformed parts; preview token valid, expired, for another id |
-| `edge/gallery/inject.test.ts` | each marker replaced once; a title with `</script>`, quotes and Cyrillic escaped correctly in HTML and JSON; missing marker throws; OG image only for link galleries |
+| `edge/gallery/access.test.ts` | cookie: valid; tampered signature; **gallery A's cookie sent as `mg_<B>` to gallery B** (same version and expiry) → refused; old `password_version`; expired; malformed expiry rejected before the MAC; preview token valid, expired, for another id, an access cookie's MAC used as a preview token → refused |
+| `edge/route.test.ts` | `/healthz` unchanged; `/g/<slug>` and `/data` reach the handler without calling `next` (a throwing stub); `/G/x`, `/g/x/`, `/g/x/other`, POST → 404 asset; other paths → `next` |
+| `edge/gallery/inject.test.ts` | each marker replaced once; the JSON script lands just before `</body>` (outside the React root); a title or welcome note with `</script>`, quotes and Cyrillic escaped correctly in HTML and JSON; missing marker throws; OG image only for link galleries |
 | `edge/gallery/view.test.ts` | rows → view: no `password_sealed`, `client_email`, `client_name` or filename in the output (deep key scan); hidden, deleted and uploading photos absent; the string `original` never appears; sizes and colours carried |
-| `edge/gallery/handler.test.ts` | test D1 + a fake shell + an in-memory `JsonCache`: published link gallery → 200 with injected JSON; draft → 404, with a valid preview → 200; deleted → 404; unknown or malformed slug → 404; password gallery without cookie → gate view (no photos, no cover), with a valid cookie → full view, with an old-version cookie → gate; `/data` of another gallery's set → 404; paging cursor round trip; a cache hit reads only the gallery row (Db spy); a changed `content_version` misses; headers (CSP with the media origin, `X-Robots-Tag`, `Referrer-Policy: no-referrer`, `no-store`) |
+| `edge/gallery/handler.test.ts` | test D1 + a fake shell + an in-memory `JsonCache`: published link gallery → 200 with injected JSON; draft → 404, with a valid preview → 200; deleted → 404; unknown or malformed slug → 404; password gallery without cookie → gate view (no photos, no cover), with a valid cookie → full view, with an old-version cookie → gate; a preview token on a published password gallery → gate (ignored); a studio rename shows without a `content_version` change; the development route handlers answer 404 when `NEXTJS_ENV` is not `development`; `/data` of another gallery's set → 404; paging cursor round trip; a cache hit reads only the gallery row (Db spy); a changed `content_version` misses; headers (CSP with the media origin, `X-Robots-Tag`, `Referrer-Policy: no-referrer`, `no-store`) |
 | `api/g/[slug]/access/route.test.ts` | cross-origin → 403; Turnstile failure (mocked) → 403 before any write; rate limits (per IP and gallery, per gallery) → 429; wrong password → 401 with a fixed message; right → 200 + `Set-Cookie` with `Path=/g/<slug>`, `HttpOnly`, `SameSite=Lax`; link gallery or unknown slug → 404; the comparison is constant-time (a helper test) |
 | `api/admin/galleries/[id]/preview-link/route.test.ts` | 401/403; returns a token the handler accepts; 404 for a deleted gallery |
 | `scripts/gallery-shell.test.ts` | the marker check on a sample file: missing, doubled and present |
@@ -311,13 +321,14 @@ scripts/guards/edge-graph.test.ts       D6.5
 
 - **Next upgrades** may move the prerendered HTML: the build step fails loudly (D6.2); fallback C (fetch
   the JSON) needs only the shell, and A2 remains possible.
-- **Two root layouts**: navigation between studio and gallery pages is a full page load (expected); a
-  global 404 needs its own `<html>` (checked in S6.1).
+- **The root layout becomes static**: every studio page must still be dynamic through `(studio)/layout.tsx`
+  (`force-dynamic` there); S6.1 checks that `/admin` still reads D1 per request and that `/api/**`
+  routes (outside both groups) are unaffected.
 - **First paint needs JavaScript** (no server-rendered grid): the JSON is inline, the gallery bundle is
   kept small (budget: ≤ 120 KB gzip for the gallery route, recorded in Verification 3); the cover and the
   header show as soon as React mounts.
 - **Cache API only on a custom domain** (index question 3): without it every view reads D1 (still within
-  budget: ≈ 1 + sets + 500 rows per view; 5M rows a day ≈ 9,000 uncached views of a 500-photo set).
+  budget: ≈ 2 + sets + 500 rows per view; 5M rows a day ≈ 9,000 uncached views of a 500-photo set).
 - **Public image URLs survive revocation** (Phase 5 risk): a former visitor who kept URLs can load
   thumbnails and display copies; protected delivery (M2) is the answer; originals are never public.
 - **Password guessing**: per IP and per gallery limits plus Turnstile; generated passwords are two words
@@ -325,7 +336,7 @@ scripts/guards/edge-graph.test.ts       D6.5
   one gallery: the photographer is told to use generated passwords (the form suggests one).
 - **The hourly failure cap is a lever for annoyance**: an attacker can lock the gate for an hour for
   everyone; logged `gallery_gate_limited` (the admin sees it in Phase 11's activity).
-- **Large sets**: 500 photos per page; JSON ≈ 30 KB per 500 photos; layout math for 1,000 items is a
+- **Large sets**: 500 photos per page; JSON ≈ 40 KB per 500 photos before gzip; layout math for 1,000 items is a
   few ms in the browser; virtualisation only if Verification 3 shows a problem.
 - **Cold start**: an isolate's first request evaluates the whole Worker bundle (OpenNext included); the
   gallery path does not initialise Next, so it should stay far below the 182 ms measured for a Next
@@ -353,7 +364,7 @@ scripts/guards/edge-graph.test.ts       D6.5
 
 | # | Commit | Tasks | Extra gate |
 | --- | --- | --- | --- |
-| 1 | `refactor(web): studio and gallery root layouts; the static gallery shell` | T6.1 | S6.1 recorded; `npm run preview` serves `/g/x` from the shell |
+| 1 | `refactor(web): a static root layout, studio and gallery layouts; the static gallery shell` | T6.1 | S6.1 recorded; `npm run preview` serves `/g/x` from the shell |
 | 2 | `feat(edge): import-free statements and the edge-graph guard` | T6.2 | S6.2 |
 | 3 | `feat(gallery): the gallery page and data from worker.ts` | T6.3 | handler tests; preview serves a real gallery |
 | 4 | `feat(gallery): the password gate and preview links` | T6.4 | Verification 2 (access part) |

@@ -24,7 +24,7 @@ emails it to the client) for Phase 6's client gallery.
   from Phase 4's defaults. Create → the gallery manager.
 - **Upload** (in the manager): drop files or pick them; JPEG, PNG and WebP accepted by their bytes, other
   files listed as not supported with the reason; duplicates (same bytes) skipped; per file: the original
-  with GPS removed (rest of EXIF kept, pixels untouched), a thumbnail and a display copy (WebP, JPEG
+  with its location removed (EXIF and IPTC kept, XMP dropped, pixels untouched), a thumbnail and a display copy (WebP, JPEG
   where the browser cannot encode WebP), the watermark on the display copy and thumbnail of a
   watermarked gallery, a placeholder colour; three presigned PUTs; registration checks every object with
   `head()`. Progress, retry of failed files, and **resume by dropping the same files again**.
@@ -115,20 +115,20 @@ autosave, IndexedDB resume across browser restarts, scheduled publish (Phase 10)
 | D5.3 | **A slug is readable plus random**: from the name (`maria-jonas`, ASCII-folded, Cyrillic transliterated, ≤ 40) + `-` + 6 characters of `[a-z2-9]` (≈ 31 bits), editable (`[a-z0-9-]`, 3–60, UNIQUE). Removing the random part on a link-access gallery shows a warning. | With "anyone with the link", the link is the key; the name alone is guessable. |
 | D5.4 | **Processing is fixed at creation**: purpose, display and thumbnail sizes and quality, the watermark (a snapshot of Phase 4's, D4.3) and the delivery mode are copied into the gallery's `settings`; every later upload uses them. Changing them = a new gallery (or Phase 5 M4's *reprocess*, which re-runs the pipeline from the originals in the photographer's browser). | The files are baked; a gallery whose photos disagree in size or watermark is worse than a re-create. Answers the placeholder's "display size after upload" question. |
 | D5.5 | **The browser pipeline**: a pool of `min(4, max(1, hardwareConcurrency − 1))` module Web Workers. Per file: sniff the type from the bytes; SHA-256 (`crypto.subtle`); read EXIF (our reader, D5.6); decode with `createImageBitmap(blob, { imageOrientation: 'from-image' })`; resize by `drawImage` on an `OffscreenCanvas` with `imageSmoothingQuality = 'high'`, halving in steps while the ratio is above 2 (no reliance on resize options); `applyWatermark` (Phase 4); `convertToBlob({ type: 'image/webp', quality })`, and **JPEG** when the browser returns another type; the placeholder = the average colour of an 8 px copy. No WebAssembly. Derivatives carry no metadata (canvas output). | Native APIs only, the same result in Chrome, Firefox and Safari; no Worker CPU spent on images. |
-| D5.6 | **The original is uploaded byte-for-byte except GPS** (index → Uploads): our own lossless metadata editor `lib/images/metadata/` — JPEG: in the EXIF APP1 the GPS IFD's entries and values are zeroed and the IFD0 `GPSInfo` (0x8825) entry removed by shifting the entry list (count − 1), and the Exif IFD's `MakerNote` (0x927C, vendor data that may hold coordinates) treated the same way; an XMP APP1 packet that mentions `exif:GPS` is dropped; PNG: the `eXIf` chunk gets the same TIFF edit (CRC recomputed), an `iTXt`/`zTXt` XMP chunk with GPS dropped; WebP: the `EXIF` chunk edited, an `XMP ` chunk with GPS dropped (RIFF sizes fixed). The same reader returns orientation, `DateTimeOriginal`, camera and lens. A file whose metadata cannot be parsed is **refused** ("cannot remove location data"), never uploaded unchanged. `exifr` is a dev dependency only, to check our output independently in tests. | No re-encoding (quality kept), ~300 lines of table-tested code, no runtime dependency; refusing beats leaking a client's home address. |
+| D5.6 | **The original is uploaded with its pixels untouched and its location removed** (index → Uploads): our own lossless metadata editor `lib/images/metadata/`. **EXIF**: the GPS IFD's entries and values are zeroed (offsets bounds-checked first) and the IFD0 `GPSInfo` (0x8825) entry removed by shifting the later entries up, moving the next-IFD pointer up 12 bytes and zeroing the freed bytes (value offsets are absolute, so nothing else moves); the Exif IFD's `MakerNote` (0x927C, vendor data that may hold coordinates) is treated the same; IFD1 (the embedded thumbnail, which can carry its own EXIF) is unlinked and zeroed. **XMP is dropped entirely** in every container (it can hold GPS under any prefix and in ExtendedXMP segments); EXIF and IPTC (copyright, creator, caption) stay. JPEG: also drop MPF (APP2 `MPF\0`) and anything after the first EOI (secondary images), keep ICC (APP2 `ICC_PROFILE`). PNG: `eXIf` edited (CRC recomputed); `iTXt`/`zTXt`/`tEXt` chunks with the XMP keyword or a "Raw profile type exif/app1/xmp" keyword dropped. WebP: `EXIF` edited, `XMP ` dropped, the VP8X flag bits and RIFF sizes fixed, odd-size padding kept. A structure the editor does not know (SubIFDs 0x014A, a second EXIF segment, unparsable metadata) **refuses the file** ("cannot remove location data"), never uploads it unchanged. The same reader returns orientation, `DateTimeOriginal`, camera and lens. `exifr` and a scan for the XMP namespace are test-only checks. | No re-encoding (quality kept), ~400 lines of table-tested code, no runtime dependency; refusing beats leaking a client's home address. Dropping XMP loses Lightroom's develop settings and keywords, which a client never needs (open question 8). |
 | D5.7 | **Keys**: original `galleries/<galleryId>/<photoId>/original.<jpg\|png\|webp>` in `memoria-originals`; derivatives `galleries/<galleryId>/<photoId>/<rev>/thumb.<webp\|jpg>` and `…/display.<ext>` in `memoria-media`, `rev` = 8 random `[a-z2-9]` per processing. All generated by the server at registration. | A new `rev` busts the CDN cache when a photo is replaced (M4); ids are UUIDs, so keys are not enumerable. |
-| D5.8 | **Two-phase upload, ≤ 10 photos per request.** `POST …/uploads` inserts `photos` rows (`status = 'uploading'`) and returns three signed PUTs each; the browser PUTs; `POST …/uploads/complete` `head()`s the three objects of each photo (exists, size ≤ minted and = declared, type = minted, original ≤ `MAX_UPLOAD_BYTES`, derivatives ≤ 10 MB) and marks it `ready`. A photo that fails `head()` stays `uploading` (the browser retries its PUTs once, then reports it). | 30 `head()`s and ≤ 30 signatures per request keep inside 50 subrequests and the CPU budget; one INSERT per photo keeps under D1's 100 parameters. |
-| D5.9 | **Dedupe and resume by content**: `UNIQUE (gallery_id, sha256)` (of the file as dropped). Registering a known hash returns `duplicate` for a `ready` photo and **re-mints** the URLs for an `uploading` one. Dropping the same folder again finishes an interrupted upload; no IndexedDB in M1–M3. | Resume without client storage; the database enforces it, never a read-check-write. |
+| D5.8 | **Two-phase upload.** `POST …/uploads` (≤ 10 photos) inserts `photos` rows (`status = 'uploading'`) and returns three signed PUTs each (signatures: CPU only, no subrequest); the browser PUTs; `POST …/uploads/complete` (≤ 8 photos) `head()`s the three objects of each photo (exists, size = declared, type = minted, original ≤ `MAX_UPLOAD_BYTES`, derivatives ≤ 10 MB) and marks it `ready`. A photo that fails `head()` stays `uploading` (the browser retries its PUTs once, then reports it). | Complete = 24 `head()`s + ~4 D1 calls (session, rate limit, batch) against 50 subrequests on the free plan (R2 and D1 calls count); one INSERT per photo keeps under D1's 100 parameters. Wall time: R2 allows 6 simultaneous connections, so the heads queue (not CPU). |
+| D5.9 | **Dedupe and resume by content**: `UNIQUE (gallery_id, sha256)` (of the file as dropped). Registering a known hash returns `duplicate` for a `ready` photo and **re-mints** an `uploading` one (rewriting its declared sizes, dimensions and `updated_at`). **A deleted photo releases its hash** (`sha256 = NULL` in the delete statement; the CHECK allows NULL only with `status = 'deleted'`), so dropping it again uploads it anew. Dropping the same folder again finishes an interrupted upload; no IndexedDB in M1–M3. | Resume without client storage; the database enforces it, never a read-check-write; a re-dropped deleted photo is never silently skipped or revived against objects about to be purged. |
 | D5.10 | **Columns for what is queried, one `settings` JSON for the rest.** `galleries` keeps slug, title, status, purpose, access, delivery, counts, cover and timestamps as columns; `settings` (JSON, parsed by the pure `parseGallerySettings` with a default per field) holds sizes, watermark snapshot, theme, accent, font, grid, sort, welcome note. Phases 7, 9 and 10 add fields to it. | Later phases add options without migrations; invalid stored settings read as defaults (logged), never a broken gallery. |
 | D5.11 | **The gallery password is sealed, not hashed**: `password_sealed` = `settingsCipher.encrypt(password, 'gallery.<id>.password')`; the photographer sees it in the sharing panel and the email; Phase 6's gate decrypts and compares in constant time. A change bumps `password_version` (Phase 6's access cookies carry it). Passwords: 4–64 characters, a "Generate" (two words + two digits). | It is a shared, shown password, not a credential: PBKDF2 on a public path would cost the CPU budget for nothing. A D1 export alone does not reveal it. |
 | D5.12 | **Every content change bumps `galleries.content_version`** in the same batch (photo registered, hidden, moved, deleted, cover, sets, settings, publish). | Phase 6 caches a gallery's JSON by `(id, content_version)`: a change is visible at once without purging anything. |
-| D5.13 | **Counts are stored, recomputed in the batch of the change**: `galleries.photo_count`, `bytes_total` and `photo_sets.photo_count` (visible ready photos) are set from an indexed `count(*)` over that gallery or set by the statement after the change. | No `count(*)` on a client request; the admin write pays (rows read = the gallery's photos, an admin-only path), and a drift heals at the next change. |
+| D5.13 | **Counts are stored, recomputed in the batch of the change**: `galleries.photo_count`, `bytes_total` and `photo_sets.photo_count` (visible ready photos) are set by a `count(*)` / `sum(bytes)` over that gallery or set in the statement after the change (`ix_photos_gallery_status (gallery_id, status, hidden)` narrows it; the sum reads the rows). A batch that hides or deletes the cover photo also clears `cover_photo_id`. | No `count(*)` on a client request; the admin write pays (≈ the gallery's rows per batch: ~64k rows read for an 800-photo upload, far inside 5M a day), and a drift heals at the next change. |
 | D5.14 | **Heavy lists render in the browser.** The manager's grid and the galleries list fetch JSON pages (`GET …/photos?set_id=&cursor=`, ≤ 200 per page); server components render only the shell. Thumbnails come from `publicUrl(key)` (a string join), or the dev read route locally. | A server render of 800 thumbnails would cost tens of ms of CPU per page view; the JSON is ~0.5 ms. |
 | D5.15 | **Production shows images only through the public media domain** (`MEDIA_PUBLIC_BASE_URL`, an R2 custom domain; the `r2.dev` URL is acceptable for a trial only). Without it the manager shows placeholders and a notice. Never presigned GETs for thumbnails. | Presigned URLs are unique per call (no CDN cache) and cost a signature each. |
-| D5.16 | **The CSP learns the media origins at build time** from `apps/web/wrangler.jsonc` `vars`: `next.config.mjs` reads `MEDIA_PUBLIC_BASE_URL` (→ `img-src`) and `MEDIA_S3_ENDPOINT` (→ `connect-src`, the presigned PUTs to both buckets) and passes them to `contentSecurityPolicy({ dev, media })`; `headers.test.ts` gains rows; the guard `wrangler-config` checks both are origins (scheme + host, no path). | The headers are computed at build; both values are plain vars in a committed file, so no runtime header rewriting. |
-| D5.17 | **Delete is soft, purge is a job.** Deleting a gallery sets `deleted_at` (it disappears from lists and clients at once) and enqueues `gallery.purge` with `runAfter` = +7 days and `ref = gallery:<id>`; **Restore** clears `deleted_at` and cancels the job. Deleting photos sets `status = 'deleted'` and enqueues `media.purge`. Purging is **row-driven** (keys are derived from rows; no bucket listing): ≤ 90 photos per run (objects in both buckets by `delete(keys)`, then the rows by id, under 100 parameters), and a run that leaves work enqueues the next one. Housekeeping enqueues one `media.purge` a day for `uploading` rows older than 24 h. | Recoverable mistakes; bounded CPU per relay invocation (one job, 10 ms); no `list` operations (Class A); orphans cannot appear because a presigned PUT expires in 10 minutes and purges start after 24 h. |
+| D5.16 | **The CSP learns the media origins at build time** from `apps/web/wrangler.jsonc` `vars`: `next.config.mjs` reads `MEDIA_PUBLIC_BASE_URL` (→ `img-src` and `connect-src`: the watermark image is fetched by the upload worker, Phase 4 D4.14) and `MEDIA_S3_ENDPOINT` (→ `connect-src`: the presigned PUTs to both buckets, and a presigned watermark GET) and passes them to `contentSecurityPolicy({ dev, media })`; `headers.test.ts` gains rows; the guard `wrangler-config` checks both are origins (scheme + host, no path). The public bucket's CORS rules (one policy per bucket, applied to S3 and custom-domain access alike) allow `GET` from the app origins; deployment.md → Media says so. Dedicated workers take their CSP from the script's own response (`/_next/static/…`): checked in Verification 2. | The headers are computed at build; both values are plain vars in a committed file, so no runtime header rewriting. |
+| D5.17 | **Delete is soft, purge is a job, and the two never overlap.** Deleting a gallery sets `deleted_at` (it disappears from lists and clients at once) and enqueues `gallery.purge` with `runAfter` = +7 days, `ref = gallery:<id>`, `dedupeKey = gallery.purge:<id>:<deleted_at>`. **Restore** is `UPDATE … SET deleted_at = NULL WHERE id = ? AND deleted_at > ?now−7d` and cancels pending jobs by `ref`; the purge acts only while `deleted_at <= ?now−7d`, and every purge statement repeats that condition — so a restore and a purge can never both succeed. Deleting photos sets `status = 'deleted'`, `sha256 = NULL` (D5.9) and enqueues `media.purge` with `dedupeKey = media.purge:<UTC minute>` (many deletes in a minute share one job). Purging is **row-driven and claims first** (keys derive from rows; no bucket listing): stale uploads are first claimed with `UPDATE photos SET status = 'deleted', sha256 = NULL WHERE id IN (…) AND status = 'uploading' AND updated_at < ?now−24h` and only claimed rows are purged, so a photo completed or re-minted meanwhile is untouched; ≤ 90 photos per run (objects in both buckets by `delete(keys)`, then the rows by id); a run that found 90 enqueues the next one (no key, no nudge: the relay's cron picks it up within a minute). Housekeeping enqueues `media.purge` (key `media.purge:<UTC date>:hk`) when stale or deleted rows exist. | Recoverable mistakes; bounded CPU per relay invocation (one job, 10 ms: measured, Verification 5); no `list` operations (Class A); orphans cannot appear because a presigned PUT expires in 10 minutes and purges start after 24 h; dedupe keys stay unique although finished jobs keep theirs for 30 days. |
 | D5.18 | **Foreign keys without cascade**: `photo_sets.gallery_id`, `photos.gallery_id` and `photos.set_id` reference their parents; purges delete photos, then sets, then the gallery. | The schema refuses orphans; deleting in order is what the purge does anyway, and a cascade would hide row-write costs. |
-| D5.19 | **Status = `draft` \| `published`**; a draft is invisible to clients (Phase 6 answers 404). Publishing sets `published_at`; unpublishing returns to draft. Scheduled publish and expiry are Phase 10 (their columns come with it). | The smallest lifecycle that lets the photographer upload before sharing. |
+| D5.19 | **Status = `draft` \| `published`**; a draft is invisible to clients (Phase 6 answers 404). Publishing sets `published_at` (`WHERE status = 'draft'`, so twice is a no-op); unpublishing returns to draft and clears `published_at` in the same statement (`published_at` = the latest publish; `first_published_at` keeps the first, for Phase 11). Scheduled publish and expiry are Phase 10 (their columns come with it). | The smallest lifecycle that lets the photographer upload before sharing. |
 | D5.20 | **The client email is a template, sent by the relay**: `gallery.ready` (`{ galleryTitle, clientName?, path, password? }`, the password only when the photographer ticks "include the password"); the sharing panel previews it with `renderEmail` and enqueues `emailJobStatement` with an audit row in one batch, then `nudgeRelay()`. Rate limit 20 an hour. | Phase 3's rules (only the relay sends; links through `ctx.link`); the photographer typed the address, so D3.15's visitor caps do not apply. |
 | D5.21 | **Image delivery `protected` is stored but not offered** until Phase 6 M2 (Phase 4 D4.13). | The column exists from the start; no option promises what is not built. |
 
@@ -170,6 +170,7 @@ CREATE TABLE galleries (
   bytes_total      INTEGER NOT NULL DEFAULT 0,
   content_version  INTEGER NOT NULL DEFAULT 1,        -- D5.12
   published_at     TEXT,
+  first_published_at TEXT,
   deleted_at       TEXT,
   created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -213,7 +214,7 @@ CREATE TABLE photos (
   width          INTEGER NOT NULL,                    -- oriented pixels of the original
   height         INTEGER NOT NULL,
   taken_at       TEXT,                                -- EXIF DateTimeOriginal as written (local, no zone)
-  sha256         TEXT NOT NULL,                       -- D5.9
+  sha256         TEXT,                                -- D5.9; NULL once deleted (releases the hash)
   rev            TEXT NOT NULL,                       -- D5.7
   derivative_ext TEXT NOT NULL,                       -- webp | jpg
   display_width  INTEGER NOT NULL,
@@ -230,7 +231,7 @@ CREATE TABLE photos (
   CONSTRAINT fk_photos_set FOREIGN KEY (set_id) REFERENCES photo_sets (id),
   CONSTRAINT uq_photos_gallery_sha256 UNIQUE (gallery_id, sha256),
   CONSTRAINT ck_photos_type CHECK (content_type IN ('image/jpeg', 'image/png', 'image/webp')),
-  CONSTRAINT ck_photos_sha256 CHECK (length(sha256) = 64 AND sha256 NOT GLOB '*[^0-9a-f]*'),
+  CONSTRAINT ck_photos_sha256 CHECK ((sha256 IS NULL AND status = 'deleted') OR (length(sha256) = 64 AND sha256 NOT GLOB '*[^0-9a-f]*')),
   CONSTRAINT ck_photos_rev CHECK (length(rev) = 8 AND rev NOT GLOB '*[^a-z2-9]*'),
   CONSTRAINT ck_photos_ext CHECK (derivative_ext IN ('webp', 'jpg')),
   CONSTRAINT ck_photos_status CHECK (status IN ('uploading', 'ready', 'deleted')),
@@ -239,15 +240,22 @@ CREATE TABLE photos (
   CONSTRAINT ck_photos_meta CHECK (json_valid(meta) AND length(meta) <= 2048),
   CONSTRAINT ck_photos_dims CHECK (width > 0 AND height > 0 AND display_width > 0 AND display_height > 0 AND bytes > 0)
 );
-CREATE INDEX ix_photos_set_order ON photos (set_id, status, position);
-CREATE INDEX ix_photos_gallery_status ON photos (gallery_id, status);
-CREATE INDEX ix_photos_status_created_at ON photos (status, created_at);
+CREATE INDEX ix_photos_set_order ON photos (set_id, status, hidden, position);
+CREATE INDEX ix_photos_set_taken ON photos (set_id, status, hidden, taken_at, position);   -- the capture-time sort (Phase 6 pages by it)
+CREATE INDEX ix_photos_gallery_status ON photos (gallery_id, status, hidden);
+CREATE INDEX ix_photos_status_updated_at ON photos (status, updated_at);
 
 CREATE INDEX ix_jobs_ref ON jobs (ref);               -- left for this phase by p03
 ```
 
 - `taken_at` is EXIF's wall-clock text normalised to `YYYY-MM-DDTHH:MM:SS` (no zone; sort only).
-- `ix_photos_status_created_at` serves the purges (`deleted`, stale `uploading`).
+- `ix_photos_status_updated_at` serves the purges (`deleted`, stale `uploading`: a re-mint touches
+  `updated_at`, so a resumed upload is never stale).
+- Each sort has its index and its cursor: position → `{ position, id }`; capture time → `{ takenAt, position, id }`
+  (`taken_at` NULLs last via `taken_at IS NULL, taken_at`); filename sorts in the browser within a page
+  (M4 adds an index if it is needed).
+- **D1 enforces foreign keys** (documented as on by default; `photos.test.ts` proves it on the workerd
+  test D1 with an insert into an unknown set).
 - Query modules: `lib/db/queries/galleries/` (`types.ts` with `GalleryRow` and `toGalleryRow` — the
   settings parsed, the sealed password never leaves the module except to `lib/galleries/password.ts`;
   `read.ts`: `getGallery(id)`, `getGalleryBySlug(slug)`, `listGalleries({ cursor, limit })`; `write.ts`:
@@ -265,22 +273,26 @@ CREATE INDEX ix_jobs_ref ON jobs (ref);               -- left for this phase by 
 | Create gallery | `batch([insert gallery, insert set 'Photos' position 0, audit])`; a slug clash → `UNIQUE` → 409 `SLUG_TAKEN` (the form suggests a new random part) | no read-check-write on the slug |
 | Register photo | `INSERT INTO photos (…) VALUES (…) ON CONFLICT (gallery_id, sha256) DO NOTHING RETURNING id` per photo (position = `(SELECT coalesce(max(position), -1) + 1 FROM photos WHERE set_id = ?)`), then `SELECT id, status FROM photos WHERE gallery_id = ? AND sha256 IN (…)` for the conflicts | a duplicate never creates a row; an `uploading` conflict is re-minted, a `ready` one reported |
 | Complete | per photo `UPDATE photos SET status = 'ready', updated_at = ? WHERE id = ? AND gallery_id = ? AND status = 'uploading'`; then `recountGallery`, `recountSet` for touched sets, `content_version = content_version + 1` — one batch | idempotent: a second complete changes nothing |
-| Move / hide / delete photos | one `UPDATE … WHERE gallery_id = ? AND id IN (≤ 90 ids) AND status = 'ready'` + recounts + bump + audit (`{ count }`) in one batch | a photo of another gallery is never touched |
+| Move / hide / delete photos | one `UPDATE … WHERE gallery_id = ? AND id IN (≤ 90 ids) AND status = 'ready'` (delete: `status = 'deleted', sha256 = NULL`) + clear the cover if it was among them + recounts + bump + audit (`{ count }`) + for delete the `media.purge` job, in one batch | a photo of another gallery is never touched; ≤ 93 parameters |
 | Set cover | `UPDATE galleries SET cover_photo_id = ? … WHERE id = ? AND EXISTS (SELECT 1 FROM photos WHERE id = ? AND gallery_id = ? AND status = 'ready')` | a cover always belongs to the gallery |
 | Reorder sets | one `UPDATE photo_sets SET position = ? WHERE id = ? AND gallery_id = ?` per set (≤ 50) + bump | positions are rewritten whole |
-| Delete set | `DELETE FROM photo_sets WHERE id = ? AND gallery_id = ? AND NOT EXISTS (SELECT 1 FROM photos WHERE set_id = ? AND status != 'deleted') AND (SELECT count(*) FROM photo_sets WHERE gallery_id = ?) > 1` → 0 changes = 409 `SET_NOT_EMPTY` | never the last set, never one with photos |
-| Soft delete / restore | `UPDATE galleries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL` + `gallery.purge` job (`runAfter` +7 d, `ref`) + audit; restore: `UPDATE … SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL` + `cancelPendingJobsStatement({ ref })` + audit | a restore after the purge started finds no row (404) |
+| Delete set | `DELETE FROM photo_sets WHERE id = ? AND gallery_id = ? AND NOT EXISTS (SELECT 1 FROM photos WHERE set_id = ?) AND (SELECT count(*) FROM photo_sets WHERE gallery_id = ?) > 1` → 0 changes = 409 `SET_NOT_EMPTY` ("photos still in this set, or being removed: try again in a few minutes") | never the last set; never one any photo row references, deleted ones included, so the FK can never fire a 500 |
+| Publish / unpublish | `UPDATE galleries SET status = 'published', published_at = ?, first_published_at = coalesce(first_published_at, ?) … WHERE id = ? AND status = 'draft' AND deleted_at IS NULL`; unpublish `SET status = 'draft', published_at = NULL … WHERE status = 'published'` | the CHECK pair holds in one statement; repeats change nothing |
+| Change access | one `UPDATE galleries SET access = ?, password_sealed = ?, password_version = password_version + 1 …` (link → `NULL`; password → the sealed value) | `ck_galleries_password` holds in one statement |
+| Soft delete / restore | `UPDATE galleries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL` + `gallery.purge` job + audit; restore: `UPDATE … SET deleted_at = NULL WHERE id = ? AND deleted_at > ?now−7d` + `cancelPendingJobsStatement({ ref })` + audit (0 changes → 409 `PURGE_STARTED`) | disjoint windows (D5.17): a restored gallery never lost a file |
 
 ### Ports and buckets (D5.1)
 
 - `Platform.blobs(bucket: BucketName = 'media')`; `BucketName = 'media' | 'originals'`. Cloudflare:
-  `r2BlobStore(env.MEDIA)` / `r2BlobStore(env.ORIGINALS)`; the test platform: one in-memory store per
-  bucket; the contract suite runs both.
+  `r2BlobStore(env.MEDIA)` / `r2BlobStore(env.ORIGINALS)` (`CloudflarePlatformEnv` gains `ORIGINALS`;
+  the relay's generated `RelayEnv` follows from its `wrangler.jsonc` and `cf-typegen`); the test
+  platform: one in-memory store per bucket; the contract suite runs both.
 - `Config.media.s3` gains `originalsBucket` (var `MEDIA_S3_ORIGINALS_BUCKET`, `memoria-originals`);
   `blobUrls` takes `{ bucket }` on `uploadUrl` / `readUrl` (S3: the bucket in the path; dev: the token
   carries `b: 'm' | 'o'`, the dev routes pick the binding). `publicUrl` refuses `originals` (throws: a
   programming error).
-- `wrangler.jsonc` (both Workers): `r2_buckets` += `{ "binding": "ORIGINALS", "bucket_name": "memoria-originals" }`;
+- `wrangler.jsonc` (both Workers): `r2_buckets` += `{ "binding": "ORIGINALS", "bucket_name": "memoria-originals" }`
+  **appended** (the guard reads `r2_buckets[0]` as `MEDIA`);
   app `vars` += `MEDIA_S3_ORIGINALS_BUCKET`; `cf-typegen`. Guard `wrangler-config`: the var equals the
   `ORIGINALS` bucket; both Workers bind the same two buckets.
 - `apps/web/r2-cors-originals.json`: PUT and GET from the app origins, `content-type`, exposes
@@ -316,7 +328,7 @@ CREATE INDEX ix_jobs_ref ON jobs (ref);               -- left for this phase by 
 | `POST /api/admin/galleries/[id]/photos/bulk` | `{ action: 'move' \| 'hide' \| 'show' \| 'delete', ids ≤ 90, setId? }` |
 | `PUT /api/admin/galleries/[id]/cover` | `{ photoId }` |
 | `POST /api/admin/galleries/[id]/uploads` | `{ setId, photos: ≤ 10 × { filename, contentType, sha256, bytes: { original, thumb, display }, width, height, displayWidth, displayHeight, derivativeExt, takenAt, color, meta } }` → per photo `{ sha256, status: 'new' \| 'resume' \| 'duplicate', photoId?, uploads?: { original, thumb, display } }`; rate limit 600 an hour |
-| `POST /api/admin/galleries/[id]/uploads/complete` | `{ photoIds ≤ 10 }` → `head()` ×3 each (D5.8) → `{ ready: [], failed: [{ id, reason }] }` |
+| `POST /api/admin/galleries/[id]/uploads/complete` | `{ photoIds ≤ 8 }` → `head()` ×3 each (D5.8) → `{ ready: [], failed: [{ id, reason }] }` |
 | `POST /api/admin/galleries/[id]/email` | `{ to, name?, includePassword }` → `gallery.ready` email job + audit, nudge (D5.20); 20 an hour |
 | `GET /api/admin/galleries/[id]/email-preview?include_password=` | `renderEmail('gallery.ready', …)` → `{ subject, html, text }` (the HTML shown in a sandboxed `iframe srcdoc`) |
 
@@ -329,14 +341,16 @@ an address).
 ```
 sniff.ts         magic bytes → 'image/jpeg' | 'image/png' | 'image/webp' | { unsupported: 'heic' | 'tiff' | 'raw' | 'gif' | 'video' | 'other' }
 metadata/        tiff.ts (IFD walker: read tags, zero the GPS IFD, drop the 0x8825 entry), jpeg.ts, png.ts, webp.ts
-                 (segment/chunk editors), xmp.ts (has GPS?), read.ts (orientation, taken, camera…), strip.ts (D5.6)
+                 (segment/chunk editors: drop XMP, MPF, raw-profile chunks; fix CRCs, RIFF sizes, VP8X flags),
+                 read.ts (orientation, taken, camera…), strip.ts (D5.6: edit or refuse)
 resize.ts        targetSize(w, h, longEdge) (never upscales), drawResized(bitmap, size) with step-halving
-encode.ts        encode(canvas, quality) → { blob, ext } (WebP, else JPEG; result type checked)
+encode.ts        encode(canvas, quality) → { blob, ext } (WebP, else JPEG; result type checked; a source with
+                 alpha is painted on white before a JPEG encode, never on black)
 placeholder.ts   averageColor(bitmap) → '#RRGGBB'
 watermark.ts     Phase 4
 process.worker.ts  per file: the steps of D5.5 → { original, thumb, display, sha256, dims, takenAt, color, meta }
 pool.ts          worker pool, transferables, cancellation
-uploader.ts      the queue: process → register (batches of 10) → PUT (4 parallel, 1 retry) → complete (batches of 10); events for the UI
+uploader.ts      the queue: process → register (batches of 10) → PUT (4 parallel, 1 retry) → complete (batches of 8); events for the UI
 ```
 
 - A file over `MAX_UPLOAD_BYTES` or with more than 100 megapixels is refused before decoding.
@@ -374,17 +388,20 @@ uploader.ts      the queue: process → register (batches of 10) → PUT (4 para
 
 ### Jobs (relay-safe, `apps/web/src/lib/galleries/purge.ts`)
 
-- `media.purge` (v1, payload `{}`; 5 attempts, priority 1, backoff 5, 30, 120 min): `listPurgeablePhotos`
-  = `status = 'deleted'`, or `uploading` older than 24 h, ≤ 90 ordered by `created_at`; delete their
-  original keys (`blobs('originals').delete`) and derivative keys (`blobs('media').delete`); then
-  `DELETE FROM photos WHERE id IN (…) AND status IN ('deleted', 'uploading')`, recount the touched galleries
-  and sets; if 90 were found, enqueue another `media.purge` in the same batch.
-- `gallery.purge` (v1, `{ galleryId }`, `ref = gallery:<id>`): does nothing unless the gallery's
-  `deleted_at` is set and older than 7 days (a restore cancelled it, or a clock skew); purges ≤ 90 of its
-  photos as above; when none are left, `batch([DELETE photo_sets …, DELETE galleries …, audit])`;
-  otherwise enqueues the next `gallery.purge`.
-- `housekeeping` gains a step: enqueue one `media.purge` when stale `uploading` or `deleted` rows exist
-  (one indexed `EXISTS`).
+- `media.purge` (v1, payload `{}`; 5 attempts, priority 1, backoff 5, 30, 120 min): first **claims**
+  stale uploads (`UPDATE … SET status = 'deleted', sha256 = NULL WHERE status = 'uploading' AND updated_at < ?now−24h`
+  on ≤ 90 ids; D5.17); then `listPurgeablePhotos` = `status = 'deleted'`, ≤ 90 by `updated_at`; deletes
+  their original keys (`blobs('originals').delete`) and derivative keys (`blobs('media').delete`); then
+  `DELETE FROM photos WHERE id IN (…) AND status = 'deleted'` and recounts the touched galleries and
+  sets; if 90 were found, enqueues another `media.purge` in the same batch (no key; the cron runs it).
+- `gallery.purge` (v1, `{ galleryId }`, `ref = gallery:<id>`): does nothing unless `deleted_at <= ?now−7d`
+  (a restore, D5.17); marks its photos `deleted` (`… WHERE gallery_id = ? AND EXISTS (SELECT 1 FROM galleries WHERE id = ? AND deleted_at <= ?)`),
+  purges ≤ 90 as above; when none are left, `batch([DELETE photo_sets …, DELETE galleries … AND deleted_at <= ?, audit])`;
+  otherwise enqueues the next `gallery.purge` (key `gallery.purge:<id>:<run n>`).
+- `housekeeping` gains a step: enqueue one `media.purge` (key `media.purge:<UTC date>:hk`) when stale
+  `uploading` or `deleted` rows exist (one indexed `EXISTS`).
+- `lib/galleries/purge.ts` imports only query modules, `keys.ts` and the audit builder
+  (`lib/db/queries/audit_log`), all relay-safe; guard `relay-graph` checks it.
 - Both kinds registered before the app enqueues them (deploy order: relay first, D3.14).
 
 ### Email (`lib/email/templates/galleryReady.ts`)
@@ -457,8 +474,8 @@ button to `ctx.link(path)`; text and HTML. Phase 4 M2 makes the text editable.
 | Test | What |
 | --- | --- |
 | `queries/galleries/galleries.test.ts` | create + read back; slug UNIQUE → conflict; every CHECK refuses its bad row (slug shapes, purpose, status/published pair, access/password pair, delivery, settings JSON and size, negative counts); `listGalleries` excludes deleted, pages by `created_at`; soft delete twice → one change; restore after purge → 0 changes; cover only for a ready photo of the same gallery; recount equals the real count after mixed changes; `content_version` bumps by exactly one per batch |
-| `queries/photo_sets/photo_sets.test.ts` | FK refuses an unknown gallery; reorder rewrites positions; delete refuses the last set and a set with photos |
-| `queries/photos/photos.test.ts` | insert; duplicate sha256 → no row, `RETURNING` empty; FKs refuse an unknown set or gallery; mark ready only from `uploading`, twice → once; bulk statements touch only the gallery's ready photos and refuse > 90 ids; `listSetPhotos` order and cursor; purgeable = deleted or stale uploading, bounded; CHECKs (type, sha256, rev, ext, status, hidden, dims, meta) |
+| `queries/photo_sets/photo_sets.test.ts` | FK refuses an unknown gallery; reorder rewrites positions; delete refuses the last set and a set with any photo row, a `deleted` one included (409, never an FK error) |
+| `queries/photos/photos.test.ts` | insert; duplicate sha256 → no row, `RETURNING` empty; a deleted photo's hash is free again (`NULL`), and `sha256 NULL` with another status is refused; FKs refuse an unknown set or gallery (proves D1 enforces them); the stale-upload claim skips a row completed or re-minted in between; mark ready only from `uploading`, twice → once; bulk statements touch only the gallery's ready photos and refuse > 90 ids; `listSetPhotos` order and cursor; purgeable = deleted or stale uploading, bounded; CHECKs (type, sha256, rev, ext, status, hidden, dims, meta) |
 | `lib/galleries/slug.test.ts` | table: Latin, Cyrillic (Bulgarian and Russian), diacritics, emoji, empty → `gallery`, 120 characters → ≤ 40 + suffix; suffix alphabet and length |
 | `lib/galleries/gallerySettings.test.ts` | each field's default; an invalid field reads as its default and logs once; the snapshot copies defaults, branding and watermark |
 | `lib/galleries/password.test.ts` | seal/open round trip; another gallery's AAD → null; generated passwords' shape |
@@ -467,7 +484,8 @@ button to `ctx.link(path)`; text and HTML. Phase 4 M2 makes the text editable.
 | `lib/images/resize.test.ts` | `targetSize` table (landscape, portrait, square, smaller than the target → unchanged); halving steps count |
 | `lib/images/uploader.test.ts` | with fake processing and fetch: batches of 10; duplicates counted; `resume` re-PUTs; a failed PUT retried once then reported; complete only for PUT-successful photos; cancel stops the queue; events in order |
 | route tests | 401/403 everywhere; ids not UUID → 404; deleted gallery → 404; create: 400 per field, slug conflict 409, audit without password; uploads: > 10 photos 400, type outside `MEDIA_TYPES` 400, sizes over the limits 400, keys under the gallery's prefix in the right buckets (test platform), duplicate/resume statuses, 429; complete: missing object → failed `UPLOAD_MISSING`, wrong size/type → failed and the object deleted, success → ready + counts + `content_version`; bulk: move to a set of another gallery → 400; email: job enqueued with `gallery.ready`, audit without the address, one nudge, password only when asked, 429; preview equals `renderEmail` |
-| `galleries/purge.test.ts` | runner + test D1 + in-memory buckets: `media.purge` deletes both buckets' keys then rows, recounts, chains when 90 found, ignores a ready photo; `gallery.purge` waits until 7 days, refuses a restored gallery, chains, finally deletes sets and the gallery with an audit row; housekeeping enqueues only when work exists |
+| `galleries/purge.test.ts` | runner + test D1 + in-memory buckets: `media.purge` deletes both buckets' keys then rows, recounts, chains when 90 found, ignores a ready photo and one completed between claim and delete; `gallery.purge` waits until 7 days, does nothing for a restored gallery; restore at 6 days 23 h succeeds, at 7 days refuses (409); chains; finally deletes sets and the gallery with an audit row; two deletes in one minute enqueue one job; housekeeping enqueues only when work exists, once a day |
+| `lib/images/metadata/*.test.ts` rows | IFD1 thumbnail unlinked; MPF and data after EOI dropped; ExtendedXMP dropped; PNG `tEXt` raw-profile chunk dropped; WebP VP8X flags cleared with the XMP chunk; SubIFDs → refused; a GPS offset pointing outside the segment → refused |
 | `email/galleryReady.test.ts` | escaping of title and name; password only when given; link through `ctx.link`; no name in the subject |
 | platform tests | `blobs('originals')` and `blobs('media')` are distinct stores (contract suite per bucket, workerd and memory); `blobUrls` signs the originals bucket path; dev token bucket honoured by the dev routes; `publicUrl` on originals throws |
 | guards | `wrangler-config`: `MEDIA_S3_ORIGINALS_BUCKET` = the `ORIGINALS` binding, both Workers bind both buckets, media vars are origins; `relay-graph` still passes with `lib/galleries/purge.ts` |
@@ -489,8 +507,13 @@ button to `ctx.link(path)`; text and HTML. Phase 4 M2 makes the text editable.
   rarely carry one. Place names (IPTC/XMP city, location) are text the photographer chose to export and
   are kept: only coordinates are removed, and the help says "location coordinates are removed".
 - **Safari**: JPEG derivatives instead of WebP (larger files); the gallery handles both extensions.
-- **Very large originals** (camera JPEGs of 40+ MP): decoding needs ~200 MB per worker; the pool shrinks
-  to 2 workers when `navigator.deviceMemory` ≤ 4.
+- **Very large originals** (camera JPEGs of 40+ MP): decoding needs ~200 MB per worker; the pool limits
+  the decoded megapixels in flight (≤ 80 MP across workers, from the dimensions read before decoding),
+  since `navigator.deviceMemory` does not exist in Safari or Firefox.
+- **`SETTINGS_ENCRYPTION_KEY` rotation** makes every sealed gallery password unreadable (no key
+  versioning in `secrets.ts`): the manager then asks for a new password per gallery; deployment.md says so.
+- **Purge CPU** per relay run (90 rows, two R2 deletes of ≤ 270 keys, a batch) is unmeasured: Verification
+  5 measures it; above 10 ms, the run size drops.
 - **Colour**: canvas output is sRGB; a Display-P3 export loses its wide gamut in derivatives (the original
   keeps its profile).
 - **A presigned PUT cannot enforce the size**: completion's `head()` does, and deletes an object that
@@ -518,8 +541,9 @@ button to `ctx.link(path)`; text and HTML. Phase 4 M2 makes the text editable.
    — index question 3): `npm run preview` uploads 20 photos through presigned PUTs; the public URL of a
    display copy loads; the original's key on the public domain answers 404; a PUT with another
    Content-Type is refused (Phase 1 Verification 5 included).
-5. **CPU** (production, the owner deploys): `npm run measure:cpu` on the uploads and complete routes with
-   10 photos and on the photos list; record the numbers here.
+5. **CPU** (production, the owner deploys): `npm run measure:cpu` on the uploads (10 photos) and complete
+   (8 photos) routes and on the photos list; the relay tail's `cpuTime` for a `media.purge` run of 90
+   photos; record the numbers here.
 6. Manager and New gallery at 360 px and 1440 px; keyboard only through selection, the bulk bar and sets.
 
 ## Commits
@@ -572,6 +596,9 @@ For the owner:
 6. **Soft delete for 7 days** (D5.17): the right window?
 7. **Storage**: originals of selection galleries are kept too (they may be delivered as they are). Fine
    with R2 billing beyond ~10 GB (≈ $1.4 a month per 100 GB)?
+8. **XMP is dropped from originals** (D5.6): GPS can hide in XMP under any prefix, so the original keeps
+   its EXIF (camera, lens, date, copyright) and IPTC but loses XMP (Lightroom develop settings,
+   keywords). Acceptable? The alternative is a stricter allow-list EXIF rebuild.
 
 For the index (`plan_202611_mvp.md`, owned by the build session):
 
