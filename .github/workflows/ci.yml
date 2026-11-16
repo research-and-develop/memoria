@@ -3,9 +3,10 @@
 #   deploy                        → manual: Actions → CI → Run workflow, tick `deploy`
 #                                   (migrations first, then the Worker). Works only after the first
 #                                   manual deploy has created the D1 (docs/deployment.md).
-# Repository secrets: CLOUDFLARE_API_TOKEN (an account token: Workers: Editor, D1: Edit,
-# Account Settings: Read) and CLOUDFLARE_ACCOUNT_ID. App secrets live in Cloudflare.
-# The scheduled D1 backup is a separate workflow: backup.yml.
+# `check` uses no credentials; only the manual deploy touches Cloudflare.
+# Repository secrets: CLOUDFLARE_API_TOKEN (an account token) and CLOUDFLARE_ACCOUNT_ID
+# (docs/deployment.md → Cloudflare credentials). App secrets live in Cloudflare.
+# The D1 backup is a separate workflow, also run by hand: backup.yml.
 name: CI
 
 on:

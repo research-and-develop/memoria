@@ -44,7 +44,13 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 
 - `npm run dev` (port 3210; `next dev` with the local D1/vars through `initOpenNextCloudflareForDev`)
 - `npm run preview` — build with OpenNext and run the real Worker locally in workerd (port 8787)
-- `npm run deploy` — build + deploy to Cloudflare (needs `wrangler login`)
+- `npm run deploy` — build + deploy to Cloudflare
+- `npm run wrangler -- <args>` — **every** remote wrangler command (secrets, tail, rollback, D1, R2): runs
+  wrangler in `apps/web` with this project's token from the gitignored `.cloudflare.env`, checked against
+  `account_id` in `wrangler.jsonc` (`scripts/cloudflare.ts`). Never `npx wrangler` for remote work and
+  never `wrangler login`: the machine's login may belong to another project
+  ([deployment.md → Cloudflare credentials](docs/deployment.md#cloudflare-credentials)). `deploy`,
+  `db:migrate:remote`, `measure:cpu` and `admin:mfa -- … --remote` go through it too
 - `npm run db:migrate:local` / `npm run db:migrate:remote` — apply `migrations/` to the local / production D1
 - `npm run db:migrations:new -- <name>` — a new, correctly numbered migration file
 - `npm run admin:hash-password [-- --generate]` — an `ADMIN_PASSWORD_HASH` for `.dev.vars` (development
@@ -64,8 +70,8 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
   request of the deployed Worker
 - `npm run ts-check` (both tsconfigs) · `npm run test` (`test:node`, `test:components`) · `npm run verify` (both)
 - Shipping, secrets, rollback: [`docs/deployment.md`](docs/deployment.md). CI: `.github/workflows/ci.yml`
-  (deploy is manual; migrations run first and must be safe for the code still running); nightly D1
-  backup: `.github/workflows/backup.yml`
+  (deploy is manual; migrations run first and must be safe for the code still running); D1 backup,
+  run by hand: `.github/workflows/backup.yml`. **No workflow touches Cloudflare unless the owner runs it**
 - Done means **`npm run ts-check` and `npm run test` both green**; a change to bindings, caching or
   config also needs `npm run preview` to boot and serve.
 

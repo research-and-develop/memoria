@@ -1,7 +1,7 @@
 /**
  * `npm run admin:mfa -- <command> [--remote] [--yes]`: the developer's controls
  * for two-factor sign-in (plan p02 → The CLI). Local D1 by default; `--remote`
- * for production (needs `wrangler login`).
+ * for production (with `.cloudflare.env`: scripts/cloudflare.ts).
  *
  *   list     the account, authenticators, recovery codes, live sessions, a live setup code, the lockout
  *   password a new generated password for the account (plan p02b); `--email <address>` also sets
@@ -17,7 +17,6 @@
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +26,8 @@ import { generatePassword } from '../apps/web/src/lib/auth/generatePassword';
 import { hashPassword } from '../apps/web/src/lib/auth/password';
 import { generateSetupCode, normaliseSetupCode, SETUP_CODE_TTL_MS, setupCodeId } from '../apps/web/src/lib/auth/setupCode';
 import { listStatements, passwordStatements, resetStatements, setupStatements, unlockStatements } from '../apps/web/src/lib/db/queries/admin_two_factor_cli/sql';
+
+import { cloudflareEnv, wranglerBin } from './cloudflare';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = path.join(ROOT, 'apps', 'web');
@@ -101,8 +102,13 @@ export function parseD1Output(stdout: string): StatementOutput[] {
 }
 
 function runD1(statements: readonly string[], remote: boolean): StatementOutput[] {
-  const wrangler = path.join(path.dirname(createRequire(import.meta.url).resolve('wrangler/package.json')), 'bin', 'wrangler.js');
-  const out = spawnSync(process.execPath, [wrangler, ...d1Args(statements, remote)], { cwd: WEB, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  const out = spawnSync(process.execPath, [wranglerBin(), ...d1Args(statements, remote)], {
+    cwd: WEB,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+    // Production goes through this project's credentials only, never the global `wrangler login`.
+    env: remote ? cloudflareEnv() : process.env,
+  });
   if (out.status !== 0) {
     throw new Error(`wrangler d1 execute failed (exit ${out.status}):\n${out.stderr || out.stdout}`);
   }
@@ -189,11 +195,12 @@ export async function main(argv: readonly string[]): Promise<void> {
   }
   if (args.command === 'key') {
     console.log(newKey());
-    console.log('\nLocally: TOTP_ENCRYPTION_KEY=<that> in apps/web/.dev.vars. Production: npx wrangler secret put TOTP_ENCRYPTION_KEY (in apps/web).');
+    console.log('\nLocally: TOTP_ENCRYPTION_KEY=<that> in apps/web/.dev.vars. Production: npm run wrangler -- secret put TOTP_ENCRYPTION_KEY.');
     console.log('Changing the key disables every authenticator: run `npm run admin:mfa -- reset` afterwards.');
     return;
   }
   if (args.remote) {
+    cloudflareEnv(); // exits with the reason when this project's credentials are missing or point elsewhere
     if (!remoteDatabaseId(readFileSync(path.join(WEB, 'wrangler.jsonc'), 'utf8'))) {
       console.error('No production D1 yet (database_id in apps/web/wrangler.jsonc is all zeros). See docs/deployment.md.');
       process.exitCode = 1;

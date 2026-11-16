@@ -4,8 +4,8 @@
 # `getCloudflareContext().env` — the same object the deployed Worker gets.
 #
 # Every SECRET the app reads is listed here with a comment saying what it does.
-# In production each one is set with `npx wrangler secret put <NAME>` (run in
-# apps/web). Plain, non-secret config belongs in wrangler.jsonc `vars` instead.
+# In production each one is set with `npm run wrangler -- secret put <NAME>`
+# (from the repo root). Plain, non-secret config belongs in wrangler.jsonc `vars` instead.
 # After adding a line here run `npm run cf-typegen` (it reads THIS file).
 #
 # NO `NEXT_PUBLIC_*` variables: Next inlines those into the browser bundle at
@@ -20,7 +20,7 @@ LOG_FORMAT=text
 
 # Turnstile: Cloudflare's always-passing TEST pair. Production: the real site
 # key in wrangler.jsonc `vars`, the secret with
-# `npx wrangler secret put TURNSTILE_SECRET_KEY`.
+# `npm run wrangler -- secret put TURNSTILE_SECRET_KEY`.
 # (Always-fail test pair, to try the error path: site 2x00000000000000000000AB,
 # secret 2x0000000000000000000000000000000AA.)
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
@@ -39,13 +39,13 @@ ADMIN_PASSWORD_HASH=pbkdf2-sha256$20000$xBlyF6CYfAzM56uMEF6qog==$fMOE3mH2XUr3KwE
 
 # A random secret mixed into the hash of a visitor's IP for rate limiting, so
 # the stored keys cannot be reversed by hashing every IP. Production:
-# `npx wrangler secret put HASH_SALT` with e.g. `openssl rand -base64 32`.
+# `npm run wrangler -- secret put HASH_SALT` with e.g. `openssl rand -base64 32`.
 HASH_SALT=local-dev-salt-change-me
 
 # Encrypts the authenticator secrets and keys the recovery-code hashes in D1
 # (two-factor sign-in; docs/architecture.md → Admin). 32 random bytes, base64.
 # Production: `npm run admin:mfa -- key`, then
-# `npx wrangler secret put TOTP_ENCRYPTION_KEY`. Losing or changing it disables
+# `npm run wrangler -- secret put TOTP_ENCRYPTION_KEY`. Losing or changing it disables
 # every authenticator: `npm run admin:mfa -- reset` and enrol again.
 TOTP_ENCRYPTION_KEY=TjocpXLxPwWOOLSvQD0EKj+XVOAyO4i+8+qFcI2RZtA=
 
@@ -56,7 +56,7 @@ TOTP_ENCRYPTION_KEY=TjocpXLxPwWOOLSvQD0EKj+XVOAyO4i+8+qFcI2RZtA=
 MEDIA_DEV_SIGNING_SECRET=local-dev-media-signing-secret-change-me-2026
 # R2 API token (S3 credentials) for presigned URLs. Empty locally: the dev
 # routes are used instead. Production: an R2 API token scoped to the bucket,
-# object read/write, then `npx wrangler secret put MEDIA_S3_ACCESS_KEY_ID` and
-# `npx wrangler secret put MEDIA_S3_SECRET_ACCESS_KEY`.
+# object read/write, then `npm run wrangler -- secret put MEDIA_S3_ACCESS_KEY_ID` and
+# `npm run wrangler -- secret put MEDIA_S3_SECRET_ACCESS_KEY`.
 MEDIA_S3_ACCESS_KEY_ID=
 MEDIA_S3_SECRET_ACCESS_KEY=

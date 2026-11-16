@@ -16,7 +16,8 @@
  * see hits and renders apart. `--version <id>` sends
  * `Cloudflare-Workers-Version-Overrides`, reaching a version deployed at 0%.
  *
- * Needs `wrangler login` (or CLOUDFLARE_API_TOKEN). Run from the repo root.
+ * Runs with this project's Cloudflare credentials (`npm run measure:cpu` goes
+ * through scripts/cloudflare.ts: `.cloudflare.env`). Run from the repo root.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';

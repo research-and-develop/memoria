@@ -17,6 +17,12 @@ coverage/
 !.dev.vars.example
 .env
 .env.*
+# This project's Cloudflare account token (scripts/cloudflare.ts); never an .env* name: OpenNext bundles those.
+.cloudflare.env
+# Database exports hold client data (docs/deployment.md → Backups): never committed.
+/apps/web/*.sql
+/apps/web/*.sql.gz*
+/d1.sql*
 
 # Scratch space for one-off investigations. Durable plans/audits go in docs/.
 **/tmp/

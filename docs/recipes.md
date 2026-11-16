@@ -74,7 +74,7 @@ the `studio` row and Settings → Studio.
 
 - **Var** (not secret): `vars` in `wrangler.jsonc` with a comment.
 - **Secret**: a line with a comment in `apps/web/.dev.vars.example` (+ your `.dev.vars`), then
-  `npx wrangler secret put NAME` in production, and a row in deployment.md → Secrets.
+  `npm run wrangler -- secret put NAME` in production, and a row in deployment.md → Secrets.
 - Either way: `npm run cf-typegen` (guard `wrangler-config` fails until you do).
 - Add a field to `Config` (`packages/platform/ports.ts`) and parse it in `parseConfig`
   (`packages/platform/config.ts`: trim, empty → closed feature or `null`), with a row in

@@ -1,15 +1,13 @@
-# Nightly D1 backup: a SQL export, gzipped and encrypted with a passphrase, kept as a workflow
-# artifact for 90 days. Runbook and restore steps: docs/deployment.md → Backups.
+# D1 backup, run by hand (Actions → Backup → Run workflow): a SQL export, gzipped and encrypted
+# with a passphrase, kept as a workflow artifact for 90 days. Nothing runs on a schedule: the owner
+# decides when anything touches Cloudflare. Runbook and restore steps: docs/deployment.md → Backups.
 #
-# Dormant until the production D1 exists: set the repository VARIABLE D1_BACKUP_ENABLED=true
-# (Settings → Secrets and variables → Actions → Variables) after the first `db:migrate:remote`.
-# Repository secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID (as for deploy) and
-# D1_BACKUP_PASSPHRASE (keep a copy outside GitHub: without it the backups cannot be read).
+# Needs the production D1 (after the first `db:migrate:remote`). Repository secrets:
+# CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID (as for deploy) and D1_BACKUP_PASSPHRASE (keep a copy
+# outside GitHub: without it the backups cannot be read).
 name: Backup
 
 on:
-  schedule:
-    - cron: '0 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +15,6 @@ permissions:
 
 jobs:
   backup:
-    if: vars.D1_BACKUP_ENABLED == 'true'
     runs-on: ubuntu-latest
     # An export briefly blocks other D1 queries; never run it during a deploy.
     concurrency:
@@ -36,12 +33,13 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Export, compress and encrypt
-        working-directory: apps/web
         run: |
           if [ -z "$D1_BACKUP_PASSPHRASE" ]; then
             echo "::error::D1_BACKUP_PASSPHRASE is not set"; exit 1
           fi
-          npx wrangler d1 export DB --remote --output=d1.sql
+          # Through scripts/cloudflare.ts (the account in wrangler.jsonc only); wrangler runs in apps/web.
+          npm run wrangler -- d1 export DB --remote --output=d1.sql
+          cd apps/web
           gzip -9 d1.sql
           gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
             --passphrase "$D1_BACKUP_PASSPHRASE" d1.sql.gz

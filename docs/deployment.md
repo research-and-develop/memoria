@@ -7,22 +7,58 @@ related: [architecture.md, ../.github/workflows/ci.yml, ../.github/workflows/bac
 
 # Deployment
 
-How the app gets to Cloudflare, and the runbooks for the things that go wrong. Run every `wrangler`
-command from `apps/web` (the npm scripts do this for you).
+How the app gets to Cloudflare, and the runbooks for the things that go wrong. Every command runs
+from the repo root. Wrangler commands go through **`npm run wrangler -- <args>`** (it runs wrangler in
+`apps/web` with this project's credentials, below); never plain `npx wrangler`, which would use
+whatever `wrangler login` this machine has.
+
+## Cloudflare credentials
+
+This project never uses `wrangler login` (one per machine: it may belong to another project). It
+uses an **account API token** in a gitignored file, read only by `scripts/cloudflare.ts` (behind
+`npm run wrangler`, `deploy`, `db:migrate:remote`, `measure:cpu` and `admin:mfa -- … --remote`).
+
+1. **The account id**: Dashboard → the Memoria account → **Workers & Pages** → *Account details* →
+   *Account ID* (32 hex characters; not a secret). Put it in `apps/web/wrangler.jsonc` as
+   `"account_id": "<id>",` under `"name"`. Commands refuse to run while it is missing, and refuse a
+   token file for another account: nothing can reach the wrong account. (Editing `wrangler.jsonc`
+   while `npm run dev` runs breaks the dev server's bindings: restart it.)
+2. **The token**: in that account, **Manage Account → Account API Tokens → Create Token → Custom
+   token** (an *account* token keeps working if a user leaves; a profile token does not). Name
+   `memoria-cli`. Permissions, all **Account**-level: *Workers Scripts: Edit*, *D1: Edit*, *Workers R2
+   Storage: Edit*, *Workers Tail: Read*, *Account Settings: Read*. Optional: a TTL, and *Client IP
+   Address Filtering* to your IP. Create, copy the token once.
+3. **The file** `.cloudflare.env` at the repo root (gitignored; deliberately not `.env*`: Next and
+   OpenNext read those, and OpenNext bakes them into the Worker):
+
+   ```sh
+   CLOUDFLARE_ACCOUNT_ID=<the account id>
+   CLOUDFLARE_API_TOKEN=<the token>
+   ```
+
+   Nothing else goes in it (refused). Check: `npm run wrangler -- d1 list` lists this account's
+   databases (none yet) and asks for no login.
+4. **CI** (when you choose to deploy from GitHub): repository secrets `CLOUDFLARE_ACCOUNT_ID` and
+   `CLOUDFLARE_API_TOKEN` (a second token, `memoria-ci`, with the same permissions minus *Workers
+   Tail*, so either can be revoked alone). Every workflow that touches Cloudflare runs only by hand
+   (*CI variables* below).
+
+Custom domains and DNS (later phases) need zone permissions; they are added to the token then, or done
+in the dashboard.
 
 ## One-time setup
 
+After *Cloudflare credentials*:
+
 ```sh
-cd apps/web
-npx wrangler login
-npx wrangler d1 create memoria --location <hint>   # e.g. weur/eeur/enam: near your visitors; FIXED at creation
-#   → paste the printed database_id into wrangler.jsonc
-npm run cf-typegen                                 # after any wrangler.jsonc change
-npx wrangler secret put TURNSTILE_SECRET_KEY       # Dashboard → Turnstile → add a widget (site key → vars)
-npx wrangler secret put HASH_SALT                  # openssl rand -base64 32
-cd ../.. && npm run admin:mfa -- key               # → the TOTP_ENCRYPTION_KEY secret
-cd apps/web && npx wrangler secret put TOTP_ENCRYPTION_KEY
-cd ../.. && npm run db:migrate:remote && npm run deploy
+npm run wrangler -- d1 create memoria --location <hint>   # e.g. weur/eeur/enam: near your visitors; FIXED at creation
+#   → paste the printed database_id into apps/web/wrangler.jsonc
+npm run cf-typegen                                        # after any wrangler.jsonc change
+npm run wrangler -- secret put TURNSTILE_SECRET_KEY       # Dashboard → Turnstile → add a widget (site key → vars)
+npm run wrangler -- secret put HASH_SALT                  # openssl rand -base64 32
+npm run admin:mfa -- key                                  # → the TOTP_ENCRYPTION_KEY secret
+npm run wrangler -- secret put TOTP_ENCRYPTION_KEY
+npm run db:migrate:remote && npm run deploy
 npm run admin:mfa -- password --email <the photographer's email> --remote   # → the account, a generated password (printed once)
 npm run admin:mfa -- setup --remote                # → a setup code for the first sign-in (valid 1 hour)
 ```
@@ -34,7 +70,7 @@ their own password (Settings → Security → Your sign-in), so the installer st
 
 Production needs **no** `ADMIN_EMAIL` or `ADMIN_PASSWORD_HASH`: they are development defaults
 (`.dev.vars`), used only while `admin_account` has no row. If they were set on a Worker, delete them
-after the first install (`npx wrangler secret delete ADMIN_PASSWORD_HASH`, and `ADMIN_EMAIL` from
+after the first install (`npm run wrangler -- secret delete ADMIN_PASSWORD_HASH`, and `ADMIN_EMAIL` from
 `vars`): an old backup restored without the row would bring them back into force. The Security page
 warns while `ADMIN_PASSWORD_HASH` is still set.
 
@@ -45,8 +81,9 @@ point at a domain that does not answer; the "Check it opens" link tests it). Cus
 **Settings → Domains & Routes → Add → Custom domain**; a `www` redirect is a Redirect Rule
 (`www.example.com/*` → `https://example.com/$1`, 301).
 
-The very first deploy runs from a terminal (`wrangler login`): a CI token with *Workers: Editor* can
-update a Worker but not create it.
+The very first deploy runs from your terminal, not CI. If the token cannot create the Worker
+(Cloudflare's documentation is unclear on this), create an empty Worker named `memoria` in the
+dashboard once (Workers & Pages → Create → Hello World), then deploy again.
 
 ### Media (R2)
 
@@ -54,16 +91,15 @@ Needed before the first upload ships (Phase 5); local dev, the tests and CI neve
 enabled on the account first (the dashboard may ask for billing details; the free tier still applies).
 
 ```sh
-cd apps/web
-npx wrangler r2 bucket create memoria-media --location <hint>   # the name in wrangler.jsonc r2_buckets
-# r2-cors.json: replace the placeholder origin with the production origin first
-npx wrangler r2 bucket cors set memoria-media --file r2-cors.json
+npm run wrangler -- r2 bucket create memoria-media --location <hint>   # the name in wrangler.jsonc r2_buckets
+# apps/web/r2-cors.json: replace the placeholder origin with the production origin first
+npm run wrangler -- r2 bucket cors set memoria-media --file r2-cors.json
 ```
 
 - **The S3 API token**: Dashboard → R2 → **Manage API tokens → Create API token**, permission **Object
   Read & Write**, scoped to **the `memoria-media` bucket only**. It shows an *Access Key ID* and a
-  *Secret Access Key* once: `npx wrangler secret put MEDIA_S3_ACCESS_KEY_ID` and
-  `npx wrangler secret put MEDIA_S3_SECRET_ACCESS_KEY`.
+  *Secret Access Key* once: `npm run wrangler -- secret put MEDIA_S3_ACCESS_KEY_ID` and
+  `npm run wrangler -- secret put MEDIA_S3_SECRET_ACCESS_KEY`.
 - **Vars** in `wrangler.jsonc`: `MEDIA_S3_ENDPOINT` = `https://<account id>.r2.cloudflarestorage.com`
   (presigned URLs work only there, not on a custom domain); `MEDIA_S3_BUCKET` = the bucket (the guard
   checks it matches `r2_buckets`); `MEDIA_PUBLIC_BASE_URL` = the public media domain once one is chosen
@@ -82,7 +118,8 @@ GitHub Actions (`.github/workflows/ci.yml`) is the only CI.
    (plus an informational `npm audit`).
 2. Deploy is **manual**: Actions → CI → Run workflow on `master` with `deploy` ticked → `check`, then
    `npm run db:migrate:remote`, then `npm run deploy`. Manual by design — a push never goes live by
-   itself. It works only after the first deploy from a terminal (One-time setup) has created the D1
+   itself, and nothing in CI touches Cloudflare unless you run it (the `check` job uses no
+   credentials). It works only after the first deploy from a terminal (One-time setup) has created the D1
    and its `database_id` is in `wrangler.jsonc`.
 
 ### Migrations run before the code
@@ -94,7 +131,7 @@ deployed code reads them.
 
 ### Preview versions
 
-There is no CI preview job. `cd apps/web && npx wrangler versions upload` (after `npm run build:worker`)
+There is no CI preview job. `npm run wrangler -- versions upload` (after `npm run build:worker`)
 makes a new version that is NOT live, on its own preview URL. **A preview version uses the production
 bindings** — the same D1. Use it only for changes that do not
 write data and need no unapplied migration.
@@ -104,14 +141,14 @@ write data and need no unapplied migration.
 | Variable | Value |
 | --- | --- |
 | `CLOUDFLARE_ACCOUNT_ID` | Dashboard → Workers & Pages → Account details |
-| `CLOUDFLARE_API_TOKEN` | an **account** API token (Manage Account → Account API Tokens), not a profile token (which dies with its user): Workers: Editor, D1: Edit, Account Settings: Read |
+| `CLOUDFLARE_API_TOKEN` | an **account** API token, `memoria-ci` (*Cloudflare credentials*, step 4): Workers Scripts: Edit, D1: Edit, Workers R2 Storage: Edit, Account Settings: Read |
 
 App secrets are NOT CI variables: they live in Cloudflare (`wrangler secret put`).
 
 ## Secrets
 
 Never in `wrangler.jsonc`, the repo or CI. Each is documented in `apps/web/.dev.vars.example` and set
-in production with `cd apps/web && npx wrangler secret put <NAME>`; `npx wrangler secret list` shows
+in production with `npm run wrangler -- secret put <NAME>`; `npm run wrangler -- secret list` shows
 which exist. Setting a secret deploys a new version.
 
 | Secret | What |
@@ -129,7 +166,7 @@ production.
 
 Signing in to `/admin` takes the password, then a 6-digit code from an authenticator app or a
 one-time recovery code ([architecture.md → Admin](architecture.md#admin)). The developer's controls,
-run from the repo root (local D1 by default, `--remote` for production after `wrangler login`; a
+run from the repo root (local D1 by default, `--remote` for production with *Cloudflare credentials*; a
 remote run says what it will do and asks you to type the command's name, or pass `--yes`):
 
 | Command | When |
@@ -148,39 +185,38 @@ only reminds you.
 
 ## Rollback
 
-- **Code**: `cd apps/web && npx wrangler rollback` (or Dashboard → Worker → Deployments). Instant;
+- **Code**: `npm run wrangler -- rollback` (or Dashboard → Worker → Deployments). Instant;
   does not touch data.
 - **Data**: D1 Time Travel restores the database to a point in time (7 days on the free plan):
-  `npx wrangler d1 time-travel info DB`, then
-  `npx wrangler d1 time-travel restore DB --timestamp=<ISO time>`. This rewinds every write after that
-  time — export first (`npx wrangler d1 export DB --remote --output=backup.sql`).
+  `npm run wrangler -- d1 time-travel info DB`, then
+  `npm run wrangler -- d1 time-travel restore DB --timestamp=<ISO time>`. This rewinds every write after that
+  time — export first (`npm run wrangler -- d1 export DB --remote --output=backup.sql`).
 - A migration is never "rolled back" by editing it: write a new migration that undoes it.
 
 ## Backups
 
-Time Travel (7 days) plus a nightly SQL export: `.github/workflows/backup.yml` runs at 03:00 UTC
-(an export briefly blocks other queries; it never overlaps a deploy), gzips the dump, **encrypts it
-with a passphrase** (AES-256, `gpg --symmetric`) and keeps it as a workflow artifact for 90 days.
+Time Travel (7 days) plus a SQL export **when you run it**: Actions → Backup → Run workflow
+(`.github/workflows/backup.yml`; nothing is scheduled, you decide when anything touches Cloudflare).
+It exports the D1 (an export briefly blocks other queries; it never overlaps a deploy), gzips the dump,
+**encrypts it with a passphrase** (AES-256, `gpg --symmetric`) and keeps it as a workflow artifact for
+90 days. Run it before every deploy with a migration, and now and then.
 
-**Enable it** after the first `db:migrate:remote`:
+**Before the first run** (after the first `db:migrate:remote`): the repository secrets of *CI
+variables* plus `D1_BACKUP_PASSPHRASE`, a long random string (`openssl rand -base64 32`). Keep a copy
+outside GitHub (a password manager): without it no backup can be read. Check that the artifact
+`d1-<run id>` appears; download one now and then and keep it outside GitHub.
 
-1. Repository secret `D1_BACKUP_PASSPHRASE`: a long random string (`openssl rand -base64 32`). Keep a
-   copy outside GitHub (a password manager): without it no backup can be read.
-2. Repository **variable** `D1_BACKUP_ENABLED` = `true` (Settings → Secrets and variables → Actions →
-   Variables). Until then every run is skipped.
-3. Actions → Backup → Run workflow once, and check that the artifact `d1-<run id>` appears.
-
-Download one now and then and keep it outside GitHub.
+Without GitHub: `npm run wrangler -- d1 export DB --remote --output=backup.sql` (written to
+`apps/web/`; it holds client data: keep it encrypted, never commit it).
 
 **Restore** (rehearse once into a scratch database):
 
 ```sh
 gpg --decrypt --output d1.sql.gz d1.sql.gz.gpg   # asks for D1_BACKUP_PASSPHRASE
 gunzip d1.sql.gz
-cd apps/web
-npx wrangler d1 create memoria-restore-test
-npx wrangler d1 execute memoria-restore-test --remote --file=../../d1.sql
-npx wrangler d1 delete memoria-restore-test
+npm run wrangler -- d1 create memoria-restore-test
+npm run wrangler -- d1 execute memoria-restore-test --remote --file=../../d1.sql   # wrangler runs in apps/web
+npm run wrangler -- d1 delete memoria-restore-test
 ```
 
 To restore production itself, prefer Time Travel (Rollback) while within its 7 days; an export is for
@@ -209,10 +245,10 @@ npm run measure:cpu -- https://memoria.<account-subdomain>.workers.dev/ 20
 
 It tails the Worker, sends the requests and prints median/p95/max CPU and wall time per group
 (`--group-by <header>`, default `cf-cache-status`). `--version <id>` reaches a version deployed at 0%
-(`npx wrangler versions upload`, then `npx wrangler versions deploy <live>@100% <new>@0%`).
+(`npm run wrangler -- versions upload`, then `npm run wrangler -- versions deploy <live>@100% <new>@0%`).
 
 ## Logs
 
 Workers Logs is on (`observability` in `wrangler.jsonc`): Dashboard → Worker → Logs (3 days on the
-free plan). Live: `cd apps/web && npx wrangler tail`. The app logs JSON events — search by the
+free plan). Live: `npm run wrangler -- tail`. The app logs JSON events — search by the
 `event` field, e.g. `unhandled_route_exception` (its `reqId` is the one the user saw).
