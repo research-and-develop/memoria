@@ -240,12 +240,13 @@ describe('the app and the relay agree', () => {
   });
 
   it('the same D1 and bucket; only the app migrates', () => {
-    type D1 = Binding & { database_name?: string; database_id?: string; migrations_dir?: string };
+    type D1 = Binding & { database_name?: string; database_id?: string; preview_database_id?: string; migrations_dir?: string };
     const appDb = (config.d1_databases ?? []).find((b) => b.binding === 'DB') as D1 | undefined;
     const relayDb = (relay.d1_databases ?? []).find((b) => b.binding === 'DB') as D1 | undefined;
     expect(appDb?.migrations_dir, 'the app migrates').toBeTruthy();
     expect(relayDb?.migrations_dir, 'the relay never migrates').toBeUndefined();
-    expect([relayDb?.database_name, relayDb?.database_id]).toEqual([appDb?.database_name, appDb?.database_id]);
+    // preview_database_id keys the LOCAL database: equal, or `npm run dev:relay` reads another one.
+    expect([relayDb?.database_name, relayDb?.database_id, relayDb?.preview_database_id]).toEqual([appDb?.database_name, appDb?.database_id, appDb?.preview_database_id]);
     const bucket = (c: WranglerConfig) => ((c.r2_buckets ?? []).find((b) => b.binding === 'MEDIA') as { bucket_name?: string } | undefined)?.bucket_name;
     expect(bucket(relay)).toBe(bucket(config));
   });

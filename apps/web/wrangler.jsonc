@@ -37,10 +37,12 @@
   "d1_databases": [
     {
       "binding": "DB",
-      // `npx wrangler d1 create memoria`, then paste the id it prints.
+      // The production D1 (created 2026-11-16, location eeur).
       // Local dev and the tests never touch the remote database.
       "database_name": "memoria",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "4e792ea1-4023-4854-8ca9-108a10246c3e",
+      // Local dev, `--local` commands and the relay keep the local database they always had (wrangler keys it by this id when set).
+      "preview_database_id": "00000000-0000-0000-0000-000000000000",
       // One schema for local, remote and the tests: the repo-root migrations.
       "migrations_dir": "../../migrations",
     },
