@@ -1,8 +1,8 @@
 ---
 title: "Phase 2b: Settings in the database"
 type: plan
-status: in-progress
-updated: 2026-11-13
+status: done
+updated: 2026-11-16
 related: [plan_202611_mvp.md, plan_202611_p02_admin_totp.md, plan_202611_p03_relay_email.md, ../../architecture.md, ../../deployment.md, ../../../AGENTS.md]
 ---
 
@@ -299,8 +299,33 @@ Milestones: **M1** = commits 1–2, **M2** = commits 3–4.
 - [x] T2b.1 Account table, `Config.bootstrap`, effective account, readers, CLI, guard
 - [x] T2b.2 Sign-in card and account routes
 - [x] T2b.3 Studio settings and section
-- [ ] T2b.4 Docs and status
-- [ ] Verification 1–5
+- [x] T2b.4 Docs and status
+- [x] Verification 1–3, 5 (4 waits for the first deploy: index → To verify before building)
+
+## Built (2026-11-16)
+
+Commits 27ce2da, 8a43fb5, 472dd43 and the docs commit. Different from the design above:
+
+- **`perRender`** (`lib/perRender.ts`) instead of `cache()`: the repo's React 18.3.1 has no `cache`
+  (vitest crashed on it); Next's server React has it, so the wrapper uses it where it exists.
+- **Generated passwords** use the existing `generatePassword` format (four groups of six, 27
+  characters), not 20 characters.
+- **The CLI** sends its SQL with `wrangler d1 execute --command`, like the other `admin:mfa`
+  commands, not from a file.
+- **No `siteUrl.test.ts`**: `getSiteUrl` needs `next/headers`; the live check covered it through
+  `robots.txt` (Verification 3).
+- **Settings → Studio** compares the address **in effect** before and after (an empty address means
+  `SITE_URL`): clearing it while `SITE_URL` is the address in use writes nothing and asks for no code;
+  going back to the default from a saved address asks for one. The form labels the shown address
+  "In use" or "After saving".
+- `parseStudioInput` arrived in commit 1, since `readStudio` validates stored rows with it.
+
+Verification: `npm run verify` green (933 tests); the built Worker on `wrangler dev` with a throwaway
+D1: 24 checks for the account (commit 2) and 14 for Settings → Studio (name without a code, the title,
+the sidebar, the address with a code, `robots.txt` and its fallback, a new authenticator's label, the
+audit rows); Settings → Studio at 360 px (no sideways scroll) and 1440 px; keyboard: Tab order name →
+address → (Check it opens) → Save, Enter submits. **Not yet measured**: the CPU time of a password
+change (Verification 4): `measure:cpu` needs a deployed Worker, and none exists yet.
 
 ## Open questions
 

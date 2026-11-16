@@ -1,7 +1,7 @@
 ---
 title: Recipes
 type: reference
-updated: 2026-11-12
+updated: 2026-11-16
 related: [../AGENTS.md, architecture.md]
 ---
 
@@ -47,6 +47,28 @@ A table whose rows a migration seeds and tests must keep (a singleton): `createT
    `components/admin/icons.tsx`). A screen listed as *Soon* drops its `soonPhase` in the commit
    that adds its page: `nav.test.ts` fails otherwise, both ways.
 3. Check it at 360 px (the top bar and the Menu drawer) and 1440 px (the sidebar).
+
+## A studio setting
+
+Something the photographer may change (a name, an address, a choice) is a studio setting, not a var
+([architecture.md → Two kinds of settings](architecture.md#two-kinds-of-settings-phase-2b)). Model:
+the `studio` row and Settings → Studio.
+
+1. A field in a `site_settings` row (one row per section, JSON; the key matches `[a-z]*`), or a
+   table when it needs its own constraints (`admin_account`).
+2. A pure parser in `src/lib/settings/parse<Thing>Input.ts`, shared by the route, the form and the
+   reader (a stored row is parsed again: an invalid one is ignored and logged).
+3. The reader in `src/lib/settings/<thing>.ts`: the row, else the env default, else the built-in
+   default. It never throws on a public path. Add a `<thing>.cached.ts` (`perRender`) for server
+   components.
+4. An env default, if one is needed (development, a first install): a var as below, parsed into
+   `Config.bootstrap`. Only `lib/settings/**` reads `bootstrap` (guard `settings-through-store`; add
+   the reader's file there if it lives elsewhere).
+5. An admin route: `requireAdmin` → parse → a code first if the setting can redirect or lock out
+   (`requireRecentSecondFactor`) → `batch([upsertSiteSettingStatement(…), auditStatement(…)])`; the
+   audit names the fields, not the values.
+6. A card in a Settings section (`SettingsCard`; `components/admin/settings/nav.ts`), inside a
+   `SecondFactorProvider` when the route can ask for a code; `router.refresh()` after saving.
 
 ## A var or a secret
 

@@ -1,7 +1,7 @@
 ---
 title: Architecture
 type: reference
-updated: 2026-11-12
+updated: 2026-11-16
 related: [../AGENTS.md, deployment.md, recipes.md, plans/202611/plan_202611_p01_core_adapters.md]
 ---
 
@@ -138,6 +138,25 @@ same env through `initOpenNextCloudflareForDev()` in `next.config.mjs` (local D1
 Client components never read env: the root layout reads `getAppConfig()` on the server and hands the
 public values down through `AppProvider`.
 
+### Two kinds of settings (Phase 2b)
+
+- **Deploy-level**, set once by whoever deploys, env only: `TOTP_ENCRYPTION_KEY`, `HASH_SALT`, the
+  Turnstile keys, the R2/S3 token and endpoint, `MEDIA_PUBLIC_BASE_URL`, `LOG_*`, the bindings. The
+  secrets that protect the data stay out of the database they protect.
+- **Studio-level**, the photographer's, in D1 and edited in Settings: the sign-in email and password
+  (`admin_account`, Settings → Security), the studio name and website address (the `studio` row of
+  `site_settings`, Settings → Studio); later email delivery (Phase 3), branding and time zone (Phase 4).
+
+**Effective value = D1, else env, else the default.** The env values that are only defaults live in
+`Config.bootstrap` (`appName`, `siteUrl`, `adminEmail`, `adminPasswordHash`) and are read only by
+`lib/settings/**` and `lib/auth/account.ts` (guard `settings-through-store`): `readStudio()` /
+`getStudio()` and `readAdminAccount()` / `getAdminAccount()`. The `get*` forms are read once per
+server render (`perRender`, `React.cache` where it exists); the `read*` forms take no React, for route
+handlers and the relay. `readStudio()` never throws: a D1 error or an invalid row logs
+`studio_settings_unavailable` / `studio_settings_invalid` and uses the defaults. Deleting a D1 row (an
+old backup restored) makes the env value effective again, hence deleting the env credentials after the
+first install (deployment.md → One-time setup).
+
 ## Request lifecycle (API)
 
 1. `withErrorHandling` wraps the handler — the one error boundary.
@@ -152,10 +171,13 @@ public values down through `AppProvider`.
 
 ## Admin
 
-One admin, configured by three settings: the `ADMIN_EMAIL` var, the `ADMIN_PASSWORD_HASH` secret
-(`npm run admin:hash-password`; PBKDF2-SHA256 in Web Crypto, iterations measured against the 10 ms
-CPU budget) and the `TOTP_ENCRYPTION_KEY` secret. Any missing = sign-in answers 503. Signing in takes
-the password **and** a second factor (Phase 2: [plan](plans/202611/plan_202611_p02_admin_totp.md)).
+One admin. The sign-in email and password hash live in the one-row `admin_account` table (Phase 2b:
+[plan](plans/202611/plan_202611_p02b_settings_db.md)); without a row, `ADMIN_EMAIL` /
+`ADMIN_PASSWORD_HASH` are used (development, or before the first `admin:mfa -- password`). Passwords
+are PBKDF2-SHA256 in Web Crypto, iterations measured against the 10 ms CPU budget. Two-factor needs
+the `TOTP_ENCRYPTION_KEY` secret. No account, or no key = sign-in answers 503 (`ADMIN_NOT_CONFIGURED`
+says only "Sign-in is not set up yet", after the rate limit, the lockout and Turnstile). Signing in
+takes the password **and** a second factor (Phase 2: [plan](plans/202611/plan_202611_p02_admin_totp.md)).
 
 ```
 /admin/login  step 1  POST /api/admin/login         same-origin → rate limit → lockout → Turnstile → email + password
@@ -176,15 +198,25 @@ first time    step 2  POST /api/admin/login/setup   the setup code from `npm run
   admin. The setup code is spent only together with the enrolment, in one batch.
 - **Lockout**: 20 wrong codes (sign-in, recovery or setup) in a UTC day lock sign-in until midnight
   UTC, checked before the password; audited once. Plus per-IP and overall code rate limits.
-- **The developer is in charge**: `npm run admin:mfa -- setup|reset|unlock|list|key [--remote]`
+- **The developer is in charge**: `npm run admin:mfa -- password|setup|reset|unlock|list|key [--remote]`
   ([deployment.md → Two-factor sign-in](deployment.md#two-factor-sign-in)).
 - **Sessions**: a random 256-bit token in an `httpOnly`, `SameSite=Lax` cookie, created only after the
   second factor; D1 stores its SHA-256 and how it signed in (which app, or a recovery code). Over HTTPS
   only the `__Host-` cookie is read, on plain http only the plain name (`isSecureRequest`, one rule for
   routes and pages). A session ends after 14 days without use and at most 90 days after sign-in (the
   cookie lives 90 days; `expires_at` is refreshed at most hourly, since a write per request would burn
-  the write budget). Each session records a fingerprint of the password hash, so rotating the password
-  ends every session.
+  the write budget). Each session records a fingerprint of the password hash, so a new password ends
+  every session (the same hash, e.g. the first save of an env account into D1, ends none).
+- **Your sign-in** (Settings → Security): change the email or the password (Generate offers one).
+  Order of checks: the rate limits are counted first (5 an hour per session, 20 overall), then a code
+  in the confirm window (below; without one the password is never looked at), then the current
+  password. Five wrong passwords on one session end it, like five wrong codes. A new password ends
+  every session and challenge, this one too; a new email ends nothing. The card warns when the
+  password was set by `admin:mfa -- password` (`set_by = 'cli'`) or `ADMIN_PASSWORD_HASH` is still set.
+- **Settings → Studio** (`/admin/settings/studio`, the first section): the studio name (page titles,
+  the admin, new authenticator apps' labels, later the emails) and the website address (canonical URLs,
+  `robots.txt`, later the links in emails). A bare domain is saved as an `https://` origin; a "Check it
+  opens" link goes to its `/healthz`. A new address needs a code; a new name does not.
 - **Settings → Security** (`/admin/settings/security`): authenticator apps (add with a QR code,
   rename, remove; at most 10, never the last), recovery codes (how many are left; new ones replace
   the set), signed-in devices (sign out one, or all the others). Removing an app signs out the

@@ -1,7 +1,7 @@
 ---
 title: Deployment
 type: reference
-updated: 2026-11-12
+updated: 2026-11-16
 related: [architecture.md, ../.github/workflows/ci.yml, ../.github/workflows/backup.yml]
 ---
 
@@ -18,23 +18,32 @@ npx wrangler login
 npx wrangler d1 create memoria --location <hint>   # e.g. weur/eeur/enam: near your visitors; FIXED at creation
 #   → paste the printed database_id into wrangler.jsonc
 npm run cf-typegen                                 # after any wrangler.jsonc change
-npm run admin:hash-password -- --generate          # → the ADMIN_PASSWORD_HASH secret
-npx wrangler secret put ADMIN_PASSWORD_HASH
 npx wrangler secret put TURNSTILE_SECRET_KEY       # Dashboard → Turnstile → add a widget (site key → vars)
 npx wrangler secret put HASH_SALT                  # openssl rand -base64 32
 cd ../.. && npm run admin:mfa -- key               # → the TOTP_ENCRYPTION_KEY secret
 cd apps/web && npx wrangler secret put TOTP_ENCRYPTION_KEY
 cd ../.. && npm run db:migrate:remote && npm run deploy
+npm run admin:mfa -- password --email <the photographer's email> --remote   # → the account, a generated password (printed once)
 npm run admin:mfa -- setup --remote                # → a setup code for the first sign-in (valid 1 hour)
 ```
 
-The first sign-in takes the email, the password, then that setup code, then a code from the
-authenticator app it connects; it shows 10 recovery codes once (see *Two-factor sign-in* below).
+Give the photographer the email, the password and the setup code. The first sign-in takes the email,
+the password, then the setup code, then a code from the authenticator app it connects; it shows 10
+recovery codes once (see *Two-factor sign-in* below). The Security page then asks them to choose
+their own password (Settings → Security → Your sign-in), so the installer stops knowing it.
 
-Then set `ADMIN_EMAIL` and `TURNSTILE_SITE_KEY` in `wrangler.jsonc` `vars`, and `SITE_URL` once a
-custom domain serves the Worker (never before: canonical URLs would point at a domain that does not
-answer). Custom domain: Worker → **Settings → Domains & Routes → Add → Custom domain**; a `www`
-redirect is a Redirect Rule (`www.example.com/*` → `https://example.com/$1`, 301).
+Production needs **no** `ADMIN_EMAIL` or `ADMIN_PASSWORD_HASH`: they are development defaults
+(`.dev.vars`), used only while `admin_account` has no row. If they were set on a Worker, delete them
+after the first install (`npx wrangler secret delete ADMIN_PASSWORD_HASH`, and `ADMIN_EMAIL` from
+`vars`): an old backup restored without the row would bring them back into force. The Security page
+warns while `ADMIN_PASSWORD_HASH` is still set.
+
+Then set `TURNSTILE_SITE_KEY` in `wrangler.jsonc` `vars`. The studio name and the website address are
+the photographer's, in Settings → Studio; `APP_NAME` / `SITE_URL` in `vars` are only their defaults.
+Set the website address once a custom domain serves the Worker (never before: canonical URLs would
+point at a domain that does not answer; the "Check it opens" link tests it). Custom domain: Worker →
+**Settings → Domains & Routes → Add → Custom domain**; a `www` redirect is a Redirect Rule
+(`www.example.com/*` → `https://example.com/$1`, 301).
 
 The very first deploy runs from a terminal (`wrangler login`): a CI token with *Workers: Editor* can
 update a Worker but not create it.
@@ -108,7 +117,7 @@ which exist. Setting a secret deploys a new version.
 | Secret | What |
 | --- | --- |
 | `TURNSTILE_SECRET_KEY` | the Turnstile widget's secret (its site key is the `TURNSTILE_SITE_KEY` var) |
-| `ADMIN_PASSWORD_HASH` | `npm run admin:hash-password` |
+| `ADMIN_PASSWORD_HASH` | development and a first install only (`npm run admin:hash-password`): the account lives in D1 (`admin:mfa -- password`). Delete it once a D1 account exists |
 | `HASH_SALT` | a long random string; hashes IPs for rate limits (missing → logged `hash_salt_missing`) |
 | `TOTP_ENCRYPTION_KEY` | `npm run admin:mfa -- key` (32 random bytes): encrypts the authenticator secrets, keys the recovery codes. Missing → sign-in answers 503. Changing it disables every authenticator: reset (below) |
 | `MEDIA_S3_ACCESS_KEY_ID`, `MEDIA_S3_SECRET_ACCESS_KEY` | the bucket-scoped R2 API token (One-time setup → Media) |
@@ -125,14 +134,17 @@ remote run says what it will do and asks you to type the command's name, or pass
 
 | Command | When |
 | --- | --- |
+| `npm run admin:mfa -- password [--email <address>] [--remote]` | First install, or a forgotten password: stores a generated password (and the email; required while there is no account), signs out every device, prints both once. The photographer is asked to choose their own. Authenticators stay. |
 | `npm run admin:mfa -- setup [--remote]` | No authenticator yet (first sign-in): prints a setup code, valid 1 hour. Refused once one exists. |
 | `npm run admin:mfa -- reset [--remote]` | Phone and recovery codes lost, or a changed `TOTP_ENCRYPTION_KEY`: removes every authenticator, recovery code and session (everyone is signed out) and prints a new setup code. |
 | `npm run admin:mfa -- unlock [--remote]` | "Sign-in is locked": 20 wrong codes in a UTC day lock sign-in until midnight UTC; this clears it (and the sign-in rate limits). |
 | `npm run admin:mfa -- list [--remote]` | What is registered: apps, recovery codes left, live sessions, a live setup code, wrong codes today. |
 | `npm run admin:mfa -- key` | A new `TOTP_ENCRYPTION_KEY` (no database). |
 
-Changing the password (`admin:hash-password`, `wrangler secret put ADMIN_PASSWORD_HASH`) signs out
-every device; authenticators stay.
+The photographer changes the email and password in Settings → Security → Your sign-in (a code
+first, then the current password). A new password signs out every device; authenticators stay. The
+sign-in needs `TOTP_ENCRYPTION_KEY` on the Worker as well: the CLI cannot read a remote secret, so it
+only reminds you.
 
 ## Rollback
 

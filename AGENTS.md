@@ -21,7 +21,8 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
 | `apps/web/src/lib/auth/` | sign-in: `session.ts`, `requireAdmin.ts`; two-factor: `totp.ts`, `recoveryCodes.ts`, `setupCode.ts`, `twoFactorKeys.ts` (pure), `challenge.ts`, `secondFactor.ts` (the guarded batches), `codeStep.ts` (what every code route does first) |
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
-| `apps/web/src/lib/config/appConfig.ts` | the public part of `getPlatform().config()`, handed down via `AppProvider` |
+| `apps/web/src/lib/config/appConfig.ts` | the public part of the config and the studio settings, handed down via `AppProvider` |
+| `apps/web/src/lib/settings/**`, `lib/auth/account.ts` | the photographer's settings (studio name, website address; the sign-in account): D1, else the env default (`Config.bootstrap`) |
 | `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA`, assets, …), vars, compatibility flags; `r2-cors.json` = the bucket's CORS rules |
 | `apps/web/src/lib/media/` | the development blob routes' checks (`devBlobRequest.ts`) and headers (`blobResponseHeaders.ts`) |
 | `apps/web/worker.ts` + `src/lib/edge/` | the Worker entry: answers cheap paths (`/healthz`) before Next loads; imports relative only, nothing `server-only` |
@@ -46,12 +47,14 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 - `npm run deploy` — build + deploy to Cloudflare (needs `wrangler login`)
 - `npm run db:migrate:local` / `npm run db:migrate:remote` — apply `migrations/` to the local / production D1
 - `npm run db:migrations:new -- <name>` — a new, correctly numbered migration file
-- `npm run admin:hash-password [-- --generate]` — the `ADMIN_PASSWORD_HASH` secret; locally the admin
-  is `admin@example.local` / `local-dev-password-2026` (from `.dev.vars.example`), plus a code from an
-  authenticator app
-- `npm run admin:mfa -- <setup|reset|unlock|list|key> [--remote]` — two-factor sign-in: a setup code for
-  the first authenticator, a reset when locked out, clear the lockout, show the state, a new
-  `TOTP_ENCRYPTION_KEY` ([deployment.md → Two-factor sign-in](docs/deployment.md#two-factor-sign-in));
+- `npm run admin:hash-password [-- --generate]` — an `ADMIN_PASSWORD_HASH` for `.dev.vars` (development
+  only; production keeps the account in D1); locally the admin is `admin@example.local` /
+  `local-dev-password-2026` (from `.dev.vars.example`) while `admin_account` has no row, plus a code
+  from an authenticator app
+- `npm run admin:mfa -- <password|setup|reset|unlock|list|key> [--email <address>] [--remote]` — the
+  account and two-factor sign-in: create the account or reset its password (generated, printed once),
+  a setup code for the first authenticator, a reset when locked out, clear the lockout, show the state,
+  a new `TOTP_ENCRYPTION_KEY` ([deployment.md → Two-factor sign-in](docs/deployment.md#two-factor-sign-in));
   its SQL lives in `lib/db/queries/admin_two_factor_cli/sql.ts` (import-free: tsx cannot load the db client)
 - `npm run media:probe -- <base-url>` — round-trip a PNG through the development blob routes of a
   running `npm run dev`/`preview` (needs `MEDIA_DEV_SIGNING_SECRET` in `.dev.vars`)
@@ -68,6 +71,12 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 
 ## Cloudflare rules that bite
 
+- **Two kinds of settings.** Deploy-level (secrets, keys, tokens, bindings) are env only.
+  What the photographer may change (the sign-in email and password, studio name, website address;
+  later email delivery, branding) lives in D1 and is edited in Settings: **effective value = D1, else
+  env, else the default**. Those env defaults sit in `Config.bootstrap` and only `lib/settings/**` and
+  `lib/auth/account.ts` read it (guard `settings-through-store`); everything else calls `getStudio()` /
+  `readStudio()`, `getAdminAccount()` / `readAdminAccount()`. Recipe: docs/recipes.md → A studio setting.
 - **Env and bindings only through the platform.** Domain code calls `getPlatform()` from
   `@repo/platform/current` and uses its ports: `config()` (vars and secrets, parsed by
   `@repo/platform/config`), `db()`, `blobs()`, `defer()`. Only the Cloudflare adapters
@@ -121,7 +130,8 @@ export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Para
 ```
 
 Reference: `app/api/admin/login/route.ts` (a public write: same-origin, Turnstile and the rate limit
-before any work). The admin-write pattern above has no reference route until Phase 2 adds one.
+before any work). The admin-write pattern above: `app/api/admin/settings/studio/route.ts` (a code
+first when the change can redirect links, then the write and its audit row in one batch).
 
 - **Every exported method is `withErrorHandling(fn, { route: '<METHOD> <path>' })`.** Guard:
   `every-route-wrapped.test.ts`. Errors: the `@repo/api/responses` builders, or
@@ -259,7 +269,9 @@ no `NEXTJS_ENV` in `vars`, every hard-coded Worker name = `name`),
 `migrations` (numbering, named constraints, no transaction control),
 `file-size` (700 lines prod / 800 tests; allowlist `file-size-allowlist.json`),
 `platform-boundary` (no `@opennextjs/cloudflare`, `wrangler`, `@repo/platform-cloudflare`, `cloudflare:*`,
-`getCloudflareContext()` or Cloudflare runtime type outside the adapters; contract suites only in tests).
+`getCloudflareContext()` or Cloudflare runtime type outside the adapters; contract suites only in tests),
+`settings-through-store` (`Config.bootstrap`, the env defaults of studio settings, read only in
+`packages/platform/config.ts`, the test platform, `lib/settings/**` and `lib/auth/account.ts`).
 
 - Need a repo-wide rule? **Add a guard test, not a linter.**
 - A guard reads source through `readSourceFiles` from `@repo/core/testing/sourceIndex` (one
