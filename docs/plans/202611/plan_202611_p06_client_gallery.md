@@ -331,7 +331,7 @@ scripts/guards/edge-graph.test.ts       D6.6
   (on a D1 error only the slug is known, and slugs are never logged).
 - `/data`: `set` must be a UUID of the gallery (enforced by the join in `publicPhotosStatement`); `cursor`
   is a base64url `sort_key` the server minted (Phase 5's shape, at most 700 characters; Phase 5 truncates
-  `name_key` to 120 characters before padding).
+  `name_key` to 120 characters after padding, so a real cursor is ≤ ~240).
 - An invalid `settings` JSON reads as defaults (Phase 5's parser returns the invalid fields; the handler
   logs `gallery_settings_invalid`), never a broken page.
 
