@@ -2,7 +2,7 @@
 title: "Phase 5: Galleries and upload"
 type: plan
 status: placeholder
-updated: 2026-11-12
+updated: 2026-11-16
 related: [plan_202611_mvp.md]
 ---
 
@@ -23,8 +23,8 @@ The photographer creates a gallery, uploads photos (processed in the browser) an
 ## Draft tasks
 
 - [ ] T5.1 Migration: `galleries`, `photo_sets`, `photos`
-- [ ] T5.2 New gallery screen: preset, details, slug, access, delivery mode, downloads, PIN, watermark, sizes, proofing, expiry, font pairing (default from Studio settings, p04 T4.7); draft autosave; checklist; email preview
-- [ ] T5.3 Upload client: Web Worker pool, SHA-256 dedupe, EXIF (`exifr`), GPS strip, thumbnail/display/watermark, placeholder, presigned upload, IndexedDB resume, unsupported-format notice
+- [ ] T5.2 New gallery screen: preset, details, slug, **purpose (selection / sharing) with the display copy's size and quality**, access, delivery mode, downloads, PIN, watermark, sizes, proofing, expiry, font pairing (default from Studio settings, p04 T4.7); draft autosave; checklist; email preview
+- [ ] T5.3 Upload client: Web Worker pool, SHA-256 dedupe, EXIF (`exifr`), GPS strip, thumbnail/display/watermark, placeholder, presigned upload, IndexedDB resume, unsupported-format notice. A selection gallery **always** gets a display copy at its configured size, even from a small upload, so the original is never what clients see
 - [ ] T5.4 Folder drop (subfolders → sets), auto-split by capture-time gaps
 - [ ] T5.5 Gallery manager: sets add/rename/reorder, multi-select bulk bar (move, hide, cover, delete), sort, smart filters, badges, feature toggles
 - [ ] T5.6 Replace with edited version (keeps favourites and comments)
@@ -37,6 +37,15 @@ The photographer creates a gallery, uploads photos (processed in the browser) an
 - Gallery URLs at the root or under `/g/` (index, open question 2); custom domain (open question 3).
 - Likely split into 5a (upload pipeline) and 5b (gallery manager) when detailed.
 - Pipeline details: thumbnail size and quality, placeholder encoding, worker pool size, Safari support.
+- **Originals out of the public bucket** (index → Originals storage, user requirement 2026-11-16):
+  the public custom domain serves every object in its bucket, and a key like
+  `galleries/<g>/<p>/original.jpg` can be guessed from `…/display.webp`. Proposed: a second, private
+  bucket for originals (a second R2 binding, `BlobStore` per bucket, `MEDIA_S3_BUCKET` plus an
+  originals bucket for presigning, the `wrangler-config` guard and deployment.md → Media updated).
+  Alternative: one bucket with an independent random key per original. It is cheaper, but a URL once
+  handed out never expires. Decide when this phase is detailed.
+- Changing a gallery's display size after upload means processing the originals again in the
+  photographer's browser (like the watermark): allowed, or fixed at creation?
 - From the Phase 0 review: responses answered in `worker.ts` (protected images) set `X-Robots-Tag` and the security headers themselves; the public R2 custom domain is a separate origin with no Next headers (Transform Rule for `X-Robots-Tag`). Email validation was deleted in Phase 0 (`lib/validation/email.ts`, recoverable from `a581b72`).
 
 ## From Phase 1

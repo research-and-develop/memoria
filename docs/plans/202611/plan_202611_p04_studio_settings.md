@@ -2,7 +2,7 @@
 title: "Phase 4: Studio settings"
 type: plan
 status: placeholder
-updated: 2026-11-12
+updated: 2026-11-16
 related: [plan_202611_mvp.md]
 ---
 
@@ -23,7 +23,7 @@ The photographer sets the studio's branding and the defaults every new gallery s
 ## Draft tasks
 
 - [ ] T4.1 Branding: logo light/dark (upload to R2), accent swatches, typography pairing, default theme, grid style
-- [ ] T4.2 Gallery defaults: sizes, watermark image and position, download mode, expiry, proofing settings
+- [ ] T4.2 Gallery defaults: sizes, watermark image and position, download mode, expiry, proofing settings; per purpose (selection / sharing) the display copy's size and quality (index → Image quality per gallery)
 - [ ] T4.3 Migration: `presets`; built-in presets (Wedding, Portrait, Event, Newborn, Commercial, Blank); save a gallery's settings as a preset
 - [ ] T4.4 Email settings (sender name, reply-to) and template text; test email
 - [ ] T4.5 Time zone and locale as studio settings (replacing the constants in `lib/dates.ts`)

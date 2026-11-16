@@ -2,7 +2,7 @@
 title: Memoria MVP (index)
 type: plan
 status: draft
-updated: 2026-11-12
+updated: 2026-11-16
 related: [../../design/HANDOFF.md, ../../architecture.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
@@ -50,7 +50,9 @@ their dependencies are done.
 | Email | Sent by a separate **relay Worker** (which also runs small background jobs) through SMTP, Brevo, Amazon SES or Microsoft 365 (Phase 3). |
 | Formats | JPEG, PNG, WebP only. No HEIC, TIFF, RAW or AVIF. |
 | Uploads | Usually Lightroom web exports (~2048 px sRGB JPEG). The uploaded file is kept as the original, **GPS stripped**, the rest of EXIF kept (Phase 5). |
-| Generated sizes | As few as possible, configurable per gallery at creation. Default: one ~800 px WebP grid thumbnail; a 2048 px display copy only when the upload is larger or the gallery is watermarked (Phase 5). |
+| Generated sizes | As few as possible, configurable per gallery at creation. Default: one ~800 px WebP grid thumbnail plus a display copy whose size depends on the gallery's purpose (next row) (Phase 5). |
+| Image quality per gallery | (user, 2026-11-16) Every gallery has a **purpose**, chosen at creation, with defaults in Studio settings (Phase 4). **Selection** (the client picks photos before paying): clients see only a low-resolution display copy, always generated, size and quality set by the photographer (default 1600 px long edge, WebP quality 75, optional watermark). The original is never served and cannot be downloaded. **Sharing** (delivery): a display copy up to 2048 px, and full-resolution originals can be downloaded under the gallery's download rules (Phase 9). Delivery (Phase 8) turns a selection gallery into a sharing one. Screenshots cannot be prevented: the low resolution and the watermark are the protection. |
+| Originals storage | (proposed 2026-11-16, decide in Phase 5) Originals live in a **second, private R2 bucket** (`memoria-originals`, no public domain), read only through short-lived presigned GETs minted by the download API. The public bucket holds only thumbnails, display copies and logos, so no URL guessed or edited from a display copy can reach an original. |
 | Watermark | Baked into previews at upload. Changing it = delete and re-create the gallery. |
 | Gallery fonts | The photographer chooses a font pairing per gallery (default in Studio settings) from a registry; adding a font is one registry entry. Only the chosen pairing is downloaded by clients (Phase 4, T4.7). |
 | Image delivery | Chosen per gallery at creation. Default **public**: R2 on a custom domain, unguessable keys, served by the CDN (no Worker requests). Option **protected**: every image checked by the Worker, one Worker request per image (Phase 6). |
@@ -94,7 +96,8 @@ memoria (apps/web)          Next.js via OpenNext: admin, client galleries, API; 
                             /healthz and protected-mode images before Next loads
 memoria-relay (apps/relay)  no UI: runs jobs (SMTP email, reminders, expiry, R2 cleanup),
                             triggered by a service binding from memoria + a Cron Trigger
-R2 memoria-media            originals, thumbnails, display copies, logos; public custom domain
+R2 memoria-media            thumbnails, display copies, logos; public custom domain
+R2 memoria-originals        originals; private, presigned GETs only (proposed, Phase 5)
 D1 memoria                  shared by both Workers
 ```
 
@@ -109,8 +112,8 @@ D1 memoria                  shared by both Workers
   WebAssembly) and uploaded straight to R2 through presigned URLs.
 - **Client identity** (Phases 6, 7, 11): a signed cookie for gallery access, a visitor cookie per
   gallery, counters by upsert, never a write per photo view.
-- **Downloads** (Phase 9): original keys only from an API that checks the mode, PIN and email; ZIPs
-  streamed by the browser.
+- **Downloads** (Phase 9): original keys only from an API that checks the gallery's purpose (never for
+  a selection gallery), the mode, PIN and email; ZIPs streamed by the browser.
 
 ### Data model by phase
 

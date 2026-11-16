@@ -2,7 +2,7 @@
 title: "Phase 6: Client gallery"
 type: plan
 status: placeholder
-updated: 2026-11-12
+updated: 2026-11-16
 related: [plan_202611_mvp.md]
 ---
 
@@ -39,6 +39,8 @@ Clients open a gallery (link or password) and browse it on desktop and phone, in
 
 ## From Phase 1
 
+- The grid and lightbox show only thumbnails and display copies, never an original key (index →
+  Image quality per gallery): a selection gallery's page HTML and API responses must not contain one.
 - Public delivery: `blobUrls(config).publicUrl(key)` (the R2 custom domain, `MEDIA_PUBLIC_BASE_URL`);
   CSP `img-src` gains that domain. Never presigned GETs or the dev read route for gallery images: each
   is unique per call and defeats caching.

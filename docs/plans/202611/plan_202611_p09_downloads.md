@@ -2,7 +2,7 @@
 title: "Phase 9: Downloads"
 type: plan
 status: placeholder
-updated: 2026-11-12
+updated: 2026-11-16
 related: [plan_202611_mvp.md]
 ---
 
@@ -22,14 +22,18 @@ Clients download single photos or whole sets as ZIPs built in their browser, wit
 
 ## Draft tasks
 
-- [ ] T9.1 Download API: checks mode, PIN and the downloader's name or email (required: no anonymous downloads); returns original keys
+- [ ] T9.1 Download API: checks the gallery's purpose (a selection gallery never returns an original), mode, PIN and the downloader's name or email (required: no anonymous downloads); returns original keys
 - [ ] T9.2 Single-photo download; share sheet ("Save to Photos") on phones
 - [ ] T9.3 Browser ZIP: `client-zip`, stream to disk (`showSaveFilePicker`), ~500 MB parts elsewhere, progress, per set
 - [ ] T9.4 `download_events` + counters
 
 ## Known open questions
 
-- With public delivery and no display copy the lightbox already serves the original: the gallery form should say gating is cosmetic then.
+- ~~With public delivery and no display copy the lightbox already serves the original~~: settled
+  2026-11-16. A selection gallery always has a display copy and originals sit in a private bucket
+  (index → Image quality per gallery, Originals storage).
+- May a selection gallery offer the low-resolution display copy as a download ("web" mode in the
+  mockup), or no downloads at all?
 - PIN brute-force limits per gallery.
 
 ## From Phase 1
