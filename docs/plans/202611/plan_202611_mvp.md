@@ -150,8 +150,16 @@ Kept from the boilerplate: `site_settings`, `audit_log`, `admin_sessions`, `rate
 
 ## To verify before building (owner phase in brackets)
 
-- Outbound SMTP from Workers on 587/465 via `cloudflare:sockets` (3).
-- Free-plan accounting for service-binding calls and Cron Triggers (3).
+- ~~Outbound SMTP from Workers on 587/465 via `cloudflare:sockets` (3).~~ Works (smoke deploy
+  2026-11-16: Gmail, Brevo, Microsoft 365, SES on 587 with STARTTLS, Gmail and SES on 465;
+  certificates are checked). Details: Phase 3 plan → Built.
+- Free-plan accounting for service-binding calls (3). Cron Triggers: done (a cron run costs 2–4 ms
+  CPU idle, 9 ms with a job). The nudge is measured with the first route that sends one (Phase 3
+  commit 4).
+- **The pages' CPU on the free plan** (found 2026-11-16, smoke deploy): `/` median 8 ms (p95 11),
+  `/robots.txt` median 6 (p95 14), `/admin/login` **median 26 ms (p95 37)**, a cold start 182 ms.
+  All answered 200, but the free plan's limit is 10 ms per request. Decide before client galleries
+  (Phase 6): cache rendered pages, trim what the sign-in page renders, or the paid plan (30 s CPU).
 - Against the real bucket, from a browser with `apps/web/r2-cors.json` applied: a presigned PUT and
   GET, `response-content-disposition` honoured, and a PUT with another Content-Type refused (Phase 1,
   Verification 5) (5).

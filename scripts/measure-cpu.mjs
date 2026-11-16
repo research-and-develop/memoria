@@ -99,8 +99,11 @@ function createObjectSplitter(onObject) {
 
 const samples = [];
 const probe = new RegExp(`cpu_probe=${runId}-(\\d+)(?:&|$)`);
+const warmUpMark = `cpu_probe=${runId}-warmup`;
+let tailReceives = false;
 const feed = createObjectSplitter((event) => {
   const url = event?.event?.request?.url;
+  if (typeof url === 'string' && url.includes(warmUpMark)) tailReceives = true;
   const match = typeof url === 'string' ? probe.exec(url) : null;
   if (!match) return;
   samples.push({
@@ -126,8 +129,16 @@ async function main() {
   // wrangler 4 prints nothing once connected in `--format json` (the "Connected" line is
   // pretty-format only), so a tail that is still running after a grace period counts as up.
   for (let waited = 0; !connected && waited < 10_000 && tail.exitCode === null; waited += 250) await sleep(250);
-  if (tail.exitCode !== null) throw new Error(`wrangler tail exited (${tail.exitCode}) — logged in? Worker deployed?`);
-  await sleep(2_000); // the tail session needs a moment before it receives events
+  if (tail.exitCode !== null) throw new Error(`wrangler tail exited (${tail.exitCode}) — credentials? Worker deployed?`);
+  // A new tail session can take 15–20 s before it receives events (seen 2026-11-16): send warm-up
+  // requests until one shows up in the tail, so no measured request is lost.
+  const warmUp = new URL(target);
+  warmUp.searchParams.set('cpu_probe', `${runId}-warmup`);
+  for (let waited = 0; !tailReceives && waited < 60_000 && tail.exitCode === null; waited += 2_000) {
+    await fetch(warmUp, { headers: { 'cache-control': 'no-cache' } }).then((res) => res.arrayBuffer()).catch(() => {});
+    await sleep(2_000);
+  }
+  if (!tailReceives) throw new Error('the tail received no event within 60 s (Workers Tail: Read on the token?)');
 
   const statuses = [];
   const states = [];

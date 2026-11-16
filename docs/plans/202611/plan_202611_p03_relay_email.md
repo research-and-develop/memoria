@@ -920,6 +920,27 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 - An unknown error a handler throws keeps only its name in `last_error` (its message may hold an
   address).
 
+**Smoke deploy, 2026-11-16** (the owner's go-ahead; recommended after M1):
+
+- Created: D1 `memoria` (eeur), migrations `0001`–`0005` applied (forward-only from now), R2
+  `memoria-media` (eeur), `memoria-relay` then `memoria` deployed with the account token
+  (`https://memoria.memoria-bdd.workers.dev`). No secrets set yet: sign-in is closed.
+- **SMTP leaves the edge** (a throwaway Worker run with `wrangler dev --remote`, nothing deployed):
+  `smtp.gmail.com`, `smtp-relay.brevo.com`, `smtp.office365.com` and
+  `email-smtp.eu-west-1.amazonaws.com` on 587 (greeting 220, EHLO, STARTTLS 220, EHLO again over TLS),
+  Gmail and SES on 465 (TLS from the start); 0.2–0.4 s each. Microsoft 365 offers no `AUTH PLAIN` over
+  SMTP (its adapter is Graph anyway). **Certificates are checked**: `wrong.host.badssl.com` and
+  `expired.badssl.com` were refused while `badssl.com` worked.
+- **The relay in production**: the cron fired after ~7 minutes (Cloudflare: up to 15), then every
+  minute. A job inserted by SQL ran on the first tick, the day's housekeeping on the next (priority
+  order, one job per run). CPU per cron invocation: **9 ms** with a job, **2–4 ms** idle (wall
+  0.1–1 s). The relay's `workers.dev` answers 404 (no public URL).
+- **The app**: `/healthz` 0 ms CPU; reads the production D1 (a studio row inserted by SQL showed in
+  the title, then removed). The pages' CPU is over the free plan's 10 ms (index → To verify).
+- Not measured yet: the nudge invocation (no route nudges before commit 4); Phase 2b Verification 4
+  (a password change) needs the first install (Turnstile, `TOTP_ENCRYPTION_KEY`, the account).
+- `measure:cpu` now sends warm-up requests until the tail sees one (a new tail took 15–20 s).
+
 Verification 3 (local cron), 2026-11-16: `db:migrate:local` applied `0005`; with `npm run dev:relay`,
 `/cdn-cgi/local/scheduled?time=<03:05 UTC today>` enqueued `housekeeping:2026-11-16` and ran it
 (`job_done`, `relay_drain` 13 ms); a second call added nothing. A job inserted by SQL ran within 2 s of

@@ -81,9 +81,14 @@ point at a domain that does not answer; the "Check it opens" link tests it). Cus
 **Settings → Domains & Routes → Add → Custom domain**; a `www` redirect is a Redirect Rule
 (`www.example.com/*` → `https://example.com/$1`, 301).
 
-The very first deploy runs from your terminal, not CI. If the token cannot create the Worker
-(Cloudflare's documentation is unclear on this), create an empty Worker named `memoria` in the
-dashboard once (Workers & Pages → Create → Hello World), then deploy again.
+The very first deploy runs from your terminal, not CI. The account token creates both Workers
+itself (verified 2026-11-16). New Cron Triggers take a few minutes to start firing (7 minutes on
+the first deploy), and a new `workers.dev` route can answer 404 for a minute.
+
+**Local data and the production id**: both `wrangler.jsonc` files keep `preview_database_id` at the
+all-zeros id, so `next dev`, `npm run dev:relay` and every `--local` command keep the local database
+they always had; wrangler prints that id in a deploy's binding list, but the upload uses
+`database_id` (a deployed app reads the production data).
 
 ### Media (R2)
 
