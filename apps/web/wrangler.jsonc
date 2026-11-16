@@ -10,6 +10,8 @@
   // The Worker's name. Also in `services` below and in scripts/measure-cpu.mjs
   // (the guard checks they agree).
   "name": "memoria",
+  // The Cloudflare account (not a secret): scripts/cloudflare.ts refuses credentials for any other.
+  "account_id": "bdd6e25a252956d5763d051bd83170ee",
   // worker.ts is the entry: it answers cheap paths before Next.js loads, then
   // hands everything else to OpenNext.
   "main": "worker.ts",
