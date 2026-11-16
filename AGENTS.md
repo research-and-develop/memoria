@@ -2,10 +2,10 @@
 
 **Memoria** is a client-gallery app for one photographer: upload a shoot, share a branded gallery,
 let the client favourite, comment and submit a selection, then deliver. Cloudflare's **free** tier:
-one Worker today, a relay Worker for email and jobs planned. Build plan:
+the app Worker plus a relay Worker for background jobs and email (`apps/relay`). Build plan:
 [`docs/plans/202611/plan_202611_mvp.md`](docs/plans/202611/plan_202611_mvp.md).
 
-Next.js 16 App Router on npm workspaces, deployed as **one Cloudflare Worker** through OpenNext
+Next.js 16 App Router on npm workspaces, deployed as **one Cloudflare Worker** (plus the relay) through OpenNext
 (`@opennextjs/cloudflare`). Data in **D1** (SQLite), spam protection with **Turnstile**. Tailwind v3,
 vitest. **There is no eslint: the test suite is the linter** (see *Guards*).
 
@@ -25,6 +25,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/lib/settings/**`, `lib/auth/account.ts` | the photographer's settings (studio name, website address; the sign-in account): D1, else the env default (`Config.bootstrap`) |
 | `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA`, assets, …), vars, compatibility flags; `r2-cors.json` = the bucket's CORS rules |
 | `apps/web/src/lib/media/` | the development blob routes' checks (`devBlobRequest.ts`) and headers (`blobResponseHeaders.ts`) |
+| `apps/relay/` | the relay Worker (Phase 3): `src/index.ts` (`POST /run` nudge + a cron every minute), `wrangler.jsonc` (`alias`: `@repo/platform/current` → `packages/platform-cloudflare/relay.ts`, `server-only` → empty), generated `relay-env.d.ts`. It runs the app's `lib/**` code: see *Relay-safe code* |
 | `apps/web/worker.ts` + `src/lib/edge/` | the Worker entry: answers cheap paths (`/healthz`) before Next loads; imports relative only, nothing `server-only` |
 | `apps/web/cloudflare-env.d.ts` | GENERATED type of the env (`npm run cf-typegen`) — never hand-edit |
 | `apps/web/open-next.config.ts` | OpenNext adapter config (caching overrides) |
@@ -33,7 +34,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `packages/core` | `AppError`, `isUuid`, `objectToUrlSearchParams`; `testing/` = the guards' source index |
 | `packages/api` | the HTTP envelope: `responses`, `withErrorHandling`, `publicErrorMessage`, `responseHeaders` |
 | `packages/platform` | the ports (`Db`, `BlobStore`, `Config`, `defer`: `ports.ts`), config parsing, media rules, blob tokens/URLs; `current.ts` = the composition root (`getPlatform()`); `testing/` = the test platform, `contract/` = the adapter contract suites |
-| `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `r2.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `testing/proxy.ts` |
+| `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `r2.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `relay.ts` (the relay's composition root: `withPlatform`), `testing/proxy.ts` |
 | `packages/db` | the database layer on the `Db` port: `client.ts` (`statement`, `query`, `queryFirst`, `execute`, `batch`, `all`/`first`/`run`, `allRows`/`firstRow`, `getDb`), `rows.ts` (pure converters), `migrations.ts`, `test-utils` |
 | `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
 | `migrations/*.sql` | the authoritative D1 schema, applied by wrangler and by the test harness |
@@ -45,6 +46,9 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 - `npm run dev` (port 3210; `next dev` with the local D1/vars through `initOpenNextCloudflareForDev`)
 - `npm run preview` — build with OpenNext and run the real Worker locally in workerd (port 8787)
 - `npm run deploy` — build + deploy to Cloudflare
+- `npm run dev:relay` — the relay Worker on port 8790, sharing the app's local D1, nudged every 10 s
+  (`scripts/relay-dev.mjs`) · `npm run build:relay` (dry-run bundle, CI) · `npm run deploy:relay`
+  (before the app: it must know a job kind before the app enqueues one)
 - `npm run wrangler -- <args>` — **every** remote wrangler command (secrets, tail, rollback, D1, R2): runs
   wrangler in `apps/web` with this project's token from the gitignored `.cloudflare.env`, checked against
   `account_id` in `wrangler.jsonc` (`scripts/cloudflare.ts`). Never `npx wrangler` for remote work and
@@ -64,11 +68,12 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
   its SQL lives in `lib/db/queries/admin_two_factor_cli/sql.ts` (import-free: tsx cannot load the db client)
 - `npm run media:probe -- <base-url>` — round-trip a PNG through the development blob routes of a
   running `npm run dev`/`preview` (needs `MEDIA_DEV_SIGNING_SECRET` in `.dev.vars`)
-- `npm run cf-typegen` — regenerate `cloudflare-env.d.ts` after ANY change to `wrangler.jsonc` or
-  `.dev.vars.example` (it reads the example, never your `.dev.vars`; guard `wrangler-config`)
+- `npm run cf-typegen` — regenerate `cloudflare-env.d.ts` and `apps/relay/relay-env.d.ts` after ANY
+  change to a `wrangler.jsonc` or `.dev.vars.example` (it reads the examples, never your `.dev.vars`;
+  guard `wrangler-config`)
 - `npm run measure:cpu -- <url> [count] [--version <id>] [--group-by <header>]` — CPU/wall time per
   request of the deployed Worker
-- `npm run ts-check` (both tsconfigs) · `npm run test` (`test:node`, `test:components`) · `npm run verify` (both)
+- `npm run ts-check` (root, app and relay tsconfigs) · `npm run test` (`test:node`, `test:components`) · `npm run verify` (both)
 - Shipping, secrets, rollback: [`docs/deployment.md`](docs/deployment.md). CI: `.github/workflows/ci.yml`
   (deploy is manual; migrations run first and must be safe for the code still running); D1 backup,
   run by hand: `.github/workflows/backup.yml`. **No workflow touches Cloudflare unless the owner runs it**
@@ -105,6 +110,17 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 - **The Workers runtime types are global** (generated file). `Response.json()` returns `unknown` —
   cast to the envelope type you expect.
 - **Deps go in the root `package.json`** (one hoisted tree); workspace manifests carry none.
+
+## Relay-safe code
+
+- **The relay runs the app's domain code** (`apps/web/src/lib/**`, query modules, `@repo/*`) without
+  Next. Everything `apps/relay/src/index.ts` reaches must import no `next`, `react`, `@opennextjs/*`,
+  `@repo/api/*` or `@repo/ui/*` (only `@repo/ui/theme/*` is plain data), and never
+  `packages/platform/current.ts` directly. Guard: `relay-graph` (it prints the import chain).
+- Shared code reads settings with the `read*` functions (`readStudio`, `readAdminAccount`), never the
+  `perRender` ones (`getStudio`, `getAdminAccount`: React). Type-only imports are fine.
+- Both Workers' configs agree (account, D1, bucket, compatibility, shared vars); only the app has
+  `migrations_dir`; the relay has no public URL. Guard: `wrangler-config`.
 
 ## Workspace rules
 
@@ -277,7 +293,8 @@ no `NEXTJS_ENV` in `vars`, every hard-coded Worker name = `name`),
 `platform-boundary` (no `@opennextjs/cloudflare`, `wrangler`, `@repo/platform-cloudflare`, `cloudflare:*`,
 `getCloudflareContext()` or Cloudflare runtime type outside the adapters; contract suites only in tests),
 `settings-through-store` (`Config.bootstrap`, the env defaults of studio settings, read only in
-`packages/platform/config.ts`, the test platform, `lib/settings/**` and `lib/auth/account.ts`).
+`packages/platform/config.ts`, the test platform, `lib/settings/**` and `lib/auth/account.ts`),
+`relay-graph` (the relay bundles no Next, React, OpenNext, `@repo/api` or `@repo/ui` outside `theme/`).
 
 - Need a repo-wide rule? **Add a guard test, not a linter.**
 - A guard reads source through `readSourceFiles` from `@repo/core/testing/sourceIndex` (one

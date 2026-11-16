@@ -661,7 +661,7 @@ none.
 
 ### CI and deployment
 
-- Root scripts: `dev:relay`, `build:relay` (`wrangler deploy --dry-run --outdir apps/relay/dist -c apps/relay/wrangler.jsonc`;
+- Root scripts: `dev:relay`, `build:relay` (`cd apps/relay && wrangler deploy --dry-run --outdir dist`;
   no credentials), `deploy:relay` (`tsx scripts/cloudflare.ts wrangler deploy -c ../relay/wrangler.jsonc`:
   through the credentials wrapper, which also refuses when the relay's `account_id` differs from the app's), `cf-typegen` for both
   (`wrangler types --env-interface RelayEnv apps/relay/relay-env.d.ts -c apps/relay/wrangler.jsonc --env-file apps/relay/.dev.vars.example`),
@@ -874,7 +874,7 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 ## Checklist
 
 - [x] T3.1 Spike: bundling, ALS, D1 claim semantics, local connect, shared local D1
-- [ ] T3.2 `apps/relay`, composition root, socket types, scripts, guards, CI build, dev script, `RELAY` binding
+- [x] T3.2 `apps/relay`, composition root, scripts, guards, CI build, dev script, `RELAY` binding (socket types: commit 3)
 - [ ] T3.3 Migration and `jobs` query module
 - [ ] T3.4 Ports and adapters (`Jobs`, `Mailer` types, memory and unconfigured mailers)
 - [ ] T3.5 Runner, backoff, enqueue, periodic, housekeeping, relay entry
@@ -886,6 +886,26 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 - [ ] T3.11 Security notices
 - [ ] T3.12 Docs and status
 - [ ] Verification 1–5
+
+## Built
+
+**Commit 1 (T3.2), 2026-11-16.** Different from the design above:
+
+- **No `apps/relay/package.json`**: its scripts live in the root `package.json`, so the workspace
+  list and `package-lock.json` stay unchanged (no `npm install` while a dev server holds
+  `node_modules`).
+- **`cf-typegen` for the relay runs from `apps/relay`** (`cd apps/relay && wrangler types … --env-file
+  .dev.vars.example`): with `-c` from the repo root, Node itself takes `--env-file` and resolves it
+  against the working directory, so the relay's `.dev.vars.example` keys went missing.
+- **`build:relay` also runs from `apps/relay`**: wrangler resolves `--outdir` for the bundle against
+  the config's folder but writes its README against the working directory.
+- **`sockets.d.ts` moves to commit 3**, with its first user (the SMTP adapter).
+- `createTestDb()` still starts in about a second with the `RELAY` binding in the app's config.
+- `npm run dev:relay` boots on 8790 against the app's `.wrangler/state` (one local D1 file for both
+  Workers), answers `POST /run` 202, anything else 404, and `/cdn-cgi/local/scheduled` 200; stopping it
+  frees the port.
+- Not yet recorded: whether `next dev` reaches the relay through the `RELAY` binding (commit 2, with
+  the first nudge).
 
 ## Open questions
 

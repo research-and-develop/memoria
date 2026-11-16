@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"],
+    // What wrangler's `alias` does for the bundle, for tsc and the editor (guard:
+    // wrangler-config checks the two agree). `@/*` is the app's alias: the relay
+    // runs the app's domain code (apps/web/src/lib/**).
+    "paths": {
+      "@repo/platform/current": ["../../packages/platform-cloudflare/relay.ts"],
+      "server-only": ["./src/empty.ts"],
+      "@/*": ["../web/src/*"]
+    }
+  },
+  // `npm run ts-check:relay`. Only the relay's generated env (RelayEnv + the
+  // Workers runtime types): the root and app tsconfigs never include it (two
+  // generated runtime-type files conflict).
+  "include": ["relay-env.d.ts", "src/**/*"],
+  "exclude": ["node_modules", "dist", ".wrangler"]
+}

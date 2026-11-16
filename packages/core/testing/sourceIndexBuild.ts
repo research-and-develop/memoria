@@ -19,13 +19,13 @@ declare module 'vitest' {
 }
 
 /** Every root a guard may scan. A guard narrows this with `roots`. Add each new app by name, never `apps/*`. */
-export const SOURCE_INDEX_ROOTS = ['apps/web', 'packages', 'scripts'] as const;
+export const SOURCE_INDEX_ROOTS = ['apps/web', 'apps/relay', 'packages', 'scripts'] as const;
 
 /** Never source: dependencies, build output (Next, OpenNext, wrangler state), VCS and scratch space. */
 const SKIP_DIRS = new Set(['node_modules', '.next', '.open-next', '.wrangler', '.git', 'dist', 'coverage', 'tmp']);
 
 /** Generated declaration files (`next dev`, `npm run cf-typegen`): committed, but not source a guard should judge. */
-const GENERATED_FILES = new Set(['next-env.d.ts', 'cloudflare-env.d.ts']);
+const GENERATED_FILES = new Set(['next-env.d.ts', 'cloudflare-env.d.ts', 'relay-env.d.ts']);
 
 export const SOURCE_INDEX_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'] as const;
 

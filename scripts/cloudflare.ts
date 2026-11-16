@@ -100,6 +100,12 @@ export function cloudflareEnv(): NodeJS.ProcessEnv {
     console.error(result.message);
     process.exit(1);
   }
+  // The relay Worker deploys with the same credentials: its account must be the app's (guard too).
+  const relayConfig = path.join(ROOT, 'apps', 'relay', 'wrangler.jsonc');
+  if (existsSync(relayConfig) && configuredAccountId(readFileSync(relayConfig, 'utf8')) !== result.value.accountId) {
+    console.error(`"account_id" in apps/relay/wrangler.jsonc is not the app's. Refusing. ${HELP}`);
+    process.exit(1);
+  }
   const env: NodeJS.ProcessEnv = { ...process.env, CLOUDFLARE_ACCOUNT_ID: result.value.accountId, CLOUDFLARE_API_TOKEN: result.value.apiToken };
   for (const key of OTHER_AUTH_KEYS) delete env[key];
   return env;

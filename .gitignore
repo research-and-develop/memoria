@@ -24,6 +24,9 @@ coverage/
 /apps/web/*.sql.gz*
 /d1.sql*
 
+# The relay's dry-run bundle (npm run build:relay).
+apps/relay/dist/
+
 # Scratch space for one-off investigations. Durable plans/audits go in docs/.
 **/tmp/
 

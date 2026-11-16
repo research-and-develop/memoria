@@ -39,7 +39,7 @@ export default defineConfig({
           // headroom, not cover for a slow test.
           testTimeout: 15_000,
           hookTimeout: 30_000,
-          include: ['apps/web/src/**/*.test.ts', 'apps/web/scripts/**/*.test.ts', 'packages/**/*.test.ts', 'scripts/**/*.test.ts'],
+          include: ['apps/web/src/**/*.test.ts', 'apps/web/scripts/**/*.test.ts', 'apps/relay/**/*.test.ts', 'packages/**/*.test.ts', 'scripts/**/*.test.ts'],
           exclude: ['**/node_modules/**'],
           // The guards read the source tree once per run through this snapshot.
           globalSetup: ['./packages/core/testing/sourceIndexSetup.ts'],

@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 
 import { readSourceFiles, stripComments } from '@repo/core/testing/sourceIndex';
 
-const ROOTS = ['apps/web/src', 'apps/web/scripts', 'packages', 'scripts'];
+const ROOTS = ['apps/web/src', 'apps/web/scripts', 'apps/relay', 'packages', 'scripts'];
 const EXTENSIONS = ['.ts', '.tsx', '.mjs'];
 const SENTINEL = 'apps/web/src/lib/auth/requireAdmin.ts';
 
@@ -28,6 +28,8 @@ const ALLOWED = [
   /^packages\/platform\/current\.ts$/,
   /^packages\/db\/test-utils\.ts$/,
   /^apps\/web\/worker\.ts$/,
+  // The relay's entry builds its platform from its env (its other files are shared domain code).
+  /^apps\/relay\/src\/index\.ts$/,
   /^apps\/web\/next\.config\.mjs$/,
   /^apps\/web\/open-next\.config\.ts$/,
   // Their samples and regexes name the banned things.
@@ -41,7 +43,7 @@ const CLOUDFLARE_MODULE_RE = /^(?:@opennextjs\/cloudflare|wrangler|@repo\/platfo
 const CONTRACT_MODULE_RE = /^@repo\/platform\/contract\//;
 const CONTEXT_CALL_RE = /\bgetCloudflareContext\s*\(/;
 const RUNTIME_TYPE_RE =
-  /\b(D1Database|D1PreparedStatement|D1Result|D1Meta|R2Bucket|R2Object|ExecutionContext|CloudflareEnv|KVNamespace|FixedLengthStream)\b/g;
+  /\b(D1Database|D1PreparedStatement|D1Result|D1Meta|R2Bucket|R2Object|ExecutionContext|CloudflareEnv|RelayEnv|KVNamespace|FixedLengthStream|Fetcher|ScheduledController|ExportedHandler)\b/g;
 const TEST_FILE_RE = /\.test\.tsx?$/;
 
 /** The rule breaks in one file (pure: the self-test drives it with samples). */
@@ -95,6 +97,10 @@ describe('domain code never touches Cloudflare (platform boundary)', () => {
       ['an R2 type', 'let bucket: R2Bucket;', 'names R2Bucket'],
       ['the ctx type', 'function h(ctx: ExecutionContext) {}', 'names ExecutionContext'],
       ['the env type', 'const env = {} as CloudflareEnv;', 'names CloudflareEnv'],
+      ["the relay's env type", 'function d(env: RelayEnv) {}', 'names RelayEnv'],
+      ['a service binding', 'type E = { RELAY?: Fetcher };', 'names Fetcher'],
+      ['a cron handler', 'async function s(c: ScheduledController) {}', 'names ScheduledController'],
+      ['a Worker entry', 'export default {} satisfies ExportedHandler;', 'names ExportedHandler'],
       ['a contract outside a test', "import { describeDbContract } from '@repo/platform/contract/db';", 'imports @repo/platform/contract/db outside a test'],
     ])('flags %s', (_label, sample, message) => {
       expect(violations('apps/web/src/lib/x.ts', sample)).toContain(message);
@@ -110,6 +116,13 @@ describe('domain code never touches Cloudflare (platform boundary)', () => {
         "const message = 'D1_ERROR: no such table';",
       ].join('\n');
       expect(violations('apps/web/src/lib/x.ts', good)).toEqual([]);
+    });
+
+    it("allows the relay's entry, not its other files", () => {
+      const allowed = (file: string) => ALLOWED.some((re) => re.test(file));
+      expect(allowed('apps/relay/src/index.ts')).toBe(true);
+      expect(allowed('apps/relay/src/other.ts')).toBe(false);
+      expect(violations('apps/relay/src/other.ts', "import { connect } from 'cloudflare:sockets';")).toEqual(['imports cloudflare:sockets']);
     });
 
     it('allows a contract suite in a test file', () => {

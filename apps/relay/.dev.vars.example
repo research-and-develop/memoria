@@ -1,0 +1,11 @@
+# The relay Worker's local secrets: copy to apps/relay/.dev.vars for `npm run dev:relay`.
+#
+# Every SECRET the relay reads is listed here with a comment. In production each
+# one is set with `npm run wrangler -- secret put <NAME> -c ../relay/wrangler.jsonc`.
+# After adding a line here run `npm run cf-typegen` (it reads THIS file).
+
+# Development mode (the relay never serves blob routes; it only marks the env).
+NEXTJS_ENV=development
+
+# Readable log lines in the terminal instead of JSON.
+LOG_FORMAT=text

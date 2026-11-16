@@ -26,7 +26,12 @@
     "binding": "ASSETS",
   },
   // OpenNext calls back into its own Worker; the service must be this Worker's `name`.
-  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "memoria" }],
+  // RELAY: the relay Worker (apps/relay, plan p03); the app nudges it after
+  // enqueuing a job. Its `service` is the relay's `name` (guard).
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "memoria" },
+    { "binding": "RELAY", "service": "memoria-relay" },
+  ],
   // The running version's id (the health probe reports it; a cache key can use it).
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "d1_databases": [

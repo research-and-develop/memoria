@@ -1,0 +1,55 @@
+{
+  // The relay Worker (plan p03): no public URL, no UI. It runs the background
+  // jobs from the D1 `jobs` table: on a nudge from the app (the app's RELAY
+  // service binding, POST /run) and on a Cron Trigger every minute. It runs the
+  // SAME domain code as the app (apps/web/src/lib/**) through its own
+  // composition root (packages/platform-cloudflare/relay.ts).
+  //
+  // After changing ANYTHING here run `npm run cf-typegen` (relay-env.d.ts).
+  // Guard: scripts/guards/wrangler-config.test.ts checks it against the app's
+  // config (same account, D1, bucket, compatibility, shared vars).
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // The app's RELAY service binding names this.
+  "name": "memoria-relay",
+  // = the app's (guard); scripts/cloudflare.ts refuses credentials for any other.
+  "account_id": "bdd6e25a252956d5763d051bd83170ee",
+  "main": "src/index.ts",
+  // = the app's (guard).
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // No public URL at all (D3.13, guard): only the app's service binding and the
+  // cron reach it. No `routes`.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The only Cron Trigger (the free plan allows 5 per account): retries,
+  // scheduled jobs, and whatever a lost nudge missed.
+  "triggers": { "crons": ["* * * * *"] },
+  // The shared code imports `@repo/platform/current` and `server-only`; for the
+  // relay they mean its own composition root and nothing (D3.2). Paths are
+  // relative to this file. = tsconfig.json `paths` (guard).
+  "alias": {
+    "@repo/platform/current": "../../packages/platform-cloudflare/relay.ts",
+    "server-only": "./src/empty.ts",
+  },
+  // The app's D1 (same name and id: guard). No migrations_dir: only the app
+  // migrates. Locally `npm run dev:relay` persists to the app's .wrangler/state,
+  // so both read the same local database.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "memoria",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+    },
+  ],
+  // The app's bucket (cleanup jobs, Phase 5).
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "memoria-media" }],
+  // The vars both Workers read: equal to the app's (guard). APP_NAME and
+  // SITE_URL are only defaults (Settings → Studio wins, plan p02b).
+  "vars": {
+    "APP_NAME": "Memoria",
+    "SITE_URL": "",
+    "LOG_LEVEL": "info",
+    "LOG_FORMAT": "json",
+  },
+  "observability": { "enabled": true },
+}

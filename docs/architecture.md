@@ -7,7 +7,7 @@ related: [../AGENTS.md, deployment.md, recipes.md, plans/202611/plan_202611_p01_
 
 # Architecture
 
-## Hosting: one Worker, Cloudflare free tier
+## Hosting: two Workers, Cloudflare free tier
 
 ```
 browser ──► Cloudflare edge (custom domain)
@@ -22,34 +22,45 @@ browser ──► Cloudflare edge (custom domain)
                    └─ Turnstile siteverify (fetch)         the login form
 ```
 
-Everything is one deployable: public pages, the admin (`/admin`) and the API (`/api/**`) are routes
-of the same Next app.
+Public pages, the admin (`/admin`) and the API (`/api/**`) are routes of the same Next app.
 
-### Planned (Phases 3–6)
-
-Not built yet; the build plan is [plans/202611/plan_202611_mvp.md](plans/202611/plan_202611_mvp.md).
+### The relay Worker (Phase 3)
 
 ```
-memoria (apps/web)          as above, plus client galleries; worker.ts also serves protected-mode images
-memoria-relay (apps/relay)  no UI: runs jobs from a D1 `jobs` table (SMTP email, reminders, expiry,
-                            R2 cleanup); nudged by memoria through a service binding, retried by a cron
-R2 memoria-media            originals, thumbnails, display copies, logos; public on a custom domain
-D1 memoria                  shared by both Workers
+memoria (apps/web)  ── RELAY service binding: POST /run (a nudge) ──►  memoria-relay (apps/relay)
+                                                                        no public URL (no workers.dev,
+                                                                        no preview URLs, no routes)
+                                                                        Cron Trigger every minute
+D1 memoria  ◄────────────────────── shared ───────────────────────►   D1 memoria (never migrates it)
+R2 memoria-media  ◄──────────────── shared ───────────────────────►   R2 memoria-media
 ```
 
-The relay builds its platform with `cloudflarePlatform(env, ctx.waitUntil)` and adds the `Mailer` and
-`Jobs` ports (Phase 3); see *Platform layer* below.
+The relay runs background jobs (email from Phase 3, later reminders, expiry, R2 cleanup). It runs the
+**same domain code** as the app (`apps/web/src/lib/**`, the query modules, `@repo/*`), bundled by
+wrangler with two aliases (`apps/relay/wrangler.jsonc` `alias`, mirrored by its tsconfig `paths`):
+`@repo/platform/current` → `packages/platform-cloudflare/relay.ts`, and `server-only` → an empty
+module. `relay.ts` is its composition root: each invocation runs inside `withPlatform(platform, fn)`
+(an `AsyncLocalStorage`), so `getPlatform()` works in shared code exactly as under Next, and
+overlapping invocations never see each other's env. Guard `relay-graph` walks every import the relay
+reaches and refuses Next, React, OpenNext, `@repo/api` and `@repo/ui` (except `theme/`): shared code
+the relay uses must use the `read*` settings functions, never the `perRender` (`get*`) ones.
+
+Still planned: client galleries (Phase 6; `worker.ts` will also serve protected-mode images) and the
+originals bucket (Phase 5). Build plan: [plans/202611/plan_202611_mvp.md](plans/202611/plan_202611_mvp.md).
 
 ## Layout
 
 ```
 apps/web            Next.js 16 App Router app (pages, admin, HTTP API) + wrangler/OpenNext config
+apps/relay          the relay Worker: src/index.ts (fetch POST /run + scheduled), its wrangler.jsonc,
+                    tsconfig and generated relay-env.d.ts; no package.json, no code of its own
 packages/logger     structured logger + redaction       — leaf, zero deps
 packages/core       AppError, validation, url helpers    — depends on nothing
 packages/api        HTTP envelope + route error boundary — core, logger, next
 packages/platform   the ports, config parsing, media rules, blob tokens/URLs, memory store, contract
                     suites, test platform; current.ts = the composition root — core, logger, aws4fetch
-packages/platform-cloudflare  D1/R2 adapters, cloudflarePlatform, the OpenNext wrapper — platform,
+packages/platform-cloudflare  D1/R2 adapters, cloudflarePlatform, the OpenNext wrapper (next.ts),
+                    the relay's composition root (relay.ts) — platform,
                     @opennextjs/cloudflare, wrangler (tests)
 packages/db         the database layer on the Db port: statements, batch, row converters, migrations,
                     test harness — platform

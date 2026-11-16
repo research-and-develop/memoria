@@ -11,7 +11,12 @@ import { r2BlobStore } from './r2';
  * Next code reaches it through `@repo/platform/current` (./next.ts); a Worker entry outside Next
  * (worker.ts, the Phase 3 relay) calls this constructor with its `env` and `ctx.waitUntil`.
  */
-export type CloudflarePlatformEnv = { DB: D1Database; MEDIA: R2Bucket };
+export type CloudflarePlatformEnv = {
+  DB: D1Database;
+  MEDIA: R2Bucket;
+  /** The relay Worker's service binding (the app has it; the relay itself does not). Plan p03. */
+  RELAY?: Fetcher;
+};
 
 export function cloudflarePlatform(env: CloudflarePlatformEnv, waitUntil: (task: Promise<unknown>) => void): Platform {
   const db = d1Db(env.DB);

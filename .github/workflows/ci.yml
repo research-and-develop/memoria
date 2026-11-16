@@ -1,7 +1,7 @@
 # CI: check and build on every push to master and every pull request; deploy is manual.
-#   push to master / pull request → check (ts-check, test, build:worker)
+#   push to master / pull request → check (ts-check, test, build:worker, build:relay)
 #   deploy                        → manual: Actions → CI → Run workflow, tick `deploy`
-#                                   (migrations first, then the Worker). Works only after the first
+#                                   (migrations first, then the relay, then the app). Works only after the first
 #                                   manual deploy has created the D1 (docs/deployment.md).
 # `check` uses no credentials; only the manual deploy touches Cloudflare.
 # Repository secrets: CLOUDFLARE_API_TOKEN (an account token) and CLOUDFLARE_ACCOUNT_ID
@@ -43,6 +43,7 @@ jobs:
       - run: npm run ts-check
       - run: npm run test
       - run: npm run build:worker
+      - run: npm run build:relay
 
   deploy:
     if: github.event_name == 'workflow_dispatch' && inputs.deploy
@@ -65,4 +66,6 @@ jobs:
       - run: npm ci --no-audit --no-fund
       # Migrations BEFORE the code: each must be safe for the version still running.
       - run: npm run db:migrate:remote
+      # The relay before the app: it must know a job kind before the app enqueues one (plan p03, D3.14).
+      - run: npm run deploy:relay
       - run: npm run deploy

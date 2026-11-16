@@ -135,3 +135,11 @@ first (`npm run measure:cpu`). When renders cost too much CPU, options from chea
 (`packages/core/testing/sourceIndexBuild.ts`), the `APPS` list in `every-route-wrapped`, the
 `TAILWIND_CONFIGS` list in `tailwind-ui-content`, a `ts-check:<app>` script, and its own vitest
 projects if it uses `@/`.
+
+**A second Worker without UI** follows `apps/relay` (Phase 3): a `wrangler.jsonc` with `account_id`,
+D1 and bucket equal to the app's (guard `wrangler-config` compares them), an `alias` for
+`@repo/platform/current` (its own composition root, `withPlatform` per invocation) and `server-only`,
+the same two in its tsconfig `paths`, a generated env (`cf-typegen`, run from its folder: wrangler
+resolves `--env-file` against the working directory), its entry allowed by `platform-boundary`, a
+`relay-graph`-style guard over what it bundles, `build:<name>` in CI's `check` and `deploy:<name>`
+through `scripts/cloudflare.ts`. No `package.json` is needed: its scripts live at the root.

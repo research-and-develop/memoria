@@ -26,7 +26,7 @@ const allowlist = JSON.parse(
 const lineCount = (text: string) => text.split('\n').length;
 
 describe('file size ratchet', () => {
-  const files = readSourceFiles({ roots: ['apps/web', 'packages', 'scripts'] });
+  const files = readSourceFiles({ roots: ['apps/web', 'apps/relay', 'packages', 'scripts'] });
 
   it('scans the tree', () => {
     expect(files.length).toBeGreaterThan(10);
