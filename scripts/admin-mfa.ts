@@ -9,7 +9,7 @@
  *   setup    a one-time setup code to enrol the FIRST authenticator (valid 1 hour)
  *   reset    remove every authenticator, recovery code, challenge and session; print a new setup code
  *   unlock   clear the sign-in lockout (and the sign-in rate limits)
- *   key      print a new TOTP_ENCRYPTION_KEY (no database)
+ *   key      print a new TOTP_ENCRYPTION_KEY (no database); with --settings a SETTINGS_ENCRYPTION_KEY
  *
  * It runs wrangler's own script with node (an argument array, no shell), so
  * the SQL reaches `wrangler d1 execute DB --command` exactly as built. The SQL
@@ -35,9 +35,9 @@ const WEB = path.join(ROOT, 'apps', 'web');
 export const COMMANDS = ['list', 'password', 'setup', 'reset', 'unlock', 'key'] as const;
 export type Command = (typeof COMMANDS)[number];
 /** `email`: only with `password` (lower-cased); null = keep the account's. */
-export type Args = { command: Command; remote: boolean; yes: boolean; email: string | null };
+export type Args = { command: Command; remote: boolean; yes: boolean; email: string | null; settings: boolean };
 
-const USAGE = 'Usage: npm run admin:mfa -- <list|password|setup|reset|unlock|key> [--email <address>] [--remote] [--yes]';
+const USAGE = 'Usage: npm run admin:mfa -- <list|password|setup|reset|unlock|key> [--email <address>] [--remote] [--yes] [--settings (key only)]';
 
 export function parseArgs(argv: readonly string[]): Args | { error: string } {
   const rest: string[] = [];
@@ -55,14 +55,16 @@ export function parseArgs(argv: readonly string[]): Args | { error: string } {
   }
   const flags = rest.filter((a) => a.startsWith('-'));
   const words = rest.filter((a) => !a.startsWith('-'));
-  const unknown = flags.filter((f) => f !== '--remote' && f !== '--yes' && f !== '-y');
+  const unknown = flags.filter((f) => f !== '--remote' && f !== '--yes' && f !== '-y' && f !== '--settings');
   if (unknown.length) return { error: `Unknown option ${unknown.join(', ')}. ${USAGE}` };
   if (words.length !== 1 || !COMMANDS.includes(words[0] as Command)) return { error: USAGE };
   const command = words[0] as Command;
   const remote = flags.includes('--remote');
   if (command === 'key' && remote) return { error: '`key` does not touch a database: drop --remote.' };
   if (email !== undefined && command !== 'password') return { error: '--email goes with `password` only.' };
-  return { command, remote, yes: flags.includes('--yes') || flags.includes('-y'), email: email ?? null };
+  const settings = flags.includes('--settings');
+  if (settings && command !== 'key') return { error: '--settings goes with `key` only.' };
+  return { command, remote, yes: flags.includes('--yes') || flags.includes('-y'), email: email ?? null, settings };
 }
 
 /** The D1 database_id in wrangler.jsonc, or null while it is the all-zeros placeholder (no production D1 yet). */
@@ -191,6 +193,13 @@ export async function main(argv: readonly string[]): Promise<void> {
   if ('error' in args) {
     console.error(args.error);
     process.exitCode = 2;
+    return;
+  }
+  if (args.command === 'key' && args.settings) {
+    console.log(newKey());
+    console.log('\nSETTINGS_ENCRYPTION_KEY: the same value on both Workers. Locally: apps/web/.dev.vars and apps/relay/.dev.vars.');
+    console.log('Production: npm run wrangler -- secret put SETTINGS_ENCRYPTION_KEY, and again with -c ../relay/wrangler.jsonc.');
+    console.log('Changing it later means entering the mail password or key again in Settings → Emails.');
     return;
   }
   if (args.command === 'key') {

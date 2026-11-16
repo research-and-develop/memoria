@@ -1,3 +1,5 @@
+import type { SmtpSettings } from './mail/smtp';
+
 /**
  * The ports: what domain code may ask of the platform it runs on. Domain code (routes, src/lib,
  * query modules) uses these types and `getPlatform()` from `@repo/platform/current`; adapters
@@ -62,6 +64,9 @@ export interface BlobStore {
   list(opts: { prefix: string; cursor?: string | null; limit?: number }): Promise<{ blobs: BlobMeta[]; cursor: string | null }>;
 }
 
+/** The env's SMTP fallback (`Config.bootstrap.mail`): `none` and a local host only in development. */
+export type EnvMail = { from: string; smtp: SmtpSettings };
+
 /** S3-compatible credentials for presigned URLs (R2's S3 endpoint in production). */
 export type S3Config = { endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string };
 
@@ -85,7 +90,19 @@ export type Config = {
     adminEmail: string;
     /** `ADMIN_PASSWORD_HASH`, trimmed; empty = none. */
     adminPasswordHash: string;
+    /**
+     * Email through `MAIL_FROM` + `SMTP_*` (plan p03, D3.17): DEVELOPMENT's fallback (Mailpit) while
+     * no mail settings are saved in the studio. Null unless `MAIL_FROM` and `SMTP_HOST` are set and
+     * valid; `mailProblem` then says which variable is wrong (never its value).
+     */
+    mail: EnvMail | null;
+    mailProblem: string | null;
   };
+  /**
+   * `SETTINGS_ENCRYPTION_KEY` (32 bytes, base64; both Workers): encrypts the secrets saved in the
+   * studio's mail settings (plan p03, D3.17). Null = they can be neither saved nor read.
+   */
+  settingsKey: Uint8Array | null;
   /** `NEXTJS_ENV=development` (local dev and preview only; never set in production). */
   isDevelopment: boolean;
   /**

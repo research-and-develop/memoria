@@ -20,10 +20,11 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `admin/` (the studio shell: `AdminShell`, `nav.ts` = the sidebar's one registry, `PageHeader`, `icons.tsx`; `login/` = the sign-in steps) |
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
 | `apps/web/src/lib/jobs/` | background jobs (Phase 3): `types.ts` (`JobKind`, `JobError`), `registry.ts`, `enqueue.ts` (`jobStatement`, `nudgeRelay`), `runner.ts` (`runDueJobs`, run by the relay), `periodic.ts`, `housekeeping.ts`; SQL in `lib/db/queries/jobs` |
+| `apps/web/src/lib/email/` | email (Phase 3): `job.ts` (the `email` kind, `emailJobStatement`), `templates/` (pure renderers + `registry.ts`), `layout.ts` (the shared shell, `escapeHtml`), `context.ts` (`link(path)`), `views.ts` (the status shown in Settings → Emails) |
 | `apps/web/src/lib/auth/` | sign-in: `session.ts`, `requireAdmin.ts`; two-factor: `totp.ts`, `recoveryCodes.ts`, `setupCode.ts`, `twoFactorKeys.ts` (pure), `challenge.ts`, `secondFactor.ts` (the guarded batches), `codeStep.ts` (what every code route does first) |
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
 | `apps/web/src/lib/config/appConfig.ts` | the public part of the config and the studio settings, handed down via `AppProvider` |
-| `apps/web/src/lib/settings/**`, `lib/auth/account.ts` | the photographer's settings (studio name, website address; the sign-in account): D1, else the env default (`Config.bootstrap`) |
+| `apps/web/src/lib/settings/**`, `lib/auth/account.ts` | the photographer's settings (studio name, website address; the sign-in account; mail: `mail.ts`, `parseMailSettings.ts`, `secrets.ts` = the secrets sealed under `SETTINGS_ENCRYPTION_KEY`): D1, else the env default (`Config.bootstrap`) |
 | `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA`, assets, …), vars, compatibility flags; `r2-cors.json` = the bucket's CORS rules |
 | `apps/web/src/lib/media/` | the development blob routes' checks (`devBlobRequest.ts`) and headers (`blobResponseHeaders.ts`) |
 | `apps/relay/` | the relay Worker (Phase 3): `src/index.ts` (`POST /run` nudge + a cron every minute), `wrangler.jsonc` (`alias`: `@repo/platform/current` → `packages/platform-cloudflare/relay.ts`, `server-only` → empty), generated `relay-env.d.ts`. It runs the app's `lib/**` code: see *Relay-safe code* |
@@ -34,8 +35,8 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `packages/logger` | structured logger + secret redaction (zero deps) — `@repo/logger` |
 | `packages/core` | `AppError`, `isUuid`, `objectToUrlSearchParams`; `testing/` = the guards' source index |
 | `packages/api` | the HTTP envelope: `responses`, `withErrorHandling`, `publicErrorMessage`, `responseHeaders` |
-| `packages/platform` | the ports (`Db`, `BlobStore`, `Config`, `defer`: `ports.ts`), config parsing, media rules, blob tokens/URLs; `current.ts` = the composition root (`getPlatform()`); `testing/` = the test platform, `contract/` = the adapter contract suites |
-| `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `r2.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `relay.ts` (the relay's composition root: `withPlatform`), `testing/proxy.ts` |
+| `packages/platform` | the ports (`Db`, `BlobStore`, `Config`, `defer`: `ports.ts`), config parsing, media rules, blob tokens/URLs; `current.ts` = the composition root (`getPlatform()`); `mail/` = the mailers (`smtp.ts`, `brevo.ts`, `ses.ts`, `microsoft365.ts`, `mime.ts`, `mask.ts`, `transport.ts`); `testing/` = the test platform and scripted SMTP server / fetch, `contract/` = the adapter contract suites |
+| `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `r2.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `relay.ts` (the relay's composition root: `withPlatform`), `smtp.ts` (`cloudflare:sockets` for the SMTP client; vitest aliases the module to a stub), `testing/proxy.ts` |
 | `packages/db` | the database layer on the `Db` port: `client.ts` (`statement`, `query`, `queryFirst`, `execute`, `batch`, `all`/`first`/`run`, `allRows`/`firstRow`, `getDb`), `rows.ts` (pure converters), `migrations.ts`, `test-utils` |
 | `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
 | `migrations/*.sql` | the authoritative D1 schema, applied by wrangler and by the test harness |
@@ -62,10 +63,10 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
   only; production keeps the account in D1); locally the admin is `admin@example.local` /
   `local-dev-password-2026` (from `.dev.vars.example`) while `admin_account` has no row, plus a code
   from an authenticator app
-- `npm run admin:mfa -- <password|setup|reset|unlock|list|key> [--email <address>] [--remote]` — the
+- `npm run admin:mfa -- <password|setup|reset|unlock|list|key> [--email <address>] [--remote] [--settings]` — the
   account and two-factor sign-in: create the account or reset its password (generated, printed once),
   a setup code for the first authenticator, a reset when locked out, clear the lockout, show the state,
-  a new `TOTP_ENCRYPTION_KEY` ([deployment.md → Two-factor sign-in](docs/deployment.md#two-factor-sign-in));
+  a new `TOTP_ENCRYPTION_KEY` (`key --settings`: a `SETTINGS_ENCRYPTION_KEY`) ([deployment.md → Two-factor sign-in](docs/deployment.md#two-factor-sign-in));
   its SQL lives in `lib/db/queries/admin_two_factor_cli/sql.ts` (import-free: tsx cannot load the db client)
 - `npm run media:probe -- <base-url>` — round-trip a PNG through the development blob routes of a
   running `npm run dev`/`preview` (needs `MEDIA_DEV_SIGNING_SECRET` in `.dev.vars`)
@@ -211,6 +212,18 @@ first when the change can redirect links, then the write and its audit row in on
   builder is pure**: it returns a `Statement` (`{ sql, params }`, plain data) and takes no `opts`. Every
   function that executes takes `opts?: Options` LAST and threads it to the client (`first(stmt, opts)`,
   `run(stmt, opts)`, `batch([...], opts)`). Domain code sees the `Db` port, never a D1 type.
+
+## Emails (Phase 3)
+
+- **Only the relay sends**: a route enqueues `emailJobStatement(…)` in its batch, then `nudgeRelay()`
+  (recipe: docs/recipes.md → An email template). Templates are pure; every value goes through the
+  layout's escaping; links only through `ctx.link(path)`.
+- **Mail errors are codes**: a `MailError` code is logged; its masked `detail` goes only to
+  `jobs.last_error` (admin). Never log an address, a name or a template parameter.
+- **Emails to visitors** (Phases 7–10, D3.15): a public route that queues email to an address a
+  visitor typed caps it per recipient (2 a day, `rate_limits`) and overall (a daily cap); a name a
+  visitor typed never goes into a subject or a From/Reply-To header, and is stripped of control and
+  bidi characters and limited to 60 characters; reminders carry `List-Unsubscribe`.
 
 ## Media rules (non-negotiable)
 

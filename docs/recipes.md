@@ -85,8 +85,35 @@ Work that must not happen in the request (an email, a cleanup) is a job the rela
    `const job = jobStatement(kind, payload, { now }); await batch([...change, job.statement]); nudgeRelay();`
    A `dedupeKey` only for system jobs (once per key while the row exists).
 4. Everything the kind imports must be relay-safe (AGENTS.md → Relay-safe code; guard `relay-graph`).
-5. Test it through `runDueJobs({ mailer: memoryMailer(), trigger: 'nudge', registry: [kind] })` on a
-   test D1 (`lib/jobs/runner.test.ts`).
+5. Test it through `runDueJobs({ mailerFor: () => memoryMailer(), trigger: 'nudge', registry: [kind] })`
+   on a test D1 (`lib/jobs/runner.test.ts`).
+
+## An email template
+
+An email is an `email` job rendered by the relay when it sends (architecture.md → Email). Model:
+`lib/email/templates/test.ts`.
+
+1. A template in `src/lib/email/templates/<name>.ts`: `id` (stable: stored in queued jobs), `label`
+   (Settings → Emails), `parse(params)` (null when they are not this template's) and
+   `render(params, ctx)` → `{ subject, ...renderLayout(ctx, { heading, paragraphs, action? }) }`. Pure:
+   no `server-only`, no D1; plain text in, the layout escapes. Links: `ctx.link('/path')` only. Dates:
+   `lib/dates.ts`. Never a secret, a code or a link that acts in a security email; never a name a
+   visitor typed in a subject (AGENTS.md → Emails to visitors).
+2. Register it in `templates/registry.ts`. Deploy the relay before the app enqueues it; never remove one
+   while queued jobs may use it.
+3. Enqueue: `const job = emailJobStatement({ template, to, params, now }); await batch([...change,
+   job.statement]); nudgeRelay();` (`to` = `{ email, name? }` or `{ account: true }`).
+4. Test the render (escaping, text and HTML) and the job through `runDueJobs` (`lib/email/job.test.ts`).
+
+## A mail adapter
+
+A new way to send (Google Workspace, say) is a `Mailer` in `packages/platform/mail/<name>.ts`:
+`checkMessage(message)` first (or `buildMessage` for raw MIME), the request through `mailFetch` (abort,
+the 18 s timeout), every answer mapped to `MailError` (`permanent`, `configuration`, `retryAfterSeconds`,
+`detail` through `maskAddresses` with every configured id and secret). Run `describeMailerContract`
+from its test over a scripted fetch (`testing/scriptedFetch.ts`). Then: a member of `MailTransport`
+(`transport.ts`), a block in `parseMailSettings` (every value that reaches a URL checked; the secret
+sealed under `mail.<provider>.<field>`), `unsealMailSettings`, and its fields in Settings → Emails.
 
 ## A var or a secret
 
@@ -119,14 +146,13 @@ Cloudflare type anywhere else. Add it to `testing/proxy.ts` so the contract runs
   images (Phase 6) goes through the public media domain or `worker.ts` (stream, honour `If-None-Match`,
   immutable keys → `Cache-Control: immutable`), never a Next route and never presigned GETs. Add `blob:`
   to the CSP `img-src` for upload previews (already there).
-- **Email (Email Routing)**: `"send_email": [{ "name": "EMAIL" }]` without `destination_address`
-  delivers to any VERIFIED Email Routing destination. Send after the response:
-  `getPlatform().defer(sendNotification(id))`, store the outcome on the row (sent / failed /
-  skipped) so the admin can resend; mock `env.EMAIL.send` in route tests.
+- **Email**: not a binding here. The relay sends through the photographer's provider (SMTP, Brevo,
+  SES, Microsoft 365): see *An email template*. (Cloudflare's own email sending is not on the free plan
+  for arbitrary recipients.)
 - **KV**: good for config read on every request; not for counters (eventually consistent — use D1
   upserts).
-- **Cron**: `"triggers": { "crons": ["0 3 * * *"] }` and a `scheduled(event, env, ctx)` handler next
-  to `fetch` in `worker.ts` (housekeeping: prune old rows, retry failed emails).
+- **Cron**: the relay's one Cron Trigger (every minute) runs jobs and the daily housekeeping; add a
+  periodic job in `lib/jobs/periodic.ts`, not a new cron (the free plan allows 5 per account).
 
 ## Caching
 

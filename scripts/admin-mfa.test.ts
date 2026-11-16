@@ -4,14 +4,15 @@ import { d1Args, describeAccount, parseArgs, parseD1Output, remoteDatabaseId, re
 
 describe('admin:mfa arguments', () => {
   it.each([
-    [['setup'], { command: 'setup', remote: false, yes: false, email: null }],
-    [['reset', '--remote'], { command: 'reset', remote: true, yes: false, email: null }],
-    [['--remote', 'unlock', '--yes'], { command: 'unlock', remote: true, yes: true, email: null }],
-    [['list', '-y'], { command: 'list', remote: false, yes: true, email: null }],
-    [['key'], { command: 'key', remote: false, yes: false, email: null }],
-    [['password'], { command: 'password', remote: false, yes: false, email: null }],
-    [['password', '--email', ' Owner@Example.com ', '--remote'], { command: 'password', remote: true, yes: false, email: 'owner@example.com' }],
-    [['password', '--email=owner@example.com'], { command: 'password', remote: false, yes: false, email: 'owner@example.com' }],
+    [['setup'], { command: 'setup', remote: false, yes: false, email: null, settings: false }],
+    [['reset', '--remote'], { command: 'reset', remote: true, yes: false, email: null, settings: false }],
+    [['--remote', 'unlock', '--yes'], { command: 'unlock', remote: true, yes: true, email: null, settings: false }],
+    [['list', '-y'], { command: 'list', remote: false, yes: true, email: null, settings: false }],
+    [['key'], { command: 'key', remote: false, yes: false, email: null, settings: false }],
+    [['key', '--settings'], { command: 'key', remote: false, yes: false, email: null, settings: true }],
+    [['password'], { command: 'password', remote: false, yes: false, email: null, settings: false }],
+    [['password', '--email', ' Owner@Example.com ', '--remote'], { command: 'password', remote: true, yes: false, email: 'owner@example.com', settings: false }],
+    [['password', '--email=owner@example.com'], { command: 'password', remote: false, yes: false, email: 'owner@example.com', settings: false }],
   ])('%j', (argv, expected) => {
     expect(parseArgs(argv)).toEqual(expected);
   });
@@ -26,6 +27,7 @@ describe('admin:mfa arguments', () => {
     [['password', '--email', "o'wner@example.com"]],
     [['password', '--email', 'not-an-email']],
     [['setup', '--email', 'owner@example.com']],
+    [['setup', '--settings']],
   ])('refuses %j', (argv) => {
     expect(parseArgs(argv)).toHaveProperty('error');
   });

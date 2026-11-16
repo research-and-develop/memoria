@@ -163,9 +163,57 @@ which exist. Setting a secret deploys a new version.
 | `HASH_SALT` | a long random string; hashes IPs for rate limits (missing → logged `hash_salt_missing`) |
 | `TOTP_ENCRYPTION_KEY` | `npm run admin:mfa -- key` (32 random bytes): encrypts the authenticator secrets, keys the recovery codes. Missing → sign-in answers 503. Changing it disables every authenticator: reset (below) |
 | `MEDIA_S3_ACCESS_KEY_ID`, `MEDIA_S3_SECRET_ACCESS_KEY` | the bucket-scoped R2 API token (One-time setup → Media) |
+| `SETTINGS_ENCRYPTION_KEY` | **both Workers, the same value**: `npm run admin:mfa -- key --settings`, then `secret put` without and with `-c ../relay/wrangler.jsonc`. Encrypts the mail password or key saved in Settings → Emails. Changing it = enter that secret again |
 
 `MEDIA_DEV_SIGNING_SECRET` is local only (it signs the development blob routes): never set it in
-production.
+production. So are `MAIL_FROM` and `SMTP_*` (the Mailpit fallback, *Email → Locally*).
+
+## Email
+
+The photographer chooses how email is sent in Settings → Emails (Phase 3 commit 4): their own SMTP
+server, Brevo, Amazon SES or Microsoft 365. The relay sends; the app only queues
+([architecture.md → Email](architecture.md#email-phase-3)). First set `SETTINGS_ENCRYPTION_KEY` on both
+Workers (*Secrets*).
+
+**The sending domain** (the From address's) must be verified at the provider, with its DNS records:
+the provider's **DKIM** keys (DMARC passes through DKIM aligned with the From domain, since providers
+rewrite the envelope sender), its SPF include, and a DMARC record (`v=DMARC1; p=none` to start).
+
+| Provider | What to create there |
+| --- | --- |
+| SMTP server | The host, port 587 (STARTTLS) or 465 (TLS), a username and an **app password** (Gmail and others refuse the account password: `SMTP_534`). Hosts are DNS names; the certificate must match. |
+| Brevo | An API key (SMTP & API → API keys). **Turn IP allow-listing off** (Security → Authorised IPs): Workers have no fixed IPs (`BREVO_401`/`403`). The free tier sends 300 a day. |
+| Amazon SES | The domain identity verified (DKIM), **production access** requested (the sandbox only sends to verified addresses, 200 a day), an IAM user whose only permission is `ses:SendEmail` on that identity, its access key. The region in Settings is the identity's. |
+| Microsoft 365 | An Entra app registration with a client secret; the application permission `Mail.Send` granted **only through RBAC for Applications in Exchange Online** on the sending mailbox (remove any tenant-wide grant); up to 2 hours to take effect. Graph keeps a copy in the mailbox's Sent Items. |
+
+**Runbooks**
+
+- *An email did not arrive*: Settings → Emails shows its status and reason; `npm run wrangler -- tail
+  memoria-relay` shows `job_retry` / `job_failed` with the code (never the address).
+- *A permanent failure that is really configuration* (SMTP "sender not verified", SES
+  `MessageRejected` for an unverified From): fix it at the provider, then Retry the email.
+- *Rotating the provider's secret*: create the new one, enter it in Settings → Emails, then revoke the
+  old one. Queued emails use the new one on their next attempt.
+- *`SETTINGS_ENCRYPTION_KEY` lost or changed*: emails fail `MAIL_SECRET_UNREADABLE` and retry; enter
+  the secret again in Settings → Emails, then Retry the failed ones. Two-factor is unaffected.
+- *A stuck queue*: `npm run wrangler -- d1 execute DB --remote --command "SELECT id, kind, status,
+  attempts, run_after, last_error FROM jobs WHERE status IN ('pending','running') ORDER BY run_after
+  LIMIT 20"`. Pending jobs due long ago mean the relay is not running: check that it is deployed and its
+  cron is listed (Workers & Pages → memoria-relay → Settings → Triggers).
+
+**Locally**: run [Mailpit](https://mailpit.axllent.org/) (`docker run -d --rm --name mailpit -p
+1025:1025 -p 8025:8025 axllent/mailpit`; the inbox is http://localhost:8025). With no provider saved,
+the `.dev.vars` fallback (`MAIL_FROM`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURITY=none`,
+in `apps/relay/.dev.vars` copied from its example) sends there. Start `npm run dev:relay`, then queue a
+test email by hand (until Settings → Emails has its button), from `apps/web`:
+
+```sh
+NOW=$(node -e "console.log(new Date().toISOString())"); ID=$(node -e "console.log(crypto.randomUUID())")
+npx wrangler d1 execute DB --local --command "INSERT INTO jobs (id, kind, payload, status, priority, attempts, max_attempts, run_after, created_at, updated_at) VALUES ('$ID', 'email', '{\"v\":1,\"template\":\"test\",\"to\":{\"email\":\"you@example.com\"},\"params\":{\"queuedAt\":\"$NOW\"}}', 'pending', 0, 0, 1, '$NOW', '$NOW', '$NOW');"
+```
+
+The relay's 10-second loop sends it; the job ends `done` (`SELECT status, last_error FROM jobs`).
+To see a `535`, start Mailpit with `--smtp-auth-file` and a wrong `SMTP_PASSWORD`.
 
 ## Two-factor sign-in
 
@@ -181,7 +229,7 @@ remote run says what it will do and asks you to type the command's name, or pass
 | `npm run admin:mfa -- reset [--remote]` | Phone and recovery codes lost, or a changed `TOTP_ENCRYPTION_KEY`: removes every authenticator, recovery code and session (everyone is signed out) and prints a new setup code. |
 | `npm run admin:mfa -- unlock [--remote]` | "Sign-in is locked": 20 wrong codes in a UTC day lock sign-in until midnight UTC; this clears it (and the sign-in rate limits). |
 | `npm run admin:mfa -- list [--remote]` | What is registered: apps, recovery codes left, live sessions, a live setup code, wrong codes today. |
-| `npm run admin:mfa -- key` | A new `TOTP_ENCRYPTION_KEY` (no database). |
+| `npm run admin:mfa -- key [--settings]` | A new `TOTP_ENCRYPTION_KEY` (no database); with `--settings` a `SETTINGS_ENCRYPTION_KEY` (*Secrets*). |
 
 The photographer changes the email and password in Settings → Security → Your sign-in (a code
 first, then the current password). A new password signs out every device; authenticators stay. The

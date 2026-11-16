@@ -878,10 +878,10 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 - [x] T3.3 Migration and `jobs` query module
 - [x] T3.4 Ports and adapters (`Jobs`, `Mailer` types, memory and unconfigured mailers)
 - [x] T3.5 Runner, backoff, enqueue, periodic, housekeeping, relay entry
-- [ ] T3.6 Address, MIME, SMTP, Cloudflare socket adapter, contract
-- [ ] T3.7 Brevo, SES, Microsoft 365 adapters
-- [ ] T3.8 Mail settings, secrets, settings key, `relayMailer`
-- [ ] T3.9 Theme tokens, context, layout, templates, the email job, views
+- [x] T3.6 Address, MIME, SMTP, Cloudflare socket adapter, contract
+- [x] T3.7 Brevo, SES, Microsoft 365 adapters
+- [x] T3.8 Mail settings, secrets, settings key, `relayMailer` (as `mailerForTransport`)
+- [x] T3.9 Theme tokens, context, layout, templates, the email job, views
 - [ ] T3.10 Settings → Emails and its routes
 - [ ] T3.11 Security notices
 - [ ] T3.12 Docs and status
@@ -940,6 +940,42 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 - Not measured yet: the nudge invocation (no route nudges before commit 4); Phase 2b Verification 4
   (a password change) needs the first install (Turnstile, `TOTP_ENCRYPTION_KEY`, the account).
 - `measure:cpu` now sends warm-up requests until the tail sees one (a new tail took 15–20 s).
+
+**Commit 3 (T3.6–T3.9), 2026-11-16.** Different from the design above:
+
+- **No `sockets.d.ts`**: both generated env files (`cloudflare-env.d.ts`, `relay-env.d.ts`) now declare
+  `module "cloudflare:sockets"` themselves. Under vitest the module is aliased to a stub
+  (`packages/platform-cloudflare/testing/sockets.ts`); the adapter is tested through `wrapSocket` with a
+  fake socket on real streams.
+- **`Config.devMail` is `Config.bootstrap.mail` + `bootstrap.mailProblem`**: it is an env default of a
+  studio setting, so guard `settings-through-store` covers it unchanged (it caught the email job reading
+  it; it goes through `envMailProblem()` in `lib/settings/mail.ts`). `parseEnvMail` defaults the port
+  per security (587, 465, 1025 for `none`).
+- **`relayMailer` became `mailerForTransport(transport, { smtpConnect, fetch, background })`**
+  (`@repo/platform/mail/transport.ts`). `readMailSetup()` returns `{ source, from, replyTo, transport }`
+  with the secret decrypted (`unsealMailSettings`, reusable for the D3.18 snapshot); the runner's
+  `JobContext.mailer` is now `mailerFor(transport)`, so the email job picks the settings (current or a
+  snapshot) and the relay supplies sockets and `fetch`. SMTP security is derived from the port (465 →
+  TLS, 587 and 2525 → STARTTLS); the stored row has no `security`.
+- **`JobKind.run` may resolve with fields to keep** in the finished payload (`providerMessageId`, D3.20);
+  `jobStatement` takes `maxAttempts` (the test email's 1).
+- **Templates have no `version`**: an unknown template id is deferred like a newer `v`.
+- **Every adapter aborts with `MAIL_ABORTED`** (no `SMTP_ABORTED`). SMTP's `providerMessageId` is the
+  server's queue id when the `250` says `queued as …`, else null. The Cloudflare socket reports a failure
+  before the first byte read over TLS as `SMTP_TLS` (a handshake or certificate failure), else
+  `SMTP_CONNECTION`.
+- HTTPS adapters (built in parallel): an unlisted 4xx is permanent; SES also treats
+  `InvalidSignatureException`, `IncompleteSignatureException`, `InvalidClientTokenId`,
+  `AccessDeniedException`, any 401/403 as configuration; the Graph token request does not take the
+  caller's signal (one aborted send must not fail a token other sends share). aws4fetch signs
+  `host;x-amz-date` (the body through the payload hash). **The SES region list (25 commercial regions)
+  was written from memory**: check it against AWS's list before Verification 2b.
+- `getMailSettings` (`mail.cached.ts`) waits for its first app reader (commit 4).
+- The relay bundle is 97 KiB (27.7 KiB gzip).
+- **Gate passed**: Mailpit (Docker), `npm run dev:relay` with the relay's `.dev.vars` from its example, a
+  test email queued with the deployment.md → Email → Locally `INSERT`: delivered within the 10 s loop,
+  the job `done` with Mailpit's queue id; multipart text + HTML, `Message-ID` = the job id,
+  `Auto-Submitted: auto-generated`, the quoted-printable `→` decoded; `mail_insecure_dev` logged.
 
 Verification 3 (local cron), 2026-11-16: `db:migrate:local` applied `0005`; with `npm run dev:relay`,
 `/cdn-cgi/local/scheduled?time=<03:05 UTC today>` enqueued `housekeeping:2026-11-16` and ran it

@@ -1,4 +1,7 @@
-import type { Config } from './ports';
+import { parseEmailAddress } from './mail/address';
+import type { SmtpSecurity } from './mail/smtp';
+import { isPort, isSmtpHost } from './mail/smtpHost';
+import type { Config, EnvMail } from './ports';
 
 /**
  * The runtime configuration from plain string env: Cloudflare's `env` (vars and secrets, through
@@ -17,7 +20,7 @@ const text = (env: StringEnv, name: string): string => env[name]?.trim() ?? '';
 const optional = (env: StringEnv, name: string): string | null => text(env, name) || null;
 const origin = (env: StringEnv, name: string): string | null => optional(env, name)?.replace(/\/+$/, '') || null;
 
-/** Exactly 32 bytes of base64 (`npm run admin:mfa -- key`), else null. */
+/** Exactly 32 bytes of base64 (`npm run admin:mfa -- key [--settings]`), else null. */
 export const TOTP_KEY_BYTES = 32;
 function key32(env: StringEnv, name: string): Uint8Array | null {
   const value = text(env, name);
@@ -31,6 +34,34 @@ function key32(env: StringEnv, name: string): Uint8Array | null {
   }
 }
 
+const SECURITIES: readonly SmtpSecurity[] = ['starttls', 'tls', 'none'];
+const DEFAULT_PORT: Record<SmtpSecurity, number> = { starttls: 587, tls: 465, none: 1025 };
+
+/**
+ * `MAIL_FROM` + `SMTP_*`: the development fallback for email (plan p03, D3.17). Off unless both
+ * `MAIL_FROM` and `SMTP_HOST` are set; a wrong value turns it off with a `problem` that names the
+ * variable, never its value. `SMTP_SECURITY=none` and a local host only in development.
+ */
+export function parseEnvMail(env: StringEnv, development: boolean): { mail: EnvMail | null; problem: string | null } {
+  const fromText = text(env, 'MAIL_FROM');
+  const host = text(env, 'SMTP_HOST');
+  if (!fromText || !host) return { mail: null, problem: null };
+  const off = (problem: string) => ({ mail: null, problem });
+  const from = parseEmailAddress(fromText);
+  if (!from) return off('MAIL_FROM is not an email address');
+  const security = (text(env, 'SMTP_SECURITY').toLowerCase() || 'starttls') as SmtpSecurity;
+  if (!SECURITIES.includes(security)) return off('SMTP_SECURITY must be starttls, tls or none');
+  if (security === 'none' && !development) return off('SMTP_SECURITY=none is for development only');
+  if (!isSmtpHost(host, { development })) return off('SMTP_HOST must be a DNS name');
+  const portText = text(env, 'SMTP_PORT');
+  const port = portText ? Number(portText) : DEFAULT_PORT[security];
+  if (!/^\d*$/.test(portText) || !isPort(port)) return off('SMTP_PORT must be a port number');
+  const username = optional(env, 'SMTP_USERNAME');
+  const password = optional(env, 'SMTP_PASSWORD');
+  if (!username !== !password) return off('SMTP_USERNAME and SMTP_PASSWORD go together');
+  return { mail: { from, smtp: { host, port, security, username, password } }, problem: null };
+}
+
 export function parseConfig(env: StringEnv): Config {
   const devSigningSecret = text(env, 'MEDIA_DEV_SIGNING_SECRET');
   const s3 = {
@@ -39,15 +70,20 @@ export function parseConfig(env: StringEnv): Config {
     accessKeyId: optional(env, 'MEDIA_S3_ACCESS_KEY_ID'),
     secretAccessKey: optional(env, 'MEDIA_S3_SECRET_ACCESS_KEY'),
   };
+  const isDevelopment = text(env, 'NEXTJS_ENV') === 'development';
+  const envMail = parseEnvMail(env, isDevelopment);
   return {
     bootstrap: {
       appName: text(env, 'APP_NAME') || 'Memoria',
       siteUrl: origin(env, 'SITE_URL'),
       adminEmail: text(env, 'ADMIN_EMAIL').toLowerCase(),
       adminPasswordHash: text(env, 'ADMIN_PASSWORD_HASH'),
+      mail: envMail.mail,
+      mailProblem: envMail.problem,
     },
-    isDevelopment: text(env, 'NEXTJS_ENV') === 'development',
+    isDevelopment,
     admin: { totpKey: key32(env, 'TOTP_ENCRYPTION_KEY') },
+    settingsKey: key32(env, 'SETTINGS_ENCRYPTION_KEY'),
     turnstile: { siteKey: text(env, 'TURNSTILE_SITE_KEY'), secretKey: text(env, 'TURNSTILE_SECRET_KEY') },
     hashSalt: text(env, 'HASH_SALT'),
     media: {

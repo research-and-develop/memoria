@@ -9,3 +9,22 @@ NEXTJS_ENV=development
 
 # Readable log lines in the terminal instead of JSON.
 LOG_FORMAT=text
+
+# --- Email (docs/deployment.md → Email) ---------------------------------------
+# Encrypts the passwords and API keys saved in Settings → Emails (plan p03,
+# D3.17). 32 random bytes, base64; the SAME value on the app and the relay.
+# Production: `npm run admin:mfa -- key --settings`, then
+# `npm run wrangler -- secret put SETTINGS_ENCRYPTION_KEY` and
+# `npm run wrangler -- secret put SETTINGS_ENCRYPTION_KEY -c ../relay/wrangler.jsonc`.
+# Losing or changing it = enter the mail password or key again in Settings → Emails.
+SETTINGS_ENCRYPTION_KEY=oQU6W3e9TDCd3GZuYKzWkIXbD05gvdtcG98WJTJOCE0=
+
+# DEVELOPMENT ONLY: email through Mailpit (SMTP 1025, web UI http://localhost:8025)
+# while no provider is saved in Settings → Emails. `none` = no TLS: refused
+# outside development. Leave MAIL_FROM or SMTP_HOST empty to turn it off.
+MAIL_FROM=studio@example.com
+SMTP_HOST=127.0.0.1
+SMTP_PORT=1025
+SMTP_SECURITY=none
+SMTP_USERNAME=
+SMTP_PASSWORD=

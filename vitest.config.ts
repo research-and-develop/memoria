@@ -22,6 +22,9 @@ export default defineConfig({
       // The composition root: under vitest, getPlatform() is the test platform
       // (packages/platform/testing/platform.ts), never Cloudflare.
       { find: /^@repo\/platform\/current$/, replacement: path.resolve(root, 'packages/platform/testing/current.ts') },
+      // Node has no `cloudflare:sockets`: a stub whose connect() throws (the SMTP adapter is tested
+      // through wrapSocket with a fake socket).
+      { find: /^cloudflare:sockets$/, replacement: path.resolve(root, 'packages/platform-cloudflare/testing/sockets.ts') },
     ],
   },
   test: {

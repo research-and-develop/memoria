@@ -1,6 +1,7 @@
 import type { Options } from '@repo/db/client';
 import { logger } from '@repo/logger';
 import { getPlatform } from '@repo/platform/current';
+import type { MailTransport } from '@repo/platform/mail/transport';
 import type { Mailer } from '@repo/platform/ports';
 
 import { claimDueJob, completeJob, deferJob, expireLeases, failJob, rescheduleJob, type ClaimedJob } from '@/lib/db/queries/jobs';
@@ -33,7 +34,8 @@ export const UNKNOWN_KIND_AFTER_MS = 24 * 60 * 60_000;
 export type DrainSummary = { claimed: number; done: number; retried: number; failed: number; deferred: number; leaseLost: number; leasesExpired: number };
 
 type RunInput = {
-  mailer: Mailer;
+  /** The mailer for a transport (the relay: Cloudflare sockets and fetch). */
+  mailerFor: (transport: MailTransport) => Mailer;
   trigger: DrainTrigger;
   /** Claims, leases and backoff (default: the real clock). */
   clock?: () => Date;
@@ -66,7 +68,7 @@ export async function runDueJobs(input: RunInput, opts?: Options): Promise<Drain
       const job = await claimDueJob({ now: iso(now), leaseUntil: iso(now + LEASE_MS) }, opts);
       if (!job) break;
       summary.claimed += 1;
-      const outcome = await runOne(job, { registry, clock, mailer: input.mailer, capMs: Math.min(input.handlerCapMs ?? HANDLER_CAP_MS, remaining) }, opts);
+      const outcome = await runOne(job, { registry, clock, mailerFor: input.mailerFor, capMs: Math.min(input.handlerCapMs ?? HANDLER_CAP_MS, remaining) }, opts);
       summary[outcome] += 1;
     }
   } catch (error) {
@@ -80,7 +82,7 @@ type Outcome = 'done' | 'retried' | 'failed' | 'deferred' | 'leaseLost';
 
 async function runOne(
   job: ClaimedJob,
-  run: { registry: readonly AnyJobKind[]; clock: () => Date; mailer: Mailer; capMs: number },
+  run: { registry: readonly AnyJobKind[]; clock: () => Date; mailerFor: RunInput['mailerFor']; capMs: number },
   opts?: Options,
 ): Promise<Outcome> {
   const log = { jobId: job.id, kind: job.kind, attempt: job.attempts };
@@ -117,14 +119,15 @@ async function runOne(
     maxAttempts: job.max_attempts,
     now: run.clock(),
     signal: controller.signal,
-    mailer: run.mailer,
+    mailerFor: run.mailerFor,
     config: getPlatform().config(),
   };
   let failure: unknown = null;
+  let result: void | Record<string, unknown> = undefined;
   try {
     const handler = kind.run(parsed.value, ctx);
     handler.catch(() => {}); // a late rejection after the time is up is ignored, not unhandled
-    await Promise.race([handler, timeUp]);
+    result = await Promise.race([handler, timeUp]);
   } catch (error) {
     failure = error;
   } finally {
@@ -132,7 +135,7 @@ async function runOne(
   }
 
   if (failure === null) {
-    const ok = await completeJob({ ...fence, now: run.clock().toISOString(), payload: withoutParams(job.payload) }, opts);
+    const ok = await completeJob({ ...fence, now: run.clock().toISOString(), payload: finishedPayload(job.payload, result ?? undefined) }, opts);
     if (!ok) {
       logger.warn({ event: 'job_lease_lost', ...log });
       return 'leaseLost';
@@ -163,7 +166,7 @@ async function finishFailed(
   log: Record<string, unknown>,
   opts?: Options,
 ): Promise<Outcome> {
-  const ok = await failJob({ id: job.id, attempts: job.attempts, now: clock().toISOString(), lastError, payload: withoutParams(job.payload) }, opts);
+  const ok = await failJob({ id: job.id, attempts: job.attempts, now: clock().toISOString(), lastError, payload: finishedPayload(job.payload) }, opts);
   if (!ok) {
     logger.warn({ event: 'job_lease_lost', ...log });
     return 'leaseLost';
@@ -172,11 +175,14 @@ async function finishFailed(
   return 'failed';
 }
 
-/** A finished job keeps no parameters (they may name people, plan p03 D3.11); null = unchanged. */
-function withoutParams(payload: Record<string, unknown>): string | null {
-  if (!('params' in payload)) return null;
+/**
+ * A finished job keeps no parameters (they may name people, plan p03 D3.11), plus what the handler
+ * returned (the provider's message id, D3.20); null = unchanged.
+ */
+function finishedPayload(payload: Record<string, unknown>, result?: Record<string, unknown>): string | null {
+  if (!('params' in payload) && !result) return null;
   const { params: _dropped, ...rest } = payload;
-  return JSON.stringify(rest);
+  return JSON.stringify({ ...rest, ...result, v: payload.v });
 }
 
 /** What the runner needs from anything a handler throws (JobError, MailError, or anything else). */

@@ -1,5 +1,6 @@
-import { flattenColors, type ColorRoles } from './theme/cssVars.mjs';
+import type { ColorRoles } from './theme/cssVars.mjs';
 import studio from './theme/studio.mjs';
+import { tokenHex } from './theme/tokens.mjs';
 
 /**
  * WCAG contrast of a theme's colour roles, for tests that pin a text/background pair to AA (4.5:1).
@@ -7,12 +8,7 @@ import studio from './theme/studio.mjs';
  * another theme's colours to check it the same way.
  */
 
-/** A role as Tailwind names it (`accent-ink`, `ink`, `live-fg`) → its hex value. */
-export function tokenHex(token: string, colors: ColorRoles = studio.colors): string {
-  const resolved = new Map(flattenColors(colors)).get(token);
-  if (!resolved) throw new Error(`unknown colour token ${token}`);
-  return resolved;
-}
+export { tokenHex };
 
 function luminance(color: string): number {
   const channels = [1, 3, 5].map((i) => Number.parseInt(color.slice(i, i + 2), 16) / 255);

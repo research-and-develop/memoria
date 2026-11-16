@@ -5,15 +5,19 @@
  *   the drain continues in `waitUntil`. Anything else → 404.
  * - `scheduled`: the Cron Trigger (every minute) → the drain, awaited.
  *
+ * Email leaves through the transport the mail settings name (lib/settings/mail.ts): SMTP over
+ * `cloudflare:sockets`, the HTTPS providers over `fetch`; SMTP's QUIT runs in `waitUntil`.
+ *
  * It builds the platform and nothing else: the work lives in the shared domain code
  * (apps/web/src/lib/**), which reaches this invocation's platform through
  * `@repo/platform/current` → packages/platform-cloudflare/relay.ts (wrangler.jsonc `alias`).
  * Guard `relay-graph` keeps Next, React and OpenNext out of everything this file reaches.
  */
 import { logger } from '@repo/logger';
-import { unconfiguredMailer } from '@repo/platform/mail/unconfigured';
+import { mailerForTransport } from '@repo/platform/mail/transport';
 import { cloudflarePlatform } from '@repo/platform-cloudflare/platform';
 import { withPlatform } from '@repo/platform-cloudflare/relay';
+import { cloudflareSmtpConnect } from '@repo/platform-cloudflare/smtp';
 
 import { enqueuePeriodicJobs } from '@/lib/jobs/periodic';
 import { runDueJobs, type DrainTrigger } from '@/lib/jobs/runner';
@@ -35,8 +39,11 @@ async function drain(env: RelayEnv, ctx: ExecutionContext, run: { trigger: Drain
     try {
       // The periodic date is the cron's scheduled time; claims and leases use the real clock.
       if (run.scheduledAt) await enqueuePeriodicJobs(run.scheduledAt);
-      // Commit 3 (plan p03, T3.8) builds the mailer from the mail settings.
-      await runDueJobs({ mailer: unconfiguredMailer('email is not set up yet'), trigger: run.trigger });
+      await runDueJobs({
+        trigger: run.trigger,
+        mailerFor: (transport) =>
+          mailerForTransport(transport, { smtpConnect: cloudflareSmtpConnect, fetch: (url, init) => fetch(url, init), background: (task) => ctx.waitUntil(task) }),
+      });
     } catch (error) {
       logger.error({ event: 'relay_drain_failed', trigger: run.trigger, message: error instanceof Error ? error.message : String(error) });
     }

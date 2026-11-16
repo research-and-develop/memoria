@@ -15,9 +15,10 @@ const S3 = {
 describe('parseConfig', () => {
   it('closes every feature on an empty env', () => {
     expect(parseConfig({})).toEqual({
-      bootstrap: { appName: 'Memoria', siteUrl: null, adminEmail: '', adminPasswordHash: '' },
+      bootstrap: { appName: 'Memoria', siteUrl: null, adminEmail: '', adminPasswordHash: '', mail: null, mailProblem: null },
       isDevelopment: false,
       admin: { totpKey: null },
+      settingsKey: null,
       turnstile: { siteKey: '', secretKey: '' },
       hashSalt: '',
       media: { devSigningSecret: null, publicBaseUrl: null, s3: null },
@@ -32,6 +33,9 @@ describe('parseConfig', () => {
       ADMIN_EMAIL: ' Admin@Example.COM ',
       ADMIN_PASSWORD_HASH: ' pbkdf2$1 ',
       TOTP_ENCRYPTION_KEY: ` ${KEY_B64} `,
+      SETTINGS_ENCRYPTION_KEY: KEY_B64,
+      MAIL_FROM: ' Studio@Example.COM ',
+      SMTP_HOST: ' smtp.example.com ',
       TURNSTILE_SITE_KEY: 'site',
       TURNSTILE_SECRET_KEY: 'secret',
       HASH_SALT: 'salt',
@@ -40,9 +44,17 @@ describe('parseConfig', () => {
       ...S3,
     });
     expect(config).toEqual({
-      bootstrap: { appName: 'Studio', siteUrl: 'https://photos.example.com', adminEmail: 'admin@example.com', adminPasswordHash: 'pbkdf2$1' },
+      bootstrap: {
+        appName: 'Studio',
+        siteUrl: 'https://photos.example.com',
+        adminEmail: 'admin@example.com',
+        adminPasswordHash: 'pbkdf2$1',
+        mail: { from: 'Studio@example.com', smtp: { host: 'smtp.example.com', port: 587, security: 'starttls', username: null, password: null } },
+        mailProblem: null,
+      },
       isDevelopment: true,
       admin: { totpKey: KEY },
+      settingsKey: KEY,
       turnstile: { siteKey: 'site', secretKey: 'secret' },
       hashSalt: 'salt',
       media: {
@@ -59,8 +71,9 @@ describe('parseConfig', () => {
     ['33 bytes', btoa('x'.repeat(33)), null],
     ['not base64', '!!!not-base64!!!', null],
     ['empty', '', null],
-  ])('TOTP_ENCRYPTION_KEY: %s', (_label, value, expected) => {
+  ])('TOTP_ENCRYPTION_KEY and SETTINGS_ENCRYPTION_KEY: %s', (_label, value, expected) => {
     expect(parseConfig({ TOTP_ENCRYPTION_KEY: value }).admin.totpKey).toEqual(expected);
+    expect(parseConfig({ SETTINGS_ENCRYPTION_KEY: value }).settingsKey).toEqual(expected);
   });
 
   it.each([
@@ -92,5 +105,50 @@ describe('parseConfig', () => {
     ['slashes only', '//', null],
   ])('SITE_URL %s → null', (_label, value, expected) => {
     expect(parseConfig({ SITE_URL: value }).bootstrap.siteUrl).toBe(expected);
+  });
+
+  describe('the env mail fallback (MAIL_FROM + SMTP_*)', () => {
+    const DEV = { NEXTJS_ENV: 'development' };
+    const BASE = { MAIL_FROM: 'studio@example.com', SMTP_HOST: 'smtp.example.com' };
+    const SECRET_VALUES = ['studio-login', 'app-password', '127.0.0.1', 'smtp.example.com', 'studio@example.com', 'abc'];
+
+    it.each([
+      ['nothing set', {}, null],
+      ['only MAIL_FROM', { MAIL_FROM: 'studio@example.com' }, null],
+      ['the defaults (STARTTLS on 587, no AUTH)', BASE, { from: 'studio@example.com', smtp: { host: 'smtp.example.com', port: 587, security: 'starttls', username: null, password: null } }],
+      ['tls defaults to 465', { ...BASE, SMTP_SECURITY: 'TLS' }, { from: 'studio@example.com', smtp: { host: 'smtp.example.com', port: 465, security: 'tls', username: null, password: null } }],
+      [
+        'a full set',
+        { ...BASE, SMTP_PORT: '2525', SMTP_USERNAME: 'studio-login', SMTP_PASSWORD: 'app-password' },
+        { from: 'studio@example.com', smtp: { host: 'smtp.example.com', port: 2525, security: 'starttls', username: 'studio-login', password: 'app-password' } },
+      ],
+      [
+        'Mailpit in development (none, 127.0.0.1, port 1025 by default)',
+        { ...DEV, MAIL_FROM: 'studio@example.com', SMTP_HOST: '127.0.0.1', SMTP_SECURITY: 'none' },
+        { from: 'studio@example.com', smtp: { host: '127.0.0.1', port: 1025, security: 'none', username: null, password: null } },
+      ],
+    ])('%s', (_label, env, expected) => {
+      const config = parseConfig(env);
+      expect(config.bootstrap.mail).toEqual(expected);
+      expect(config.bootstrap.mailProblem).toBeNull();
+    });
+
+    it.each([
+      ['a bad From', { ...BASE, MAIL_FROM: 'abc' }, 'MAIL_FROM is not an email address'],
+      ['an unknown security', { ...BASE, SMTP_SECURITY: 'ssl' }, 'SMTP_SECURITY must be starttls, tls or none'],
+      ['none outside development', { ...BASE, SMTP_SECURITY: 'none' }, 'SMTP_SECURITY=none is for development only'],
+      ['an IP outside development', { ...BASE, SMTP_HOST: '127.0.0.1' }, 'SMTP_HOST must be a DNS name'],
+      ['localhost outside development', { ...BASE, SMTP_HOST: 'localhost' }, 'SMTP_HOST must be a DNS name'],
+      ['an .internal name', { ...DEV, ...BASE, SMTP_HOST: 'mail.corp.internal' }, 'SMTP_HOST must be a DNS name'],
+      ['a bad port', { ...BASE, SMTP_PORT: '70000' }, 'SMTP_PORT must be a port number'],
+      ['a port that is not a number', { ...BASE, SMTP_PORT: '58x' }, 'SMTP_PORT must be a port number'],
+      ['a username without a password', { ...BASE, SMTP_USERNAME: 'studio-login' }, 'SMTP_USERNAME and SMTP_PASSWORD go together'],
+      ['a password without a username', { ...BASE, SMTP_PASSWORD: 'app-password' }, 'SMTP_USERNAME and SMTP_PASSWORD go together'],
+    ])('%s → off, with a problem that holds no value', (_label, env, problem) => {
+      const config = parseConfig(env);
+      expect(config.bootstrap.mail).toBeNull();
+      expect(config.bootstrap.mailProblem).toBe(problem);
+      for (const value of SECRET_VALUES) expect(problem).not.toContain(value);
+    });
   });
 });

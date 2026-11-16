@@ -38,7 +38,7 @@ describe('the housekeeping job, end to end', () => {
     await run(statement("UPDATE jobs SET run_after = ? WHERE id = 'fresh'", [new Date(NOW + 60_000).toISOString()]));
     await run(statement("UPDATE jobs SET priority = 1, run_after = ? WHERE id = 'stale'", [days(8)]));
     await run(statement("UPDATE jobs SET priority = 0 WHERE kind = 'housekeeping'"));
-    const summary = await runDueJobs({ mailer: memoryMailer(), trigger: 'cron', clock: () => new Date(NOW) });
+    const summary = await runDueJobs({ mailerFor: () => memoryMailer(), trigger: 'cron', clock: () => new Date(NOW) });
     expect(summary).toMatchObject({ claimed: 1, done: 1 });
     const rows = await all<{ id: string; status: string; last_error: string | null }>(statement("SELECT id, status, last_error FROM jobs WHERE kind = 'email' ORDER BY id"));
     expect(rows).toEqual([

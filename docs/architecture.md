@@ -269,6 +269,41 @@ drain (lib/jobs/runner.ts): expire leases → claim → kind.run(payload, ctx) �
 - **Privacy**: logs carry job ids, kinds and codes only; a finished job drops its `params`; an unknown
   error keeps only its name.
 
+## Email (Phase 3)
+
+Only the relay sends. An email is an `email` job (`lib/email/job.ts`): `{ template, to, params }`,
+rendered **when it is sent** with the studio name and address of that moment, then handed to the mailer
+of the configured transport. The job id is the `Message-ID`, the same across retries.
+
+```
+emailJobStatement({ template, to, params, now })  → in the batch of its cause, then nudgeRelay()
+relay: readMailSetup() → { from, replyTo, transport }        lib/settings/mail.ts
+       renderEmail(template, params, emailContext(studio))   lib/email/templates (pure)
+       ctx.mailerFor(transport).send(message, { signal })    packages/platform/mail/transport.ts
+```
+
+- **Four adapters, one `Mailer` port** (`packages/platform/mail/`, platform-neutral, each run through
+  the contract suite `contract/mailer.ts`): `smtp.ts` (our client over an `SmtpSocket`; STARTTLS on
+  587/2525 or TLS on 465, the certificate checked, `AUTH PLAIN` only after TLS; Cloudflare's sockets in
+  `packages/platform-cloudflare/smtp.ts`), `brevo.ts`, `ses.ts` (raw MIME, SigV4) and `microsoft365.ts`
+  (Graph, client credentials, raw MIME). `mime.ts` builds the message (RFC 2047 names and subjects,
+  quoted-printable parts) and refuses any header text with a control, separator or bidi character, and
+  any address `@repo/core/email` does not accept: nothing can be injected.
+- **Errors**: a `MailError` with an enumerated `code` (`SMTP_550`, `BREVO_401`, `SES_MessageRejected`,
+  `GRAPH_403`, …), `permanent` (a rejected recipient), `configuration` (credentials: retried and logged
+  as an error) and a masked `detail` (`mask.ts`: every address, the configured ids and secrets) stored in
+  `jobs.last_error` for the admin, never logged.
+- **Mail settings** (`site_settings` row `mail`, `lib/settings/parseMailSettings.ts`): the provider, its
+  fields, the From address and name (default: the studio name), a reply-to. The provider's secret is
+  sealed with AES-GCM under a key derived from `SETTINGS_ENCRYPTION_KEY` (both Workers; not the two-factor
+  key), additional data `mail.<provider>.<field>` (`lib/settings/secrets.ts`). Without a row,
+  development falls back to `MAIL_FROM` + `SMTP_*` (`Config.bootstrap.mail`: Mailpit). A key that does
+  not open the secret fails the job `MAIL_SECRET_UNREADABLE` (retried; enter the secret again).
+- **Templates** (`lib/email/templates/`): pure `render(params, ctx)` → `{ subject, text, html }` in the
+  shared layout (`layout.ts`: inline styles, the studio theme's colours through `tokenHex`, every value
+  escaped). Links only through `ctx.link(path)` = the website address + a path.
+- **Retries**: 6 attempts after 1, 5, 30, 120, 480 minutes; the test email gets one.
+
 ## Data
 
 D1 is SQLite: no interactive transactions (atomicity = `batch()`), `?` placeholders, TEXT ids and

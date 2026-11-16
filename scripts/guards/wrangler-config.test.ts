@@ -251,6 +251,11 @@ describe('the app and the relay agree', () => {
     expect(bucket(relay)).toBe(bucket(config));
   });
 
+  it('both read SETTINGS_ENCRYPTION_KEY (the mail secrets: the app seals, the relay opens, plan p03 D3.17)', () => {
+    expect(devVars).toContain('SETTINGS_ENCRYPTION_KEY');
+    expect(relayDevVars).toContain('SETTINGS_ENCRYPTION_KEY');
+  });
+
   it("the relay's vars equal the app's", () => {
     const shared = Object.entries(relay.vars ?? {});
     expect(shared.map(([k]) => k).sort()).toEqual(['APP_NAME', 'LOG_FORMAT', 'LOG_LEVEL', 'SITE_URL']);

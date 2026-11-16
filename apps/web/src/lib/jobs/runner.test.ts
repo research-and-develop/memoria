@@ -54,7 +54,7 @@ const REGISTRY: AnyJobKind[] = [
   }),
   kind('test.hang', () => new Promise<void>((resolve) => (release = resolve))),
   kind('test.mail', async (ctx) => {
-    await ctx.mailer.send({ id: ctx.jobId, from: { email: 's@example.com' }, to: { email: 'client@example.com' }, subject: 's', text: 't', html: 'h' }, { signal: ctx.signal });
+    await ctx.mailerFor({ provider: 'brevo', brevo: { apiKey: 'test' } }).send({ id: ctx.jobId, from: { email: 's@example.com' }, to: { email: 'client@example.com' }, subject: 's', text: 't', html: 'h' }, { signal: ctx.signal });
   }),
   kind('test.throws', async () => {
     throw new Error('boom for someone@example.com');
@@ -70,7 +70,7 @@ beforeEach(() => {
 });
 
 const drain = (trigger: DrainTrigger = 'nudge', over: { handlerCapMs?: number; clock?: () => Date } = {}) =>
-  runDueJobs({ mailer, trigger, clock, registry: REGISTRY, ...over });
+  runDueJobs({ mailerFor: () => mailer, trigger, clock, registry: REGISTRY, ...over });
 let seq = 0;
 async function enqueue(kindName: string, over: { payload?: Record<string, unknown>; maxAttempts?: number; createdMs?: number; runAfterMs?: number } = {}) {
   const id = `job-${++seq}`;

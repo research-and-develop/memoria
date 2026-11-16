@@ -1,3 +1,4 @@
+import type { MailTransport } from '@repo/platform/mail/transport';
 import type { Config, Mailer } from '@repo/platform/ports';
 
 /**
@@ -8,6 +9,8 @@ import type { Config, Mailer } from '@repo/platform/ports';
  * - `parse`: the stored payload (with `v`) → the handler's input; `{ ok: false, unknown: true }`
  *   for something this code does not know yet (a newer email template), treated like a newer `v`.
  * - `backoff`: minutes before the 2nd, 3rd, … attempt; the last value repeats.
+ * - `run`: may resolve with fields to keep in the finished job's payload (the email's provider
+ *   message id); the runner drops `params` either way.
  */
 export type JobKind<P> = {
   kind: string;
@@ -16,7 +19,7 @@ export type JobKind<P> = {
   priority: 0 | 1;
   backoff: readonly number[];
   parse(payload: Record<string, unknown>): ParseResult<P>;
-  run(payload: P, ctx: JobContext): Promise<void>;
+  run(payload: P, ctx: JobContext): Promise<void | Record<string, unknown>>;
 };
 
 export type ParseResult<P> = { ok: true; value: P } | { ok: false; unknown: boolean };
@@ -34,7 +37,8 @@ export type JobContext = {
   now: Date;
   /** Aborted when the handler's time is up: stop and let the job retry. */
   signal: AbortSignal;
-  mailer: Mailer;
+  /** The mailer for a transport (the relay builds it on Cloudflare sockets and fetch; tests: memory). */
+  mailerFor: (transport: MailTransport) => Mailer;
   config: Config;
 };
 

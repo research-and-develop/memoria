@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { describeMailerContract } from '../contract/mailer';
 import { MailError } from '../mail/error';
 import { unconfiguredMailer } from '../mail/unconfigured';
 import type { MailMessage } from '../ports';
@@ -38,4 +39,13 @@ describe('unconfiguredMailer', () => {
     expect(error).toBeInstanceOf(MailError);
     expect(error).toMatchObject({ code: 'MAIL_NOT_CONFIGURED', permanent: false, configuration: true, detail: 'no mail settings' });
   });
+});
+
+describeMailerContract('memory', () => {
+  const mailer = memoryMailer();
+  return {
+    mailer,
+    delivered: () => mailer.sent.length,
+    refuseNext: (how) => mailer.failWith(new MailError(how === 'permanent' ? 'MEMORY_550' : 'MEMORY_451', { permanent: how === 'permanent' })),
+  };
 });

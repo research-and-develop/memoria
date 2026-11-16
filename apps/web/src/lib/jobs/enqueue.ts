@@ -17,12 +17,13 @@ export const MAX_PAYLOAD_BYTES = 8 * 1024;
  *   nudgeRelay();
  *
  * Pure: it checks the payload with the kind's own `parse` (after adding `v`) and its size, and
- * throws on a bad one (a programming error, never user input).
+ * throws on a bad one (a programming error, never user input). `maxAttempts` overrides the kind's
+ * (the test email gets one attempt).
  */
 export function jobStatement<P extends Record<string, unknown>>(
   kind: JobKind<unknown>,
   payload: P,
-  opts: { now: Date; runAfter?: Date; ref?: string; dedupeKey?: string; id?: string },
+  opts: { now: Date; runAfter?: Date; ref?: string; dedupeKey?: string; id?: string; maxAttempts?: number },
 ): { id: string; statement: Statement } {
   const stored = { ...payload, v: kind.version };
   if (!kind.parse(stored).ok) throw new Error(`jobStatement: the ${kind.kind} payload does not parse`);
@@ -37,7 +38,7 @@ export function jobStatement<P extends Record<string, unknown>>(
       kind: kind.kind,
       payload: json,
       priority: kind.priority,
-      maxAttempts: kind.maxAttempts,
+      maxAttempts: opts.maxAttempts ?? kind.maxAttempts,
       runAfter: (opts.runAfter ?? opts.now).toISOString(),
       ref: opts.ref ?? null,
       dedupeKey: opts.dedupeKey ?? null,
