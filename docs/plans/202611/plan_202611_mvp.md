@@ -26,7 +26,7 @@ the detail for one phase lives only in that phase's plan.
 | 1 | [Core and adapters](plan_202611_p01_core_adapters.md) | ports, Cloudflare + test adapters, R2, platform guard | 0 | done |
 | 2 | [Admin shell and TOTP](plan_202611_p02_admin_totp.md) | studio layout, TOTP setup and login, sessions list | 1 | done |
 | 2b | [Settings in the database](plan_202611_p02b_settings_db.md) | the admin account in D1 (Settings → Security), studio name and website address (Settings → Studio), env only as defaults | 2 | done |
-| 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, mail adapters (SMTP, Brevo, SES, Microsoft 365), Settings → Emails, security notices | 1, 2b | draft |
+| 3 | [Relay Worker and email](plan_202611_p03_relay_email.md) | `memoria-relay`, jobs, mail adapters (SMTP, Brevo, SES, Microsoft 365), Settings → Emails, security notices | 1, 2b | ready |
 | 4 | [Studio settings](plan_202611_p04_studio_settings.md) | branding, gallery theming system and fonts, gallery defaults, presets, email template text and sender branding | 2, 2b, 3 | placeholder |
 | 5 | [Galleries and upload](plan_202611_p05_galleries_upload.md) | new gallery, browser image pipeline, gallery manager, sharing | 1, 4 | placeholder |
 | 6 | [Client gallery](plan_202611_p06_client_gallery.md) | access gate, gallery, lightbox, mobile, protected delivery | 5 | placeholder |

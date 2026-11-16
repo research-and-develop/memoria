@@ -1,8 +1,8 @@
 ---
 title: "Phase 3: Relay Worker and email"
 type: plan
-status: draft
-updated: 2026-11-13
+status: ready
+updated: 2026-11-16
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, plan_202611_p02_admin_totp.md, plan_202611_p02b_settings_db.md, ../../architecture.md, ../../deployment.md, ../../../AGENTS.md]
 ---
 
@@ -50,7 +50,7 @@ email about sign-ins and security changes.
 - **Scope (feature IDs):** B8 (email settings), A3/A4 (security notices), the infrastructure for I5,
   K3; the job runner for R2 cleanup and IP expiry.
 
-## Starting point (verified 2026-11-13)
+## Starting point (verified 2026-11-13; refreshed 2026-11-16 after Phase 2b and the credentials work)
 
 - One Worker: `apps/web` (`wrangler.jsonc` `name: memoria`, entry `worker.ts`, OpenNext,
   `compatibility_date` 2026-10-15, `nodejs_compat` + `global_fetch_strictly_public`). Its env type is
@@ -71,9 +71,9 @@ email about sign-ins and security changes.
   runs `getPlatformProxy` on `apps/web/wrangler.jsonc`.
 - `audit_log.action` allows `create`, `update`, `delete`, `login`, `logout`; `conditionalAuditStatement`
   writes `WHERE <condition>`. `hitRateLimits(rules)` = fixed windows by upsert.
-- Settings: `components/admin/settings/nav.ts` exports the type `SettingsSection` and lists Emails as
-  *Soon* (phase 4); the card used by Security is `SecuritySection.tsx`, which Phase 2b promotes to
-  `components/admin/settings/SettingsCard.tsx`. p04 T4.4 lists "test email".
+- Settings: `components/admin/settings/nav.ts` lists Studio, Security, then Branding, Watermarks and
+  Emails as *Soon* (phase 4); cards are `components/admin/settings/SettingsCard.tsx`. p04 T4.4 lists
+  "test email".
 - The email validator deleted in Phase 0 (`lib/validation/email.ts`, `a581b72`) is not coming back:
   `parseEmailAddress` (`@repo/core/email`, Phase 2b) replaces it.
 - No production D1 or Worker exists (`database_id` all zeros): `0005` may be edited until the first
@@ -105,10 +105,23 @@ email about sign-ins and security changes.
   - Two configs with the same `database_id` and the same persist path share one local D1 file.
   - Not tried (long-running): `wrangler dev` of the relay on the app's real `.wrangler/state`, and the
     dev-registry `RELAY` binding from `next dev`.
-- **Phase 2b** (planned before this phase): `admin_account` in D1 (`getAdminAccount()`), the
-  `studio` row in `site_settings` (`getStudio()`: name, website address), "effective value = D1, else
-  env, else default", guard `settings-through-store`, `SettingsCard`, `@repo/core/email.ts`
-  (`parseEmailAddress`), migration `0004`. This phase's migration is `0005`.
+- **Phase 2b (done 2026-11-16)**: `admin_account` in D1, the `studio` row in `site_settings`, "effective
+  value = D1, else env (`Config.bootstrap`), else default", guard `settings-through-store`,
+  `@repo/core/email.ts` (`parseEmailAddress`), migration `0004`. This phase's migration is `0005`.
+  - **The relay uses the `read*` forms**: `readStudio()` (`lib/settings/studio.ts`, never throws) and
+    `readAdminAccount()` (`lib/auth/account.ts`). The `get*` forms (`studio.cached.ts`,
+    `account.cached.ts`) go through `perRender` (`lib/perRender.ts`, React) and are not relay-safe
+    (`relay-graph` refuses React).
+  - Route handlers get the account as `ctx.account` from `requireAdmin`. The account changes live in
+    `lib/auth/accountChange.ts` (`changeAccountEmail`, `changeAccountPassword`: their batches are where
+    the D3.19 notices go). The studio route `api/admin/settings/studio` is the admin-write reference
+    (a code first when needed, then upsert + audit in one batch).
+- **Cloudflare credentials (2026-11-16)**: no `wrangler login` (the machine's belongs to another
+  project). Every remote command goes through `scripts/cloudflare.ts` (`npm run wrangler -- …`,
+  `deploy`, `db:migrate:remote`, `measure:cpu`, `admin:mfa --remote`): the token from the gitignored
+  `.cloudflare.env`, checked against `account_id` in `apps/web/wrangler.jsonc` (set). Workflows that
+  touch Cloudflare run only by hand (deploy, backup); `check` has no credentials. The account exists;
+  no D1, Worker or bucket yet.
 - **Provider APIs** (official docs, 2026-11-13): *Brevo* `POST https://api.brevo.com/v3/smtp/email`
   (`api-key` header; JSON `sender`, `to`, `replyTo`, `subject`, `htmlContent`, `textContent`,
   `headers`; 201 `{ messageId }`; **no raw MIME**; standard headers such as `Message-ID` cannot be set;
@@ -141,7 +154,7 @@ email about sign-ins and security changes.
 | D3.5 | **Claim with a lease, fence with the attempt number.** One `UPDATE … WHERE id = (SELECT … LIMIT 1) RETURNING` claims a due `pending` job, increments `attempts`, sets `status = 'running'` and `run_after` = the lease end (2 min). Every finishing write has `WHERE id = ? AND status = 'running' AND attempts = ?`. Each drain first turns expired leases back into `pending` **10 minutes later** (`LEASE_EXPIRED`), or `failed` when no attempt is left. Attempts count at claim, so a job that kills its invocation every time still ends. | No read-check-write; a stale runner cannot overwrite a newer attempt; a dead runner's job waits instead of re-running at once. |
 | D3.6 | **Our own SMTP client and MIME builder**, platform-neutral in `@repo/platform/mail/*` over a small socket interface; the Cloudflare adapter only wraps `connect()`. Not `worker-mailer`, not nodemailer (Node sockets; unproven on Workers). | Injection refused by construction; correct RFC 2047; the protocol is tested in Node against a scripted server; a Docker adapter later wraps `node:tls` with the same code. ~500 lines with tests. |
 | D3.7 | **SMTP**: STARTTLS on 587 or implicit TLS on 465; the certificate is checked against the SMTP host (a DNS name; an IP literal is refused outside development); `AUTH PLAIN` only, only after TLS; `SMTP_SECURITY=none` (Mailpit) only in development. One connection per email. **`send` resolves at the `250` reply to the message data**; the runner writes `done` at once; `QUIT` follows in the background, capped at 1 s, never delaying `done`. | Credentials never cross in clear; the window in which a delivered email is not yet recorded is one D1 write. |
-| D3.8 | **Email jobs render at send time** in the relay from `{ v, template, to, params }` (the recipient fixed at enqueue, or `{ account: true }`, resolved by the relay when sending, D3.19). Templates are pure functions `render(params, ctx)` → `{ subject, text, html }` with `ctx: EmailContext = { studioName, siteUrl, link(path) }` from `getStudio()` (Phase 2b). The From address and name and the reply-to come from the mail settings (D3.17). Every parameter is escaped; colours come from the studio theme; links only through `ctx.link(path)` (the website address + a path starting with `/`; none → the job retries with `SITE_URL_MISSING`); dates through `lib/dates.ts`. The same functions render the New gallery preview (Phase 5) with no mailer. | One renderer for sending and previewing; the request stays cheap; branding read when sending. |
+| D3.8 | **Email jobs render at send time** in the relay from `{ v, template, to, params }` (the recipient fixed at enqueue, or `{ account: true }`, resolved by the relay when sending, D3.19). Templates are pure functions `render(params, ctx)` → `{ subject, text, html }` with `ctx: EmailContext = { studioName, siteUrl, link(path) }` from `readStudio()` (Phase 2b). The From address and name and the reply-to come from the mail settings (D3.17). Every parameter is escaped; colours come from the studio theme; links only through `ctx.link(path)` (the website address + a path starting with `/`; none → the job retries with `SITE_URL_MISSING`); dates through `lib/dates.ts`. The same functions render the New gallery preview (Phase 5) with no mailer. | One renderer for sending and previewing; the request stays cheap; branding read when sending. |
 | D3.9 | **Errors and retries.** SMTP: 4xx, timeouts and dropped connections retry; 5xx fail at once, except 530/534/535 (authentication = configuration), which retry and log `mail_auth_failed` (error). A handler throws `JobError(code, { permanent })`; anything else is transient. Email: 6 attempts after 1, 5, 30, 120, 480 minutes. **The test email gets one attempt.** An unknown kind, an unknown template or a payload `v` newer than the code (version skew, a rollback) is put back 10 minutes later **without spending an attempt**, and fails `UNKNOWN_KIND` once it is more than 24 h past `created_at`; `JOB_INVALID` (permanent) only for a known kind and version whose payload does not parse. A pending job that has been due for 7 days fails `EXPIRED` (the relay was down). `MAIL_NOT_CONFIGURED` spends attempts like any transient error (a failed email can be retried from Settings). | A fixed password recovers queued email; a rejected address does not retry for 11 h; a rollback does not destroy queued email; nothing waits forever. |
 | D3.10 | **Housekeeping is a job**: from 03:00 UTC the cron enqueues `housekeeping` with the key `housekeeping:<UTC date>`, by an `INSERT … SELECT … WHERE NOT EXISTS` (no write when present). It deletes jobs finished more than 30 days ago (≤ 500 per run) and fails `EXPIRED` ones (D3.9). Phases 5 and 11 add steps (R2 sweep, IP expiry). | Retries for free; one cron expression (the account has 5). |
 | D3.11 | **Privacy.** `MailError.message` is a code (`SMTP_550`, `SMTP_TIMEOUT`, `SMTP_TLS`, …); the server's text goes only to `jobs.last_error` (admin only, ≤ 500 characters) after `maskAddresses` (every `\S+@\S+`, the job's recipient and `SMTP_USERNAME` replaced) and removal of control characters. Logs carry job ids, kinds, templates and codes, never an address, a name or a parameter; the SMTP client never logs a transcript. On `done`, `params` are dropped from the payload (the recipient stays for the 30-day list); audit rows hold `{ jobId, template }`. | AGENTS.md → never log a visitor's email; the database keeps no more than the admin list needs. |
@@ -188,6 +201,7 @@ apps/relay/
 ```jsonc
 {
   "name": "memoria-relay",
+  "account_id": "<= the app's>",                      // guard; scripts/cloudflare.ts checks both
   "main": "src/index.ts",
   "compatibility_date": "2026-10-15",                 // = the app's (guard)
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -514,7 +528,7 @@ type Secret = string;                              // 'v1:…' ciphertext at res
 
 ### Email (`apps/web/src/lib/email/`)
 
-- `context.ts`: `emailContext(studio)` → `EmailContext` (D3.8) with `link(path)`, from `getStudio()`.
+- `context.ts`: `emailContext(studio)` → `EmailContext` (D3.8) with `link(path)`, from `readStudio()`.
 - `layout.ts` (pure): the HTML shell (a 600 px table, system fonts, inline styles, colours by
   `tokenHex(role)`, the studio name as a text header, a footer) and the matching plain-text shell;
   `escapeHtml`.
@@ -604,8 +618,8 @@ stays correct).
 | authenticator removed | `securitySettings.ts`: right after `deleteAuthenticatorStatement`, before its audit | `changes() > 0` | account |
 | recovery codes regenerated | `securitySettings.ts` | `EXISTS (a new code id)` | account |
 | recovery code used to confirm | `confirm.ts`, recovery branch, after the window `open` statement | `changes() > 0` (chained like `open`) | account |
-| email changed | `api/admin/account/email` (2b) | `EXISTS (admin_account with the new email)` | old and new address (both known to the route) |
-| password changed | `api/admin/account/password` (2b) | `EXISTS (admin_account with the new hash)` | account |
+| email changed | `changeAccountEmail` (`lib/auth/accountChange.ts`, 2b) | `EXISTS (admin_account with the new email)` | old and new address (both known to the route) |
+| password changed | `changeAccountPassword` (`lib/auth/accountChange.ts`, 2b) | `EXISTS (admin_account with the new hash)` | account |
 | mail settings changed | `settings/mail` route | `EXISTS (the new mail row)` | account, via the previous settings (D3.18) |
 | notices turned off | `settings/security-notices` route | `EXISTS (the row with enabled = false)` | account |
 | sign-in locked | `codeStep.ts`, only when this failure reaches the daily limit (`failuresToday + 1 === limit`, known from the lockout check) | the lockout audit's condition | account |
@@ -647,12 +661,13 @@ none.
 
 ### CI and deployment
 
-- Root scripts: `dev:relay`, `build:relay` (`wrangler deploy --dry-run --outdir apps/relay/dist -c apps/relay/wrangler.jsonc`),
-  `deploy:relay` (`wrangler deploy -c apps/relay/wrangler.jsonc`), `cf-typegen` for both
+- Root scripts: `dev:relay`, `build:relay` (`wrangler deploy --dry-run --outdir apps/relay/dist -c apps/relay/wrangler.jsonc`;
+  no credentials), `deploy:relay` (`tsx scripts/cloudflare.ts wrangler deploy -c ../relay/wrangler.jsonc`:
+  through the credentials wrapper, which also refuses when the relay's `account_id` differs from the app's), `cf-typegen` for both
   (`wrangler types --env-interface RelayEnv apps/relay/relay-env.d.ts -c apps/relay/wrangler.jsonc --env-file apps/relay/.dev.vars.example`),
   `ts-check:relay` (`tsc -p apps/relay/tsconfig.json`; `ts-check` runs it). The root tsconfig never
   includes `relay-env.d.ts` (two generated runtime-type files conflict). `.gitignore`: `apps/relay/dist`.
-- `ci.yml`: `check` adds `build:relay`; `deploy`: `db:migrate:remote` → `deploy:relay` → `deploy`.
+- `ci.yml`: `check` adds `build:relay`; the manual `deploy`: `db:migrate:remote` → `deploy:relay` → `deploy`.
 - `deployment.md`:
   - First deploy from a terminal, **relay first** (the app's `RELAY` binding needs it to exist), after
     the migrations; then check in the dashboard that the relay has no `workers.dev` route.
@@ -666,7 +681,7 @@ none.
   - The sending domain verified at the provider; DNS: the provider's **DKIM** keys (DMARC passes
     through DKIM aligned with the From domain, since providers rewrite the envelope sender), its SPF
     include, a DMARC record (`p=none` to start); the From address on that domain in Settings → Emails.
-  - Runbooks: email not arriving (Settings → Emails reason; `npx wrangler tail memoria-relay`); a
+  - Runbooks: email not arriving (Settings → Emails reason; `npm run wrangler -- tail memoria-relay`); a
     permanent failure that is really configuration (SMTP "sender not verified", SES `MessageRejected`
     for an unverified sender) → fix, then Retry; rotating a provider secret; losing
     `SETTINGS_ENCRYPTION_KEY` (re-enter the secrets); a stuck queue (the SQL to inspect); the relay not
@@ -676,7 +691,7 @@ none.
 
 - `wrangler-config`, per app (`apps/web`: `cloudflare-env.d.ts`/`CloudflareEnv`; `apps/relay`:
   `relay-env.d.ts`/`RelayEnv`): fresh types, no secrets in `vars`, no `NEXTJS_ENV` var. Across apps: the
-  app's `RELAY` service = the relay's `name`; same `compatibility_date` and flags; the same D1
+  app's `RELAY` service = the relay's `name`; the same `account_id`; same `compatibility_date` and flags; the same D1
   (`database_name`, `database_id`) and `MEDIA` bucket; `migrations_dir` only in the app; equal shared
   vars (`APP_NAME`, `SITE_URL`, `LOG_LEVEL`, `LOG_FORMAT`); from commit 3, `SETTINGS_ENCRYPTION_KEY` in
   both `.dev.vars.example`; the relay: `workers_dev: false`, `preview_urls: false`, no `routes`, exactly
@@ -731,7 +746,7 @@ none.
   the page: `MailProviderForm`, `TestEmailForm`, `EmailStatusLine`, `SecurityNoticesToggle`,
   `RecentEmails`, `RetryEmailButton`; the nav entry; contrast rows for any new pair.
 - **T3.11** Security notices: `templates/security.ts`, `notices.ts`, the statements in
-  `secondFactor.ts`, `securitySettings.ts`, `confirm.ts`, `codeStep.ts` and the 2b account routes.
+  `secondFactor.ts`, `securitySettings.ts`, `confirm.ts`, `codeStep.ts` and `accountChange.ts` (2b).
 
 ### E. Docs (each in its commit)
 
@@ -832,7 +847,7 @@ none.
    `SETTINGS_ENCRYPTION_KEY` on both Workers; relay, then app; the provider saved in Settings → Emails; the dashboard shows no
    relay URL; a test email through the provider on 587 (and 465 if offered) arrives; the headers show
    `dkim=pass header.d=<From domain>` and DMARC pass; a test with the SMTP host set to a name whose
-   certificate does not match fails; `npx wrangler tail memoria-relay --format json` gives `cpuTime`
+   certificate does not match fails; `npm run wrangler -- tail memoria-relay --format json` gives `cpuTime`
    for an idle cron run, a cron run that sends and a nudge that sends (each ≤ 10 ms, else D3.16).
 5. Settings → Emails at 360 px and 1440 px; keyboard only; the status line is announced.
 
@@ -849,6 +864,12 @@ none.
 Milestones: **M1** = commits 1–2 (jobs run locally on nudge and cron), **M2** = commit 3 (email
 leaves the relay through every adapter), **M3** = commit 4, **M4** = Verification 4 (the first
 production deploy) and commit 5.
+
+**Smoke deploy after M1** (recommended 2026-11-16, run when the owner chooses): create the D1, apply
+the migrations, deploy the relay then the app, and check the cron and the nudge on the free plan
+(requests, CPU per invocation) plus a one-off SMTP reachability probe (587/465 from the relay). It
+settles the biggest unknown of M2 early and also covers Phase 2b Verification 4 (`measure:cpu` on a
+password change). After it, migrations `0001`–`0005` are forward-only.
 
 ## Checklist
 
