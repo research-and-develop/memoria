@@ -19,6 +19,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/app/**` | pages (server components by default) and `api/**/route.ts` handlers |
 | `apps/web/src/components/**` | app-specific UI: `AppProvider`, `forms/Turnstile`, `admin/` (the studio shell: `AdminShell`, `nav.ts` = the sidebar's one registry, `PageHeader`, `icons.tsx`; `login/` = the sign-in steps) |
 | `apps/web/src/lib/<feature>/**` | domain logic: pure helpers + `server-only` orchestration |
+| `apps/web/src/lib/jobs/` | background jobs (Phase 3): `types.ts` (`JobKind`, `JobError`), `registry.ts`, `enqueue.ts` (`jobStatement`, `nudgeRelay`), `runner.ts` (`runDueJobs`, run by the relay), `periodic.ts`, `housekeeping.ts`; SQL in `lib/db/queries/jobs` |
 | `apps/web/src/lib/auth/` | sign-in: `session.ts`, `requireAdmin.ts`; two-factor: `totp.ts`, `recoveryCodes.ts`, `setupCode.ts`, `twoFactorKeys.ts` (pure), `challenge.ts`, `secondFactor.ts` (the guarded batches), `codeStep.ts` (what every code route does first) |
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
 | `apps/web/src/lib/config/appConfig.ts` | the public part of the config and the studio settings, handed down via `AppProvider` |
@@ -180,6 +181,9 @@ first when the change can redirect links, then the write and its audit row in on
   `batch([...statements])`: all-or-nothing, in order. A change and its audit row go in ONE batch
   (`lib/auth/session.ts`). A query module that may join a batch exports a `*Statement` builder next to
   its executing function (see `site_settings/upsert.ts`).
+- **Background work is a job in the batch of its cause**: `jobStatement(kind, payload, { now })`
+  (`lib/jobs/enqueue.ts`) joins the batch, then `nudgeRelay()` wakes the relay. Never a floating promise,
+  never work that waits for an email in the request. Recipe: docs/recipes.md → A job kind.
 - **Reads between writes are not isolated.** Enforce invariants in the schema (UNIQUE/CHECK/FK) or in
   the write itself (`UPDATE … WHERE id = ? AND version = ?`, `INSERT … ON CONFLICT`, an audit row
   `WHERE changes() > 0`), then check `changes` (`run`/`execute` return `{ changes, lastRowId }`; each
@@ -273,7 +277,7 @@ first when the change can redirect links, then the write and its audit row in on
 - Routes → `route.test.ts` driving the real handler with `useTestDb(testDb.db)` (every un-scoped
   query goes to the test D1 through the test platform; `useTestDb(null)` in afterEach), or
   `useTestPlatform({ db, env })` when the route reads config (`resetTestPlatform()` in afterEach,
-  `flushDeferred()` for deferred work). Never mock `@opennextjs/cloudflare`; mock only the other
+  `flushDeferred()` for deferred work, `nudgeCount()` for relay nudges). Never mock `@opennextjs/cloudflare`; mock only the other
   edges: Turnstile, an email sender. Helpers: `src/lib/testing/routeHarness.ts`
   (`jsonRequest`, `adminCookie`, `params`, `atFixedTime` for fixed-window rate limits).
 - Blobs in tests: the test platform's `blobs()` is a fresh in-memory store per `useTestPlatform`; the

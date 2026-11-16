@@ -70,6 +70,24 @@ the `studio` row and Settings → Studio.
 6. A card in a Settings section (`SettingsCard`; `components/admin/settings/nav.ts`), inside a
    `SecondFactorProvider` when the route can ask for a code; `router.refresh()` after saving.
 
+## A job kind
+
+Work that must not happen in the request (an email, a cleanup) is a job the relay runs (architecture.md
+→ Jobs). Model: `lib/jobs/housekeeping.ts`.
+
+1. A `JobKind<P>` in `src/lib/jobs/<kind>.ts` (or next to its feature): `kind` (`[a-z0-9_.]`, ≤ 40),
+   `version` (bump it when the payload changes; the relay must be deployed first), `maxAttempts`,
+   `priority` (0 = someone waits, 1 = bulk), `backoff` (minutes), `parse` (the stored payload → the
+   input, or `{ ok: false, unknown }`) and `run(payload, ctx)`: throw `JobError(code, { permanent })`,
+   honour `ctx.signal`, never log a parameter.
+2. Register it in `src/lib/jobs/registry.ts`. Never remove a kind while rows may use it.
+3. Enqueue it in the batch of its cause, then wake the relay:
+   `const job = jobStatement(kind, payload, { now }); await batch([...change, job.statement]); nudgeRelay();`
+   A `dedupeKey` only for system jobs (once per key while the row exists).
+4. Everything the kind imports must be relay-safe (AGENTS.md → Relay-safe code; guard `relay-graph`).
+5. Test it through `runDueJobs({ mailer: memoryMailer(), trigger: 'nudge', registry: [kind] })` on a
+   test D1 (`lib/jobs/runner.test.ts`).
+
 ## A var or a secret
 
 - **Var** (not secret): `vars` in `wrangler.jsonc` with a comment.

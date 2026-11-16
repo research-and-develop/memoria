@@ -1,6 +1,6 @@
 import { parseConfig, type StringEnv } from '../config';
 import { memoryBlobStore } from '../memory/blobStore';
-import type { BlobStore, Config, Db, Platform } from '../ports';
+import type { BlobStore, Config, Db, Jobs, Platform } from '../ports';
 
 /**
  * The test platform: what `getPlatform()` returns under vitest (vitest.config.ts aliases
@@ -10,6 +10,7 @@ import type { BlobStore, Config, Db, Platform } from '../ports';
  *   afterEach(() => resetTestPlatform());
  *   …
  *   await flushDeferred();   // the work routes handed to `defer`
+ *   nudgeCount();            // how often `jobs().nudge()` ran (lib/jobs/enqueue.ts → nudgeRelay)
  *
  * - `config()` parses the given `env` object on EVERY call, so a test may change it mid-test.
  * - `blobs` defaults to a fresh in-memory store; `db()` throws until a db is installed
@@ -25,6 +26,7 @@ type State = {
   db: Db | null;
   blobs: BlobStore;
   deferred: Promise<{ ok: true } | { ok: false; error: unknown }>[];
+  nudges: number;
 };
 
 const KEY = Symbol.for('memoria.platform.test');
@@ -32,7 +34,7 @@ type Holder = { [KEY]?: State };
 const holder = globalThis as Holder;
 
 function fresh(): State {
-  return { env: {}, db: null, blobs: memoryBlobStore(), deferred: [] };
+  return { env: {}, db: null, blobs: memoryBlobStore(), deferred: [], nudges: 0 };
 }
 
 function state(): State {
@@ -55,6 +57,11 @@ export function resetTestPlatform(): void {
   holder[KEY] = fresh();
 }
 
+/** How many times `jobs().nudge()` ran since the platform was installed or reset. */
+export function nudgeCount(): number {
+  return state().nudges;
+}
+
 /** Await everything handed to `defer` so far; rethrow the first failure. */
 export async function flushDeferred(): Promise<void> {
   const s = state();
@@ -73,6 +80,11 @@ export const testPlatform: Platform = {
   },
   blobs: () => state().blobs,
   config: (): Config => parseConfig(state().env as StringEnv),
+  jobs: (): Jobs => ({
+    async nudge() {
+      state().nudges += 1;
+    },
+  }),
   defer(task: Promise<unknown>): void {
     state().deferred.push(task.then(
       () => ({ ok: true as const }),

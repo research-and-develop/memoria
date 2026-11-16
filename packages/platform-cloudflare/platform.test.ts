@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { stringEnv } from './env';
-import { cloudflarePlatform } from './platform';
+import { cloudflarePlatform, relayJobs } from './platform';
 
 const fakeD1 = {} as D1Database;
 const fakeR2 = {} as R2Bucket;
@@ -34,5 +34,26 @@ describe('cloudflarePlatform', () => {
     const platform = cloudflarePlatform(bindings, () => {});
     expect(platform.blobs()).toBe(platform.blobs());
     expect(typeof platform.blobs().put).toBe('function');
+  });
+});
+
+describe('the nudge (relayJobs)', () => {
+  const relay = (impl: (url: string, init?: RequestInit) => Promise<Response>) => ({ fetch: vi.fn(impl) }) as unknown as Fetcher & { fetch: ReturnType<typeof vi.fn> };
+
+  it('POSTs /run through the RELAY binding', async () => {
+    const binding = relay(async () => new Response(null, { status: 202 }));
+    await cloudflarePlatform({ ...bindings, RELAY: binding }, () => {}).jobs().nudge();
+    expect(binding.fetch).toHaveBeenCalledWith('https://relay/run', { method: 'POST' });
+  });
+
+  it('a rejecting or failing relay is swallowed and logged', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(relayJobs(relay(async () => Promise.reject(new Error('down')))).nudge()).resolves.toBeUndefined();
+    await expect(relayJobs(relay(async () => new Response(null, { status: 500 }))).nudge()).resolves.toBeUndefined();
+    warn.mockRestore();
+  });
+
+  it('without the binding (the relay itself) it does nothing', async () => {
+    await expect(cloudflarePlatform(bindings, () => {}).jobs().nudge()).resolves.toBeUndefined();
   });
 });

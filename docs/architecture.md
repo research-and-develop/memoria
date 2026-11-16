@@ -82,7 +82,8 @@ domain code ──► getPlatform()   (@repo/platform/current, the composition r
                   ├─ db()      Db         all / first / run / batch on plain { sql, params }
                   ├─ blobs()   BlobStore  put / get / head / delete / list
                   ├─ config()  Config     parsed from string env by parseConfig (pure, never throws)
-                  └─ defer(p)  work after the response; a rejection is logged as deferred_task_failed
+                  ├─ defer(p)  work after the response; a rejection is logged as deferred_task_failed
+                  └─ jobs()    Jobs       nudge(): wake the relay (POST /run through RELAY; a hint)
 
 @repo/platform/current ──► @repo/platform-cloudflare/next    in Next: getCloudflareContext() per call,
                              │                               one platform per env, kept on globalThis
@@ -92,7 +93,9 @@ vitest aliases it to ──► @repo/platform/testing              a test D1, an
 
 - **Ports** are in `packages/platform/ports.ts`. Each has a **contract suite** in
   `packages/platform/contract/` that every adapter runs: D1 and R2 in workerd (through wrangler's
-  `getPlatformProxy`), the in-memory store in Node. `Mailer` and `Jobs` arrive with the relay (Phase 3).
+  `getPlatformProxy`), the in-memory store in Node. `Mailer` is not a platform method: only the relay
+  sends, and its entry hands the mailer to the job runner (`memoryMailer` and `unconfiguredMailer` today,
+  the provider adapters from Phase 3 commit 3).
 - **Worker entries outside Next** (`worker.ts`, the relay) call `cloudflarePlatform(env, ctx.waitUntil)`
   themselves; only Next code goes through `getPlatform()`, which exists only inside a request.
 - **The boundary is a guard**, `platform-boundary`: outside the adapters, the composition root, the
@@ -238,6 +241,33 @@ first time    step 2  POST /api/admin/login/setup   the setup code from `npm run
   Wrong codes count toward the lockout, and five on one session end it (`lib/auth/confirm.ts`).
 - **Gate**: `app/admin/(panel)/layout.tsx` redirects pages; every admin API route calls `requireAdmin`
   itself (a page gate never protects an API). Guard: `admin-routes-require-admin`.
+
+## Jobs (Phase 3)
+
+Background work is a row in the D1 `jobs` table (`migrations/0005_jobs.sql`), never a floating promise
+and never a Cloudflare Queue (portable, listable, retryable by the admin).
+
+```
+route ──► batch([change, audit, jobStatement(kind, payload).statement])   all or nothing
+      └─► nudgeRelay()  = defer(jobs().nudge())  ── RELAY ──► relay POST /run → 202, drain in waitUntil
+relay cron (every minute) ──► enqueuePeriodicJobs(scheduledTime), then the same drain
+drain (lib/jobs/runner.ts): expire leases → claim → kind.run(payload, ctx) → done / retry / failed
+```
+
+- **Claim with a lease, fence with the attempt.** One `UPDATE … WHERE id = (SELECT … LIMIT 1) …
+  RETURNING` claims the next due job (priority, then `run_after`), counts the attempt and sets a 2-minute
+  lease. Every finishing write has `WHERE id = ? AND status = 'running' AND attempts = ?`, so a runner
+  whose lease was taken over writes nothing (`job_lease_lost`). A dead runner's job comes back 10 minutes
+  after its lease (`LEASE_EXPIRED`, then `job_reclaimed`).
+- **One job per invocation** (nudge or cron), within 20 s: the free plan's 10 ms CPU covers the whole
+  invocation. A handler gets an `AbortSignal` and a cap; one that ignores it cannot hold the runner.
+- **Retries**: a `JobError`/`MailError` with `permanent` fails at once; anything else retries on the
+  kind's backoff (minutes; a provider's `Retry-After` up to an hour) until `max_attempts`. An unknown
+  kind or a newer payload `v` (a deploy in progress, a rollback) waits 10 minutes without spending an
+  attempt and fails `UNKNOWN_KIND` after a day. Housekeeping (daily from 03:00 UTC) fails jobs due for 7
+  days (`EXPIRED`) and deletes finished ones after 30.
+- **Privacy**: logs carry job ids, kinds and codes only; a finished job drops its `params`; an unknown
+  error keeps only its name.
 
 ## Data
 

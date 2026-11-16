@@ -105,6 +105,41 @@ export type Config = {
   };
 };
 
+/**
+ * Wakes the job runner (the relay Worker, plan p03). A hint: it never throws and may be lost; the
+ * relay's cron is the safety net. Domain code calls it through `nudgeRelay()` (lib/jobs/enqueue.ts),
+ * after the batch that wrote the job.
+ */
+export interface Jobs {
+  nudge(): Promise<void>;
+}
+
+export type MailAddress = { email: string; name?: string };
+
+export type MailMessage = {
+  /** The job id: Message-ID `<id@From domain>`, kept across retries (SMTP, Microsoft 365; plan p03 D3.20). */
+  id: string;
+  from: MailAddress;
+  to: MailAddress;
+  replyTo?: MailAddress;
+  subject: string;
+  text: string;
+  html: string;
+};
+
+/**
+ * Sends one message. Resolves when the provider accepted it (SMTP `250`, HTTP 2xx) with the
+ * provider's id, if it gives one. Rejects with a `MailError` (`@repo/platform/mail/error`): an
+ * enumerated `code` (SMTP_550, BREVO_401, MAIL_NOT_CONFIGURED, …), `permanent`, `configuration`,
+ * `retryAfterSeconds`, a masked `detail`. `signal` aborts (MAIL_ABORTED, transient).
+ *
+ * Not a Platform method: only the relay sends, and its entry builds the mailer from the mail
+ * settings and hands it to the job runner.
+ */
+export interface Mailer {
+  send(message: MailMessage, opts: { signal: AbortSignal }): Promise<{ providerMessageId: string | null }>;
+}
+
 /** Everything domain code gets from the platform. Methods, not values: an adapter may resolve per request. */
 export interface Platform {
   readonly name: 'cloudflare' | 'test';
@@ -113,4 +148,6 @@ export interface Platform {
   config(): Config;
   /** Keep `task` running after the response. Rejections are logged (`deferred_task_failed`), never thrown. */
   defer(task: Promise<unknown>): void;
+  /** The job runner's wake-up (plan p03). */
+  jobs(): Jobs;
 }

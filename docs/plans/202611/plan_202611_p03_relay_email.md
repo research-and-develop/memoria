@@ -875,9 +875,9 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 
 - [x] T3.1 Spike: bundling, ALS, D1 claim semantics, local connect, shared local D1
 - [x] T3.2 `apps/relay`, composition root, scripts, guards, CI build, dev script, `RELAY` binding (socket types: commit 3)
-- [ ] T3.3 Migration and `jobs` query module
-- [ ] T3.4 Ports and adapters (`Jobs`, `Mailer` types, memory and unconfigured mailers)
-- [ ] T3.5 Runner, backoff, enqueue, periodic, housekeeping, relay entry
+- [x] T3.3 Migration and `jobs` query module
+- [x] T3.4 Ports and adapters (`Jobs`, `Mailer` types, memory and unconfigured mailers)
+- [x] T3.5 Runner, backoff, enqueue, periodic, housekeeping, relay entry
 - [ ] T3.6 Address, MIME, SMTP, Cloudflare socket adapter, contract
 - [ ] T3.7 Brevo, SES, Microsoft 365 adapters
 - [ ] T3.8 Mail settings, secrets, settings key, `relayMailer`
@@ -904,8 +904,26 @@ password change). After it, migrations `0001`–`0005` are forward-only.
 - `npm run dev:relay` boots on 8790 against the app's `.wrangler/state` (one local D1 file for both
   Workers), answers `POST /run` 202, anything else 404, and `/cdn-cgi/local/scheduled` 200; stopping it
   frees the port.
-- Not yet recorded: whether `next dev` reaches the relay through the `RELAY` binding (commit 2, with
-  the first nudge).
+- Not yet recorded: whether `next dev` reaches the relay through the `RELAY` binding. Commit 2 adds
+  no route that nudges, so it moves to commit 4 (the test email route).
+
+**Commit 2 (T3.3–T3.5), 2026-11-16.** Different from the design above:
+
+- **`ck_jobs_run_after` is `strftime('%Y-%m-%dT%H:%M:%fZ', run_after) = run_after`**: D1 refuses the
+  GLOB of the shape ("LIKE or GLOB pattern too complex"). The strftime form is stricter (a real date)
+  and accepts exactly `Date#toISOString()`.
+- **`parse` returns `{ ok: true, value } | { ok: false, unknown }`** (`unknown` = a newer template:
+  deferred like a newer `v`); `jobStatement` returns `{ id, statement }` (callers need the id).
+- **`MailError`** lives in `@repo/platform/mail/error.ts` (a class: the adapters and
+  `unconfiguredMailer` throw it); the contract suite for mailers comes with the adapters (commit 3).
+- `runDueJobs` takes a test-only `handlerCapMs`; it catches its own errors (`relay_drain_failed`).
+- An unknown error a handler throws keeps only its name in `last_error` (its message may hold an
+  address).
+
+Verification 3 (local cron), 2026-11-16: `db:migrate:local` applied `0005`; with `npm run dev:relay`,
+`/cdn-cgi/local/scheduled?time=<03:05 UTC today>` enqueued `housekeeping:2026-11-16` and ran it
+(`job_done`, `relay_drain` 13 ms); a second call added nothing. A job inserted by SQL ran within 2 s of
+`POST /run`. Both Workers read the same local D1.
 
 ## Open questions
 
