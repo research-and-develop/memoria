@@ -446,7 +446,7 @@ readers, `watermarkImageUrl`); **Phase 5 commit 4 (the pipeline) needs commit 4*
 - [x] T4.2 Font registry, display font family and tokens, `Display`
 - [x] T4.3 `RadioCards`, `SwatchPicker`, branding and gallery-defaults readers
 - [x] T4.5 Settings → Watermarks, `applyWatermark`, upload helper, media CSP
-- [ ] Verification 1–3 (4 once the bucket and the public domain exist)
+- [ ] Verification 1–3 (4 once the bucket and the public domain exist) — 1 done; 2 and 3 done except the owner's look and /admin/design at 360 px (see Review log → Built)
 - [ ] M2: T4.4 Branding and Galleries screens · T4.8 logo · T4.9 presets · T4.10 client email text · T4.11 time zone and locale
 
 ## Review log
@@ -469,6 +469,19 @@ readers, `watermarkImageUrl`); **Phase 5 commit 4 (the pipeline) needs commit 4*
 - **Owner decisions (2026-11-17):** twelve swatches instead of six (D4.5; ratios computed for the six
   new ones, Ochre the one swatch darkened on light), the rest of the open questions as proposed; status
   `draft` → `ready`.
+- **Built (M1, 2026-11-17, branch `feat/p04-m1`):** commits 1–5 as planned. Choices made while building,
+  each tested: `accent-ink` also clears 4.5:1 on its own `accent-tint` (Clay and Rose darkened one step on
+  light); a new `accent-hover` role for the primary button (12 % away from `inverse`; the studio value
+  equals its `accent-ink`), because `accent-ink` is lighter than the accent on dark and `bg-accent/90`
+  fails for Ochre on light; the gallery role maps live in `ROLE_MAPS` (Phase 6 adds `lightbox` there);
+  the three readers share `readSettingRow`; a stored `branding` row naming a removed swatch or pairing
+  reads it as the default; `none` is saved as a row (not deleted), so the audit trail stays complete; the
+  `galleryFonts` source check lives in `apps/web/src/app/galleryFonts.test.ts` (a package does not read
+  the app). Verified: `npm run verify`; a local OpenNext build with test media origins served both in the
+  studio CSP (`/admin/login`); `/admin/design` → Gallery themes, Gallery typography and the pickers at
+  1440 px, the swatch picker by keyboard; Settings → Watermarks at 360 and 1440 px: text and tiled
+  saved and reloaded, a PNG uploaded through the dev route and saved. Still open: the owner's look at
+  Watermarks (Verification 2), `/admin/design` at 360 px, Verification 4 (the real bucket and domain).
 
 ## Open questions
 

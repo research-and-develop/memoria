@@ -27,6 +27,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/lib/settings/**`, `lib/auth/account.ts` | the photographer's settings (studio name, website address; the sign-in account; mail: `mail.ts`, `parseMailSettings.ts`, `secrets.ts` = the secrets sealed under `SETTINGS_ENCRYPTION_KEY`): D1, else the env default (`Config.bootstrap`) |
 | `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA`, assets, …), vars, compatibility flags; `r2-cors.json` = the bucket's CORS rules |
 | `apps/web/src/lib/media/` | the development blob routes' checks (`devBlobRequest.ts`) and headers (`blobResponseHeaders.ts`) |
+| `apps/web/src/lib/images/` | browser image code (Phase 4): `watermark.ts` (`watermarkBox`, `applyWatermark`: previews and, from Phase 5, bakes the watermark), `upload.ts` (`putToSignedUrl`, a PUT with progress) |
 | `apps/relay/` | the relay Worker (Phase 3): `src/index.ts` (`POST /run` nudge + a cron every minute), `wrangler.jsonc` (`alias`: `@repo/platform/current` → `packages/platform-cloudflare/relay.ts`, `server-only` → empty), generated `relay-env.d.ts`. It runs the app's `lib/**` code: see *Relay-safe code* |
 | `apps/web/worker.ts` + `src/lib/edge/` | the Worker entry: answers cheap paths (`/healthz`) before Next loads; imports relative only, nothing `server-only` |
 | `apps/web/cloudflare-env.d.ts` | GENERATED type of the env (`npm run cf-typegen`) — never hand-edit |
@@ -38,7 +39,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `packages/platform` | the ports (`Db`, `BlobStore`, `Config`, `defer`: `ports.ts`), config parsing, media rules, blob tokens/URLs; `current.ts` = the composition root (`getPlatform()`); `mail/` = the mailers (`smtp.ts`, `brevo.ts`, `ses.ts`, `microsoft365.ts`, `mime.ts`, `mask.ts`, `transport.ts`); `testing/` = the test platform and scripted SMTP server / fetch, `contract/` = the adapter contract suites |
 | `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `r2.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `relay.ts` (the relay's composition root: `withPlatform`), `smtp.ts` (`cloudflare:sockets` for the SMTP client; vitest aliases the module to a stub), `testing/proxy.ts` |
 | `packages/db` | the database layer on the `Db` port: `client.ts` (`statement`, `query`, `queryFirst`, `execute`, `batch`, `all`/`first`/`run`, `allRows`/`firstRow`, `getDb`), `rows.ts` (pure converters), `migrations.ts`, `test-utils` |
-| `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
+| `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); `theme/gallery.mjs` + `galleryAccent.mjs` + `galleryFonts.mjs` = the client gallery's themes, accent swatches and font pairings (Phase 4); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
 | `migrations/*.sql` | the authoritative D1 schema, applied by wrangler and by the test harness |
 | `scripts/guards/*.test.ts` | repo-wide rules enforced by the suite |
 | `docs/` | the wiki: plans, audits, reference docs — index `docs/README.md` |
@@ -256,6 +257,8 @@ first when the change can redirect links, then the write and its audit row in on
   `/admin/design` shows every token and primitive: check it at 360 px and 1440 px after a change.
 - Colour roles have rules: placeholders use `ink-muted`; `ink-faint` is for disabled text and
   decoration only (below AA); `alert` text sits on `surface` only.
+- **A client gallery reuses the studio's role names**, themed by `data-gallery-theme/-accent/-font` on its
+  root (never studio-only values): text uses `accent-ink`, never `accent`; `inverse` only on an accent fill.
 - Touch: interactive targets reach 44 px on a coarse pointer (the `coarse:` variant; `Button` sizes
   `sm`/`md`/`icon` do it with a `::before`). Form fields are 16 px text below `sm` (iOS zooms into
   smaller fields): use the `@repo/ui/input` controls, do not shrink their text.
