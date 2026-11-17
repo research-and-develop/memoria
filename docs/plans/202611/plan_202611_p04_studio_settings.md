@@ -1,8 +1,8 @@
 ---
 title: "Phase 4: Studio settings"
 type: plan
-status: draft
-updated: 2026-11-16
+status: ready
+updated: 2026-11-17
 related: [plan_202611_mvp.md, plan_202611_p02b_settings_db.md, plan_202611_p03_relay_email.md, plan_202611_p05_galleries_upload.md, plan_202611_p06_client_gallery.md, ../../design/HANDOFF.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
@@ -128,8 +128,8 @@ studio time zone and locale replacing the constants in `lib/dates.ts`.
 | D4.2 | **M1: three `site_settings` rows, no table** (M2 adds the `presets` table and the `email_texts` row): `branding`, `gallery_defaults`, `watermark`. Each has a pure parser shared by route, form and reader; an invalid stored row is ignored and logged, and the built-in default used (`readStudio`'s rule). No env defaults. In M1 only `watermark` has a write route. | Phase 2b's store; a field added later (Phases 7, 9, 10 add proofing, download and expiry defaults to `gallery_defaults`) needs no migration; Phase 5 calls the same readers before and after M2. |
 | D4.3 | **New galleries copy the defaults; nothing reads them afterwards.** Phase 5 snapshots `gallery_defaults`, the branding choices and the watermark (**the whole parsed `Watermark` object**: an image's key, dimensions and type, or a text's text, font and ink, plus the placement; or `null`) into the gallery's own settings at creation (`galleries.settings.processing.watermark`, and each photo's `processing.watermark`). Changing a default (or removing the watermark) never changes an existing gallery. | The watermark and sizes are baked into files at upload (index → Watermark); a gallery must look tomorrow as it did when it was shared. |
 | D4.4 | **The gallery theme reuses the studio's role names.** `theme/gallery.mjs` exports `light` and `dark` maps with exactly the keys of `studio.colors` (the test iterates **every** role map `gallery.mjs` exports, so Phase 6's `lightbox` map is checked too), values from HANDOFF → Client gallery: `ground` = bg, `surface` = bg (cards sit flat in a gallery), `wash` = the gallery surface, `ink` = fg, `ink-2` = `ink-muted` = muted (the design has one secondary text colour: intended), `line` = border. Roles a gallery does not use (status pills, `danger`, `alert`) keep the studio values; `ink-faint`, `ink-hover`, `line-control`, `line-input` are derived and listed in `gallery.mjs` with a comment each. The preset emits them with `themeCssVars` on `[data-gallery-theme="light"]`, `[data-gallery-theme="dark"]` and `[data-gallery-theme="auto"]` (light, then dark inside `@media (prefers-color-scheme: dark)`), each with `color-scheme`; gallery rules come **after** the `:root` rule (equal specificity) and the auto-dark media rule after the light one. `galleryThemeRules()` emits **one rule set per exported role map** (a map named `x` → `[data-gallery-theme="x"]`), so the lightbox palette — Phase 6 T6.7's third map in this file, same role names — gets its rules without editing the function. | Every `@repo/ui` primitive (Button, inputs, Dialog) works inside a gallery unchanged; a gallery is "another set of values for the same roles" (cssVars.mjs). |
-| D4.5 | **Accents are six curated swatches** (Pine `#1F6F5C`, Ink `#16171A`, Clay `#A4532E`, Navy `#2747A0`, Plum `#6B3A6E`, Olive `#5B6630`), stored by id. `galleryAccent(swatchId, theme)` (pure) returns the accent roles. **Mixing**: in sRGB channel space, `mix(c, target, t) = round(c + (target − c) · t)` per channel, t = 0.05, 0.10, … 1.00, target white on dark, black on light; the first t that passes wins. **`accent`** (fills, rings, the heart: UI contrast) = the swatch if it reaches **3.2:1** against `ground` **and** `wash`, else mixed until it does. **`accent-ink`** (any accent-coloured text, links) = mixed until **4.5:1** against both. `focus` = `accent-ink`. `accent-tint` = the swatch at 12 % over `ground` (`mix(ground, swatch, 0.12)`). **`inverse`** = `contrastText(accent)`: white or `#16171A`, whichever is higher; if neither reaches 4.5, `#FFFFFF` or `#000000`, whichever is higher; if still below, `accent` keeps mixing (same direction) until one does. **Gallery text never uses `accent`, only `accent-ink`.** No free hex in M1. | Pre-checked swatches cannot produce an unreadable gallery. Computed (review 2026-11-16) against light bg / light surface / dark bg / dark surface: Pine 5.77/5.24/3.09/2.74, Ink 17.2/15.6/1.04/1.08, Clay 5.22/4.74/3.41/3.04, Navy 8.06/7.32/2.21/1.96, Plum 8.19/7.44/2.18/1.93, Olive 5.94/5.39/3.00/2.67: all six swatches are lightened on dark (Clay is 3.04 against the dark wash, under 3.2); Clay and Olive would pass a bare 3:1 by hundredths, hence 3.2. Ink text on an accent near luminance 0.2 reaches only ~4.24, hence the black/white step. |
-| D4.6 | **The accent is applied by attribute, not inline style**: the preset emits one rule per swatch × theme (`[data-gallery-theme="dark"][data-gallery-accent="pine"] { --color-accent: …; … }`, auto in its media query): 18 small rules. **The gallery root element carries `GALLERY_FONT_CLASSES` and all three attributes** (`data-gallery-theme`, `data-gallery-accent`, `data-gallery-font`): in Phase 6 that is the `<div data-gallery-root>` rendered by `app/gallery-shell/layout.tsx` (`next/font` variables exist only where their class is), with `data-gallery-theme` repeated on `<html>` so the page background and `color-scheme` match. | No flash of the wrong colour, no JavaScript to theme the page, works in the static shell Phase 6 serves. |
+| D4.5 | **Accents are twelve curated swatches**, in picker order Pine `#1F6F5C`, Teal `#1E6A78`, Olive `#5B6630`, Ochre `#94650F`, Clay `#A4532E`, Rose `#B0476A`, Wine `#7A2E3A`, Plum `#6B3A6E`, Indigo `#4B3F8C`, Navy `#2747A0`, Slate `#4A5866`, Ink `#16171A` (owner, 2026-11-17: more than six), stored by id. A swatch is added by one `SWATCHES` entry; the tests iterate the array. `galleryAccent(swatchId, theme)` (pure) returns the accent roles. **Mixing**: in sRGB channel space, `mix(c, target, t) = round(c + (target − c) · t)` per channel, t = 0.05, 0.10, … 1.00, target white on dark, black on light; the first t that passes wins. **`accent`** (fills, rings, the heart: UI contrast) = the swatch if it reaches **3.2:1** against `ground` **and** `wash`, else mixed until it does. **`accent-ink`** (any accent-coloured text, links) = mixed until **4.5:1** against both. `focus` = `accent-ink`. `accent-tint` = the swatch at 12 % over `ground` (`mix(ground, swatch, 0.12)`). **`inverse`** = `contrastText(accent)`: white or `#16171A`, whichever is higher; if neither reaches 4.5, `#FFFFFF` or `#000000`, whichever is higher; if still below, `accent` keeps mixing (same direction) until one does. **Gallery text never uses `accent`, only `accent-ink`.** No free hex in M1. | Pre-checked swatches cannot produce an unreadable gallery. Computed (review 2026-11-16) against light bg / light surface / dark bg / dark surface: Pine 5.77/5.24/3.09/2.74, Ink 17.2/15.6/1.04/1.08, Clay 5.22/4.74/3.41/3.04, Navy 8.06/7.32/2.21/1.96, Plum 8.19/7.44/2.18/1.93, Olive 5.94/5.39/3.00/2.67, Teal 5.94/5.39/3.00/2.67, Ochre 4.87/4.43/3.66/3.25, Rose 5.09/4.62/3.50/3.11, Wine 8.83/8.02/2.02/1.79, Indigo 8.42/7.65/2.12/1.88, Slate 6.99/6.35/2.55/2.27 (review 2026-11-17): on dark every `accent` except Ochre's is lightened (Clay is 3.04 and Rose 3.11 against the dark wash, under 3.2) and every `accent-ink` is; on light every swatch passes as is except Ochre's `accent-ink` (4.43 on the light wash), which is darkened one step — the one case where a swatch is mixed towards black; Clay and Olive would pass a bare 3:1 by hundredths, hence 3.2. After mixing, the dark accents stay distinct (e.g. Wine `#9B626B`, Rose `#B45071`, Plum `#89618B`; Pine `#357D6C`, Teal `#347986`). Ink text on an accent near luminance 0.2 reaches only ~4.24, hence the black/white step. |
+| D4.6 | **The accent is applied by attribute, not inline style**: the preset emits one rule per swatch × theme (`[data-gallery-theme="dark"][data-gallery-accent="pine"] { --color-accent: …; … }`, auto in its media query): 36 small rules. **The gallery root element carries `GALLERY_FONT_CLASSES` and all three attributes** (`data-gallery-theme`, `data-gallery-accent`, `data-gallery-font`): in Phase 6 that is the `<div data-gallery-root>` rendered by `app/gallery-shell/layout.tsx` (`next/font` variables exist only where their class is), with `data-gallery-theme` repeated on `<html>` so the page background and `color-scheme` match. | No flash of the wrong colour, no JavaScript to theme the page, works in the static shell Phase 6 serves. |
 | D4.7 | **Fonts: curated pairings in a registry** (p00 D0.11, user 2026-11-12). `app/galleryFonts.ts` makes one `next/font/google` call per family (`preload: false`, `display: 'swap'`, `--font-g-<id>`, subsets `latin` + `cyrillic` where the family has it); `theme/galleryFonts.mjs` lists pairings `{ id, label, display, text, scripts }` and the default id. Pairings: **Editorial** (Instrument Serif + Inter), **Classic** (Cormorant Garamond + Inter), **Modern** (Space Grotesk + Inter), **Quiet** (Inter only). An unknown id reads as the default. No free mixing. | Typography stays good; the picker, the design page and the gallery read one list; a removed pairing never breaks a gallery. |
 | D4.8 | **Default pairing: Classic** (Cormorant Garamond has Cyrillic), unless the owner says titles are never Cyrillic (index question 5). Every picker marks pairings without Cyrillic when the sample title contains Cyrillic. | Instrument Serif and Space Grotesk have no Cyrillic: a Bulgarian couple's names would fall back to Georgia in the title. |
 | D4.9 | **One watermark**, `kind: 'image' \| 'text' \| 'none'` (default `none`; saving `none` removes it). Image: PNG or WebP ≤ 2 MB, ≤ 4000 px, uploaded to `branding/watermarks/<uuid>.<ext>` (server-generated key) through a presigned PUT, registered by `head()`; its stored width and height are hints, re-read from the decoded bitmap, which is pre-scaled once per upload session to the largest size it can be drawn at (display long edge × size), so no worker holds a 64 MB bitmap. Text: ≤ 60 characters in a fixed font list (`Arial, Helvetica, sans-serif` or `Georgia, 'Times New Roman', serif`, never a generic keyword alone, so the main-thread preview and the worker resolve the same face; no web font inside a Web Worker), ink light or dark from `theme/watermark.mjs` (`WATERMARK_INKS`). Placement: one of nine anchors or `tiled`; **size** = the mark's width as 5–60 % of the photo's long edge (height by the mark's aspect; text measured with `measureText` at a 100 px reference and scaled); **opacity** 10–100 %; **margin** 0–10 % of the photo's short edge, from the anchored edges. | Photographers have a signature PNG; a text watermark covers the rest without font loading in workers. Several named watermarks ("Northlight signature" in the mockup) can come with presets (M2). |
@@ -176,7 +176,7 @@ type Placement = { position: Anchor | 'tiled'; size: number /* 5–60 */; opacit
 ```
 
 - `AccentId` is a JSDoc `@typedef` derived from the frozen `SWATCHES` array in `gallery.mjs`
-  (`/** @typedef {typeof SWATCHES[number]['id']} AccentId */`), so TypeScript sees the six literals.
+  (`/** @typedef {typeof SWATCHES[number]['id']} AccentId */`), so TypeScript sees the twelve literals.
 - `parse*Input(value)` → `{ ok: true, value } | { ok: false, message, field }` (messages in the
   product's language), shared by the form (inline errors) and the route.
 - Readers `readBranding()`, `readGalleryDefaults()`, `readWatermark()` (`lib/settings/<thing>.ts`): the
@@ -231,7 +231,8 @@ audit in one batch → `{ data }`).
   description. Used by Watermarks (font), Phase 5's New gallery (purpose, access, look) and M2's screens.
 - `swatchPicker.tsx` — `SwatchPicker({ value, swatches, onChange })`: a radio group of colour circles
   (the colour from `--color-*` variables set by `data-gallery-accent` on each, never an inline literal),
-  44 px targets, the label visible as text under each.
+  44 px targets, the label visible as text under each; it wraps onto rows (twelve swatches: about three
+  rows at 360 px, two from `sm`) and arrow keys move in reading order.
 - Both on `/admin/design` with keyboard checks; `primitives.test.tsx` rows.
 
 ### The gallery theme (`packages/ui/theme/`)
@@ -363,7 +364,7 @@ function loadWatermarkAssets(watermark: Watermark, url: string | null): Promise<
 | Test | What |
 | --- | --- |
 | `theme/gallery.test.ts` | every role map `gallery.mjs` exports has exactly the flattened keys of `studio.colors`; every value is `#RRGGBB`; swatch ids unique |
-| `theme/galleryAccent.test.ts` | `mix` table (channel rounding, t = 0 and 1); swatch × theme → accent roles; `accent` ≥ 3.2 and `accent-ink` ≥ 4.5 against `ground` and `wash` in all 12 cases; mixing stops at the first passing step; a passing swatch is unchanged; `contrastText` picks the higher ratio, falls back to black/white, and `inverse` on `accent` ≥ 4.5 in all 12 cases; `galleryThemeRules()` yields a rule set for **every** role map `gallery.mjs` exports (the test iterates the exports, so a fixture with an extra map gets its `[data-gallery-theme="<name>"]` rule), auto (with media, after light), 6 × 3 accent rules and one rule per pairing |
+| `theme/galleryAccent.test.ts` | `mix` table (channel rounding, t = 0 and 1); swatch × theme → accent roles; `accent` ≥ 3.2 and `accent-ink` ≥ 4.5 against `ground` and `wash` in all 24 cases (12 swatches × 2 themes); Ochre's light `accent-ink` is darkened and its dark `accent` unchanged (the two directions of the rule); mixing stops at the first passing step; a passing swatch is unchanged; `contrastText` picks the higher ratio, falls back to black/white, and `inverse` on `accent` ≥ 4.5 in all 24 cases; `galleryThemeRules()` yields a rule set for **every** role map `gallery.mjs` exports (the test iterates the exports, so a fixture with an extra map gets its `[data-gallery-theme="<name>"]` rule), auto (with media, after light), 12 × 3 accent rules and one rule per pairing |
 | `theme/contrast.test.ts` | luminance and ratio against known pairs (white/black 21, the studio pairs already pinned) |
 | `colorContrast.test.ts` rows | gallery text pairs on `ground` and `wash` per theme (AA); accent 3:1 and accent-ink AA on both; `inverse` on `accent` AA — all through `galleryAccent` |
 | preset test | Tailwind output contains `[data-gallery-theme="dark"]` with `--color-ground: 18 19 20` and `color-scheme: dark`, the auto media rule after the light rule, an accent rule, a font rule; all after `:root` |
@@ -414,7 +415,7 @@ jsdom has neither `OffscreenCanvas` nor `createImageBitmap`.
    removes it; a reload shows the saved values; an invalid row inserted with
    `npm run wrangler -- d1 execute DB --local …` is ignored with a log line. The owner looks at the
    screen (no mockup exists).
-3. `/admin/design`: gallery themes (light, dark, auto with the OS setting switched), six swatches, four
+3. `/admin/design`: gallery themes (light, dark, auto with the OS setting switched), twelve swatches, four
    pairings with Latin and Cyrillic samples, `RadioCards` and `SwatchPicker`, at 360 px and 1440 px; the
    Watermarks screen and the pickers by keyboard only.
 4. With the real bucket (once the owner has done deployment.md → Media, Phase 1 Verification 5 and set
@@ -465,29 +466,28 @@ readers, `watermarkImageUrl`); **Phase 5 commit 4 (the pipeline) needs commit 4*
   whole object (D4.3, D4.11); classes and the three attributes on the same gallery root element, theme
   repeated on `<html>`; `galleryThemeRules()` per exported map; "all six swatches" lightened on dark;
   D4.2 says M1; scope line restored to B1–B7; dependency order with Phases 5 and 6 corrected.
+- **Owner decisions (2026-11-17):** twelve swatches instead of six (D4.5; ratios computed for the six
+  new ones, Ochre the one swatch darkened on light), the rest of the open questions as proposed; status
+  `draft` → `ready`.
 
 ## Open questions
 
-For the owner:
+Decided by the owner (2026-11-17):
 
-1. **Cyrillic** (index question 5): will gallery titles or client names be in Cyrillic? Assumed yes, so
-   the default pairing is Classic (D4.8). Should a Cyrillic-capable display serif replace Instrument
-   Serif in Editorial?
-2. **Accent**: six swatches only (D4.5), or a free colour too (with automatic fallbacks)?
-3. **Watermark**: there is no mockup for Settings → Watermarks (or → Galleries, M2); this plan designs
-   them from `SettingsCard`s: fine, or a mockup first? Image and text (D4.9), or image only? One watermark
-   in M1 and several named ones with presets in M2: acceptable?
-4. **Default sizes**: selection 1600 px / q75, sharing 2048 px / q82, thumbnail 800 px / q70: the right
-   starting values?
-5. **The M1 / M2 split** (D4.1): Branding and Galleries default screens after the first usable version
-   (each gallery is styled in New gallery meanwhile), and a gallery header with the studio name in the
-   display font (no logo): acceptable?
+1. **Cyrillic**: yes, titles and client names may be Cyrillic, so the default pairing is Classic (D4.8);
+   Editorial keeps Instrument Serif (a Cyrillic-capable display serif can be swapped in later).
+2. **Accent**: more colours: twelve curated swatches (D4.5), still no free colour.
+3. **Watermark**: no mockup first (the screens are built from `SettingsCard`s); image and text (D4.9);
+   one watermark in M1, several named ones with presets in M2.
+4. **Default sizes**: selection 1600 px / q75, sharing 2048 px / q82, thumbnail 800 px / q70.
+5. **The M1 / M2 split** (D4.1): as proposed; the gallery header shows the studio name in the display
+   font until the logo arrives in M2.
 
 For the index (`plan_202611_mvp.md`, owned by the build session):
 
 - Phase 4 row: "M1: gallery theme and fonts, radio cards and swatch picker, defaults readers, Watermarks,
   the media CSP · M2 (after the first usable version): Branding and Galleries screens, logo, presets,
-  client email text, time zone"; status `placeholder` → `draft`.
+  client email text, time zone"; status `placeholder` → `ready`.
 - Open question 6 (time zone "becomes a studio setting in Phase 4"): now Phase 4 M2 (T4.11).
 - Data model: Phase 4 M1 adds no table (rows `watermark` written, `branding` and `gallery_defaults` read
   in M1 and written in M2, all in `site_settings`); `presets` moves to M2.

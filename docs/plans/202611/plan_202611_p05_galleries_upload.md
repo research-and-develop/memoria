@@ -1,8 +1,8 @@
 ---
 title: "Phase 5: Galleries and upload"
 type: plan
-status: draft
-updated: 2026-11-16
+status: ready
+updated: 2026-11-17
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, plan_202611_p03_relay_email.md, plan_202611_p04_studio_settings.md, plan_202611_p06_client_gallery.md, ../../architecture.md, ../../deployment.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
@@ -139,7 +139,7 @@ processing switch Phase 8's delivery calls (D5.26).
 | # | Decision | Why |
 | --- | --- | --- |
 | D5.1 | **Originals in a second, private bucket `memoria-originals`.** A second binding `ORIGINALS` on both Workers; `getPlatform().blobs(bucket?: 'media' \| 'originals')` (default `media`); `blobUrls(config).uploadUrl(key, { bucket })` and `readUrl(key, { bucket })`; `Config.media.s3.originalsBucket` from a new var `MEDIA_S3_ORIGINALS_BUCKET` (= the `ORIGINALS` bucket, guard); the S3 API token covers both buckets; the originals bucket has **no public domain**, its CORS allows PUT (and GET for Phase 9) from the app origins only, never `*`. Development: a second local bucket; the dev token names its bucket. | No URL guessed or edited from a display copy can reach an original; Phase 9 hands out originals only through short-lived presigned GETs. One bucket with a random key per original would leave a once-shared URL valid forever. |
-| D5.2 | **Gallery URLs are `/g/<slug>`** (index question 2, proposed). `worker.ts` matches the prefix before Next loads (Phase 6); no reserved words, no clash with `/admin`, `/api`, `/_next`, `robots.txt`. | The cheapest route to serve on the free plan; the mockup's root form can be added later as a redirect on a gallery-only domain. |
+| D5.2 | **Gallery URLs are `/g/<slug>`** (index question 2, decided 2026-11-17). `worker.ts` matches the prefix before Next loads (Phase 6); no reserved words, no clash with `/admin`, `/api`, `/_next`, `robots.txt`. | The cheapest route to serve on the free plan; the mockup's root form can be added later as a redirect on a gallery-only domain. |
 | D5.3 | **A slug is readable plus random**: from the name (`maria-jonas`, ASCII-folded, Cyrillic transliterated, ≤ 40) + `-` + **10** characters of `[a-z2-9]` (≈ 50 bits), UNIQUE. On a **link-access** gallery only the readable part is editable (the random part cannot be removed or shortened); a password gallery may use any slug (`[a-z0-9-]`, 3–60). **New link** regenerates the random part: the old link stops working; images already seen are not revoked (public delivery), and the dialog says so. Phase 6's access and visitor cookies are `Path=/` and keyed by gallery id, so they survive a slug change (a password change still ends access cookies). | With "anyone with the link", the link is the key: the name is guessable and 6 characters (31 bits) was too thin. |
 | D5.4 | **Each gallery has a current processing profile; each photo records the one it was made with.** At creation the purpose, display and thumbnail sizes and quality, and the watermark (a snapshot of Phase 4's **whole `Watermark` object**, D4.3; `null` when off) are copied into `galleries.settings.processing`; every upload uses it and writes it into `photos.processing`. The PATCH route does not change it. Changing it before M5 = a new gallery; M5 adds *reprocess* (re-runs the pipeline from the originals in the browser) and `switchProcessingStatement` for Phase 8's delivery (selection → sharing defaults), after which a gallery may legally mix profiles. | The files are baked; a gallery whose photos silently disagree is worse than a re-create, but delivery must be able to change the profile (Phase 8). |
 | D5.5 | **The browser pipeline**: a pool of `min(4, max(1, hardwareConcurrency − 1))` module Web Workers, limited to **≤ 80 decoded megapixels in flight** across workers (dimensions read before decoding). Per file: sniff the type from the bytes; SHA-256 (`crypto.subtle`); read and clean the metadata (D5.6); decode with `createImageBitmap(blob, { imageOrientation: 'from-image' })`; resize by `drawImage` on an `OffscreenCanvas` with `imageSmoothingQuality = 'high'`, halving in steps while the ratio is above 2; `applyWatermark` (Phase 4); `convertToBlob({ type: 'image/webp', quality })`, and **JPEG** when the browser returns another type (a source with alpha painted on white first); the placeholder = the average colour of an 8 px copy. No WebAssembly. Derivatives carry no metadata. | Native APIs only, the same result in Chrome, Firefox and Safari; no Worker CPU spent on images; memory bounded without `deviceMemory`. |
@@ -797,40 +797,40 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
   applied): `media.purge` ships with the manager (commit 6), relay first from commit 6; the INSERT and
   remint compose `sort_key` from the bound keys, not the columns; `name_key` is truncated after padding;
   restore cancels only `gallery.purge`; the self-exclusion `id != ?currentJobId` stated in D5.17.
+- **Owner decisions** (2026-11-17): every open question as proposed (below); the domain name itself is
+  still to come and is an owner checklist input, not a design question; status `draft` → `ready`.
 
 ## Open questions
 
-For the owner:
+Decided by the owner (2026-11-17), all as proposed:
 
-1. **Originals bucket** (D5.1): confirm the second private bucket (deployment.md checklist: second bucket,
-   CORS, a separate S3 API token covering both).
-2. **Gallery URLs** (D5.2, index question 2): `/g/<slug>` for the first version?
-3. **Slugs with a random part** (D5.3): `maria-jonas-k7x2qpm4rt` by default; only the readable part
-   editable on link galleries?
-4. **Custom domain** (index question 3): which domain and which subdomains for the app and the images?
-   Needed for Verification 4 (the public media domain) and for Phase 6's cache.
-5. **Processing fixed at creation** (D5.4): acceptable that changing the display size or watermark means a
-   new gallery until *reprocess* (M5)? A wrong purpose or watermark means re-uploading until then.
-6. **Soft delete for 7 days** (D5.17): the right window?
-7. **Storage**: originals of selection galleries are kept too (they may be delivered as they are). Fine
-   with R2 billing beyond ~10 GB (≈ $1.4 a month per 100 GB)?
-8. **XMP dropped, IPTC reduced** (D5.6): originals keep EXIF (camera, lens, date, copyright) and four IPTC
-   fields (title, by-line, copyright, caption); XMP (Lightroom develop settings, keywords) and IPTC
-   location fields are removed. Acceptable?
-9. **"Invited emails only" access** (mockup): confirm it is cut (link and password only).
-10. **Default order** (D5.23): by filename (Lightroom sequence), or by capture time (better when two
-    cameras are mixed)?
-11. **Backups of originals**: R2 is not backed up today. Accept the risk for now, or add an `rclone`
-    copy to an external store (and how often)?
-12. **PNG/WebP with metadata refused until M4** (D5.6): acceptable for the first version (Lightroom exports
-    JPEG)?
+1. **Originals bucket** (D5.1): the second, private bucket `memoria-originals` (deployment.md checklist:
+   second bucket, CORS, a separate S3 API token covering both).
+2. **Gallery URLs** (D5.2): `/g/<slug>`.
+3. **Slugs with a random part** (D5.3): `maria-jonas-k7x2qpm4rt` by default; only the readable part is
+   editable, on link galleries.
+4. **Custom domain**: the app and the images on two subdomains of one domain in one Cloudflare zone (e.g.
+   `gallery.<domain>` and `media.<domain>`). **Still to come from the owner: the domain name**, needed
+   before Verification 4 (the public media domain) and Phase 6's cache; until then development uses the
+   dev routes (an `r2.dev` URL is acceptable for a trial only, D5.15).
+5. **Processing fixed at creation** (D5.4): accepted until *reprocess* (M5, before Phase 8).
+6. **Soft delete**: 7 days (D5.17).
+7. **Storage**: selection originals are kept; R2 billing beyond ~10 GB (≈ $1.4 a month per 100 GB)
+   accepted.
+8. **XMP dropped, IPTC reduced** (D5.6): accepted (EXIF camera, lens, date, copyright and four IPTC fields
+   stay).
+9. **"Invited emails only" access**: cut (link and password only).
+10. **Default order** (D5.23): by filename; capture time per gallery.
+11. **Backups of originals**: the risk is accepted for now (the photographer's Lightroom archive is the
+    master copy); an `rclone` copy to an external store can be added later.
+12. **PNG/WebP with metadata refused until M4** (D5.6): accepted.
 
 For the index (`plan_202611_mvp.md`, owned by the build session):
 
-- Phases table: Phase 5 status `placeholder` → `draft`; **Depends on 1, 3, 4** (not 1, 4).
+- Phases table: Phase 5 status `placeholder` → `ready`; **Depends on 1, 3, 4** (not 1, 4).
 - Scope overlaps to settle in the index: F1/F2 — Phase 5 owns links and passwords, Phase 6 the gate; F8
   (scheduled publish) is Phase 10's; C6 (approve/reject) is Phase 7's.
-- Decisions: *Originals storage* → decided (D5.1); *Gallery URLs* → `/g/<slug>` proposed; *Uploads* →
+- Decisions: *Originals storage* → decided (D5.1); *Gallery URLs* → `/g/<slug>` decided; *Uploads* →
   "location removed: EXIF GPS, MakerNote and thumbnail, XMP, IPTC location fields; pixels untouched"
   (replaces "GPS stripped, the rest of EXIF kept"); *Watermark* → "changing it = a new gallery until M5's
   reprocess"; new rows *Uploads resume by content hash* (D5.9) and *Photo order by filename or capture
@@ -843,6 +843,6 @@ For the index (`plan_202611_mvp.md`, owned by the build session):
 - Phase 5 row: M1–M3 for the first usable version; M4 after it; **M5 before Phase 8** (replace with
   edited, reprocess, processing switch). Phase 8 depends on Phase 5 M5.
 - To verify: Safari WebP encoding → resolved by the JPEG fallback (D5.5), still checked in Verification 3;
-  presigned multipart stays unnecessary (Lightroom exports are far below 100 MB); R2 has no backup (open
-  question 11).
+  presigned multipart stays unnecessary (Lightroom exports are far below 100 MB); R2 has no backup (accepted
+  for now, open question 11).
 - Phase 11: the dashboard lists failed jobs (purges included).

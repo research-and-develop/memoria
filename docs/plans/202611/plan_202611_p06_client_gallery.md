@@ -1,17 +1,16 @@
 ---
 title: "Phase 6: Client gallery"
 type: plan
-status: draft
-updated: 2026-11-16
+status: ready
+updated: 2026-11-17
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, plan_202611_p03_relay_email.md, plan_202611_p04_studio_settings.md, plan_202611_p05_galleries_upload.md, plan_202611_p07_proofing.md, ../../architecture.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
 # Phase 6: Client gallery
 
-> **Owner decision first (before commit 1):** option B below (the free plan; recommended) or Workers
-> Paid ($5/month) with Next rendering the gallery. If Paid is chosen now, A1/A2 replace most of this
-> plan's infrastructure (static shell, edge data module, `edge-graph`); see *The CPU question* and Open
-> question 1.
+> **Owner decision (2026-11-17): option B** (the free plan): the gallery is the static shell with its
+> data from `worker.ts`. Workers Paid for the admin side waits until the tail shows `exceededCpu`
+> (S6.4); see *The CPU question* and Open question 1.
 
 ## Goal
 
@@ -20,7 +19,7 @@ on a desktop or a phone, in the studio's branding: a cover, the welcome note, se
 (masonry, justified or square), a lightbox with keyboard, swipe and a filmstrip. Only thumbnails and
 display copies are ever shown, never an original. **And it must fit the Cloudflare free plan** (10 ms
 CPU per request, 100k requests a day), which a page rendered by Next on every view does not: this plan
-analyses the options, recommends one with numbers and a measurement plan, and the owner decides.
+analyses the options and recommends one with numbers and a measurement plan (the owner chose it: option B).
 
 **Done when (M1, the part of the first usable version):**
 
@@ -186,7 +185,7 @@ assets: **neither runs the Worker**. So the only Worker work is producing the pa
 
 | # | Decision | Why |
 | --- | --- | --- |
-| D6.1 | **Option B (proposed, the owner decides before commit 1)**: `/g/<slug>` is answered by `worker.ts` before Next loads: the prebuilt shell from the assets, with the gallery's head, theme attributes and first page of data injected. `/g/<slug>/data` answers further sets and pages. | The CPU analysis above. |
+| D6.1 | **Option B (decided by the owner, 2026-11-17)**: `/g/<slug>` is answered by `worker.ts` before Next loads: the prebuilt shell from the assets, with the gallery's head, theme attributes and first page of data injected. `/g/<slug>/data` answers further sets and pages. | The CPU analysis above. |
 | D6.2 | **One static root layout; no route-group move.** `app/layout.tsx` keeps only `<html suppressHydrationWarning>`, `<body>`, the studio fonts, `globals.css` **and `export const viewport`** (`themeColor`, `width=device-width`: the shell needs it on phones), and loses `force-dynamic`, `generateMetadata`, `getAppConfig` and `AppProvider`. A new **`app/admin/layout.tsx`** takes them (`force-dynamic`, `generateMetadata` with the title template and `metadataBase`, `getAppConfig`, `AppProvider`): it covers the panel and the sign-in page, so `nav.test.ts`'s `app/admin/(panel)` and every Phase 4/5 path stay valid. `app/page.tsx` gets `force-dynamic` **and its own `generateMetadata`** (the studio name as title, `metadataBase`), so `/` keeps today's title; `error.tsx` and `not-found.tsx` get a static title (`metadata`/`<title>`: they render without the studio name); `robots.ts` stays at the root. **The shell**: `app/gallery-shell/layout.tsx` (renders the gallery wrapper `<div data-gallery-root>` carrying `GALLERY_FONT_CLASSES`, no D1) and `app/gallery-shell/page.tsx` (`force-static`, renders `<GalleryApp />`, and `export const metadata = { other: { 'memoria-gallery-head': '1' } }` — the only metadata, which emits the head marker). `/api/**` routes are unaffected (no layout). | One root layout avoids the experimental `globalNotFound` flag and a duplicate `<html>`; the admin keeps its per-request config; the shell is the same for every gallery, so it can be an asset. |
 | D6.3 | **The shell is copied into the assets by `build:app`.** `scripts/gallery-shell.mjs` copies `apps/web/.next/server/app/gallery-shell.html` → `.open-next/assets/__gallery/shell.html` and `.next/server/app/_not-found.html` → `__gallery/404.html`, and writes `__gallery/503.html` from a tiny static template ("The gallery is not available right now"); it **exits 1** if a source is missing or a marker is not found exactly once. A new `build:app` script (OpenNext build, then the copy) is called by `apps/web/package.json`'s `build:worker`, `preview` and `deploy` and by the root scripts that call them, so CI's `build:worker` fails when the shell is missing. `worker.ts` fetches `/__gallery/shell`, `/__gallery/404`, `/__gallery/503` **without the `.html` extension** (the default `auto-trailing-slash` would 307 them). Those three paths are publicly reachable (no data in them: harmless). If ASSETS answers anything but 200 for the shell → the 503 page and `gallery_shell_missing` (error log). | OpenNext keeps prerendered HTML in its cache, not the assets; one build, one set of hashed chunks; a missing shell fails the build, not production. |
 | D6.4 | **Injection by markers, not `HTMLRewriter`**: the gallery wrapper `<div data-gallery-root` (the same element that carries `GALLERY_FONT_CLASSES`: `next/font` variables exist only where their class is) gets `data-gallery-theme`, `data-gallery-accent` and `data-gallery-font`; `<html` gets `data-gallery-theme` too (so the page background and `color-scheme` match) and `lang` (React does not warn: `suppressHydrationWarning` on `<html>` and on the wrapper); `<meta name="memoria-gallery-head" content="1">` becomes `<title>`, the description and the Open Graph tags; the view JSON is inserted as `<script id="__gallery" type="application/json">` **just before `</body>`, outside React's tree** (every `<` written as the six characters `<`, and U+2028/2029 as ` `/` `). Every injected attribute value and `content` goes through **one attribute escaper** (`&`, `<`, `>`, `"`, `'`). `GalleryApp` renders a fixed placeholder on its first (hydration) render and reads `#__gallery` through `useSyncExternalStore`, so server and client markup agree. A pure `injectGallery(shell, view)` does all three. | Runs in workerd **and** in Node (so `next dev` and vitest use the same function); the shell is our own static file, so markers are reliable; the build check guards them; no hydration mismatch; no injection through a title. |
@@ -517,21 +516,21 @@ T6.9.
   `data-gallery-root` wrapper (+ theme on `<html>`); `securityHeaders({ dev, profile: 'gallery', media })`
   keeping Turnstile and `'unsafe-inline'`; `mg_`/`mv` on `Path=/`; `GalleryView.studio` carries locale and
   time zone; the Cyrillic check in the shell; dependencies on Phase 4 commit 4 and Phase 5 commit 6.
+- **Owner decisions** (2026-11-17): option B; Workers Paid for the admin waits for `exceededCpu`; the
+  other open questions as proposed; status `draft` → `ready`.
 
 ## Open questions
 
-For the owner:
+Decided by the owner (2026-11-17):
 
-1. **The CPU decision — before commit 1**: option B (recommended: static shell + data from `worker.ts`,
-   all on the free plan), or Workers Paid ($5/month) with Next rendering the gallery (much of this plan's
-   infrastructure then goes)? Independently: take Workers Paid now for the admin side (26–37 ms pages),
-   or wait until the tail shows `exceededCpu` (S6.4)?
-2. **Protected delivery in M2** (D6.19), after the first usable version: acceptable?
-3. **`visitors` moves to Phase 7** (D6.12): Phase 6 only sets the signed `mv` cookie, with no D1 write.
-4. **Link previews** (D6.14): cover image only for link-access galleries, none for password galleries?
-5. **Right-click deterrent** on selection galleries only (D6.17)?
-6. **Turnstile on the password gate** (D6.10, the house rule for public writes): fine for clients? (It is
-   usually invisible.)
+1. **The CPU decision**: option B (static shell + data from `worker.ts`, all on the free plan). Workers
+   Paid for the admin side (26–37 ms pages) waits until the tail shows `exceededCpu` (S6.4); switching
+   plans needs no code change.
+2. **Protected delivery in M2** (D6.19), after the first usable version: yes.
+3. **`visitors` moves to Phase 7** (D6.12): yes; Phase 6 only sets the signed `mv` cookie, with no D1 write.
+4. **Link previews** (D6.14): the cover image only for link-access galleries, none for password galleries.
+5. **Right-click deterrent** on selection galleries only (D6.17).
+6. **Turnstile on the password gate** (D6.10): yes.
 
 For the index (`plan_202611_mvp.md`, owned by the build session):
 
@@ -545,5 +544,5 @@ For the index (`plan_202611_mvp.md`, owned by the build session):
   delivery, compare".
 - The shared IP-key helper changes to /64 for IPv6 (all existing rate limits).
 - Phases table: Phase 6 depends on **4 and 5** (Phase 4 commit 4: the CSP profiles; Phase 5 commit 6:
-  `Chip`, `Tabs`, `scrim`); status `placeholder` → `draft`.
+  `Chip`, `Tabs`, `scrim`); status `placeholder` → `ready`.
 - Scope overlap: F1/F2 — Phase 5 owns the links and passwords, Phase 6 the gate.
