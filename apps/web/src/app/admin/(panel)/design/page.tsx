@@ -9,6 +9,7 @@ import { DesignSection } from './DesignSection';
 import { FieldsDemo } from './FieldsDemo';
 import { GalleryThemes } from './GalleryThemes';
 import { GalleryTypography } from './GalleryTypography';
+import { PickersDemo } from './PickersDemo';
 import { ShapesShowcase } from './ShapesShowcase';
 import { TypeScale } from './TypeScale';
 
@@ -37,6 +38,9 @@ export default function DesignPage() {
       </DesignSection>
       <DesignSection id="controls" title="Toggle and segmented control" note="Keyboard: Tab to a control; Space toggles; the arrow keys move and select.">
         <ControlsDemo />
+      </DesignSection>
+      <DesignSection id="pickers" title="Radio cards and swatch picker" note="Keyboard: Tab into the group; the arrow keys move and select.">
+        <PickersDemo />
       </DesignSection>
       <DesignSection id="shapes" title="Pills, cards, radii, focus">
         <ShapesShowcase />
