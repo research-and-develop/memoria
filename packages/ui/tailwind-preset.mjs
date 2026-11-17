@@ -2,6 +2,7 @@ import { dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { tailwindColors, themeCssVars } from './theme/cssVars.mjs';
+import { galleryThemeRules, rulesToCssInJs } from './theme/galleryAccent.mjs';
 import studio from './theme/studio.mjs';
 
 /**
@@ -76,6 +77,9 @@ export default {
     ({ addBase, addVariant }) => {
       // The studio theme's colour variables; another theme overrides them on its own scope.
       addBase({ ':root': themeCssVars(studio.colors) });
+      // The client gallery's themes and accents (theme/gallery.mjs): the same variables on
+      // `[data-gallery-*]` scopes, AFTER `:root` so a gallery scope wins at equal specificity.
+      for (const rule of rulesToCssInJs(galleryThemeRules())) addBase(rule);
       // Touch screens: `coarse:` styles (44 px hit areas).
       addVariant('coarse', '@media (pointer: coarse)');
     },

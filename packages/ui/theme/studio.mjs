@@ -51,6 +51,8 @@ export const colors = {
     ink: '#17564A',
     /** Accent-tinted fill (selected rows, accent pills). */
     tint: '#EAF2EF',
+    /** The primary button's hover fill (a gallery computes its own: theme/galleryAccent.mjs). */
+    hover: '#17564A',
   },
   /** Keyboard focus ring and focused field border. */
   focus: '#17564A',

@@ -19,7 +19,7 @@ const BASE =
   'relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-button font-sans font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 ring-offset-surface disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none';
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-inverse hover:bg-accent-ink',
+  primary: 'bg-accent text-inverse hover:bg-accent-hover',
   dark: 'bg-ink text-inverse hover:bg-ink-hover',
   secondary: 'border border-line-control bg-surface text-ink hover:bg-wash',
   ghost: 'bg-transparent text-ink hover:bg-wash',

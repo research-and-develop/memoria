@@ -7,6 +7,7 @@ import { ColorSwatches } from './ColorSwatches';
 import { ControlsDemo } from './ControlsDemo';
 import { DesignSection } from './DesignSection';
 import { FieldsDemo } from './FieldsDemo';
+import { GalleryThemes } from './GalleryThemes';
 import { ShapesShowcase } from './ShapesShowcase';
 import { TypeScale } from './TypeScale';
 
@@ -38,6 +39,13 @@ export default function DesignPage() {
       </DesignSection>
       <DesignSection id="shapes" title="Pills, cards, radii, focus">
         <ShapesShowcase />
+      </DesignSection>
+      <DesignSection
+        id="gallery-themes"
+        title="Gallery themes"
+        note="The client gallery's light, dark and auto themes with every accent (packages/ui/theme/gallery.mjs). An accent too faint for a theme is adjusted automatically."
+      >
+        <GalleryThemes />
       </DesignSection>
     </div>
   );
