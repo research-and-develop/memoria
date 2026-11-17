@@ -1,8 +1,8 @@
 ---
 title: "Phase 3: Relay Worker and email"
 type: plan
-status: ready
-updated: 2026-11-16
+status: in-progress
+updated: 2026-11-17
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, plan_202611_p02_admin_totp.md, plan_202611_p02b_settings_db.md, ../../architecture.md, ../../deployment.md, ../../../AGENTS.md]
 ---
 

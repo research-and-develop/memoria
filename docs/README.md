@@ -21,10 +21,10 @@ The project wiki. Conventions: [wiki-conventions.md](wiki-conventions.md).
   - [p01 Core and adapters](plans/202611/plan_202611_p01_core_adapters.md) — `done`
   - [p02 Admin shell and TOTP](plans/202611/plan_202611_p02_admin_totp.md) — `done`
   - [p02b Settings in the database](plans/202611/plan_202611_p02b_settings_db.md) — `done`
-  - [p03 Relay Worker and email](plans/202611/plan_202611_p03_relay_email.md) — `ready`
-  - [p04 Studio settings](plans/202611/plan_202611_p04_studio_settings.md) — `placeholder`
-  - [p05 Galleries and upload](plans/202611/plan_202611_p05_galleries_upload.md) — `placeholder`
-  - [p06 Client gallery](plans/202611/plan_202611_p06_client_gallery.md) — `placeholder`
+  - [p03 Relay Worker and email](plans/202611/plan_202611_p03_relay_email.md) — `in-progress`
+  - [p04 Studio settings](plans/202611/plan_202611_p04_studio_settings.md) — `ready`
+  - [p05 Galleries and upload](plans/202611/plan_202611_p05_galleries_upload.md) — `ready`
+  - [p06 Client gallery](plans/202611/plan_202611_p06_client_gallery.md) — `ready`
   - [p07 Proofing](plans/202611/plan_202611_p07_proofing.md) — `placeholder`
   - [p08 Review and delivery](plans/202611/plan_202611_p08_review_delivery.md) — `placeholder`
   - [p09 Downloads](plans/202611/plan_202611_p09_downloads.md) — `placeholder`
