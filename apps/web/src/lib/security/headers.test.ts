@@ -37,6 +37,40 @@ describe('security headers', () => {
     );
   });
 
+  describe('the media origins (plan p04 D4.15)', () => {
+    const media = { publicBaseUrl: 'https://media.example.com', s3Endpoint: 'https://acct.r2.cloudflarestorage.com' };
+    const studio = directives(contentSecurityPolicy({ dev: false, profile: 'studio', media }));
+    const gallery = directives(contentSecurityPolicy({ dev: false, profile: 'gallery', media }));
+
+    it('studio: the media domain in img-src and connect-src, the S3 endpoint in connect-src', () => {
+      expect(studio['img-src']).toContain(media.publicBaseUrl);
+      expect(studio['connect-src']).toEqual(expect.arrayContaining([media.publicBaseUrl, media.s3Endpoint]));
+      expect(studio['script-src']).toContain('https://static.cloudflareinsights.com');
+    });
+
+    it('gallery: the media domain in img-src; Turnstile and inline scripts kept; no beacon, no S3 endpoint', () => {
+      expect(gallery['img-src']).toContain(media.publicBaseUrl);
+      expect(gallery['script-src']).toEqual(expect.arrayContaining(['https://challenges.cloudflare.com', "'unsafe-inline'"]));
+      expect(gallery['frame-src']).toContain('https://challenges.cloudflare.com');
+      const all = Object.values(gallery).flat();
+      expect(all).not.toContain('https://static.cloudflareinsights.com');
+      expect(all).not.toContain('https://cloudflareinsights.com');
+      expect(all).not.toContain(media.s3Endpoint);
+    });
+
+    it('empty vars (or none) leave the policy as it was', () => {
+      const empty = contentSecurityPolicy({ dev: false, media: { publicBaseUrl: null, s3Endpoint: '' } });
+      expect(empty).toBe(contentSecurityPolicy({ dev: false }));
+      expect(directives(empty)['img-src']).toEqual(["'self'", 'data:', 'blob:']);
+      expect(directives(empty)['connect-src']).toEqual(["'self'", 'https://cloudflareinsights.com']);
+    });
+
+    it('securityHeaders passes the profile and the origins through', () => {
+      const csp = securityHeaders({ dev: false, profile: 'gallery', media }).find((h) => h.key === 'Content-Security-Policy')?.value;
+      expect(csp).toBe(contentSecurityPolicy({ dev: false, profile: 'gallery', media }));
+    });
+  });
+
   it('tells crawlers not to index anything, in dev and production', () => {
     for (const dev of [false, true]) {
       expect(securityHeaders({ dev }).find((h) => h.key === 'X-Robots-Tag')?.value).toBe('noindex, nofollow');

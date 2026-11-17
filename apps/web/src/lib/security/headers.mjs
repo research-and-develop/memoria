@@ -13,6 +13,15 @@
  * nonce alternative makes every page dynamic (no edge caching at all).
  * Dev adds `'unsafe-eval'` (React's dev build) and the HMR websocket.
  *
+ * Two profiles (plan p04 D4.15), both with the media origins read from wrangler.jsonc `vars` at
+ * BUILD time by next.config.mjs (`media = { publicBaseUrl, s3Endpoint }`; changing either needs a
+ * rebuild and deploy):
+ * - **studio** (every Next response): the public media domain in `img-src` and `connect-src`
+ *   (the watermark fetch), the S3 endpoint in `connect-src` (presigned PUTs from the browser);
+ * - **gallery** (Phase 6's `worker.ts` responses): the studio policy minus the beacon and the S3
+ *   endpoint (a client never uploads), keeping Turnstile (the password gate) and `'unsafe-inline'`
+ *   scripts (Next's inlined RSC payload; a static shell cannot carry a nonce).
+ *
  * `X-Robots-Tag: noindex, nofollow` on everything: nothing in Memoria is meant for search engines.
  * robots.txt does NOT disallow the public pages, or link-preview bots could not fetch a shared
  * gallery link and crawlers would never see this header. worker.ts responses set it too
@@ -23,15 +32,28 @@ const TURNSTILE = 'https://challenges.cloudflare.com';
 const BEACON_SCRIPT = 'https://static.cloudflareinsights.com';
 const BEACON_REPORT = 'https://cloudflareinsights.com';
 
-/** @param {{ dev: boolean }} opts */
-export function contentSecurityPolicy({ dev }) {
+/** @typedef {'studio' | 'gallery'} CspProfile */
+/** @typedef {{ publicBaseUrl?: string | null; s3Endpoint?: string | null }} MediaOrigins */
+/** @typedef {{ dev: boolean; profile?: CspProfile; media?: MediaOrigins }} CspOptions */
+
+/** @param {string | null | undefined} value @returns {string[]} */
+const originOf = (value) => (value ? [value] : []);
+
+/** @param {CspOptions} opts */
+export function contentSecurityPolicy({ dev, profile = 'studio', media = {} }) {
+  const gallery = profile === 'gallery';
+  const mediaDomain = originOf(media.publicBaseUrl);
   const directives = {
     'default-src': ["'self'"],
-    'script-src': ["'self'", "'unsafe-inline'", ...(dev ? ["'unsafe-eval'"] : []), TURNSTILE, BEACON_SCRIPT],
+    'script-src': ["'self'", "'unsafe-inline'", ...(dev ? ["'unsafe-eval'"] : []), TURNSTILE, ...(gallery ? [] : [BEACON_SCRIPT])],
     'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:', 'blob:'],
+    'img-src': ["'self'", 'data:', 'blob:', ...mediaDomain],
     'font-src': ["'self'"],
-    'connect-src': ["'self'", BEACON_REPORT, ...(dev ? ['ws:'] : [])],
+    'connect-src': [
+      "'self'",
+      ...(gallery ? [] : [BEACON_REPORT, ...mediaDomain, ...originOf(media.s3Endpoint)]),
+      ...(dev ? ['ws:'] : []),
+    ],
     'frame-src': [TURNSTILE],
     'worker-src': ["'self'", 'blob:'],
     'object-src': ["'none'"],
@@ -44,10 +66,10 @@ export function contentSecurityPolicy({ dev }) {
     .join('; ');
 }
 
-/** @param {{ dev: boolean }} opts @returns {{ key: string; value: string }[]} */
-export function securityHeaders({ dev }) {
+/** @param {CspOptions} opts @returns {{ key: string; value: string }[]} */
+export function securityHeaders(opts) {
   return [
-    { key: 'Content-Security-Policy', value: contentSecurityPolicy({ dev }) },
+    { key: 'Content-Security-Policy', value: contentSecurityPolicy(opts) },
     // Browsers ignore HSTS over plain http, so localhost is unaffected.
     { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
     { key: 'X-Content-Type-Options', value: 'nosniff' },

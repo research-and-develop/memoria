@@ -15,7 +15,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: 'security', label: 'Security', href: '/admin/settings/security' },
   { id: 'emails', label: 'Emails', href: '/admin/settings/emails' },
   { id: 'branding', label: 'Branding', href: '/admin/settings/branding', soonPhase: 4 },
-  { id: 'watermarks', label: 'Watermarks', href: '/admin/settings/watermarks', soonPhase: 4 },
+  { id: 'watermarks', label: 'Watermarks', href: '/admin/settings/watermarks' },
 ];
 
 /** Where `/admin/settings` itself goes: the first built section. */

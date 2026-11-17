@@ -27,7 +27,16 @@ afterAll(() => testDb.dispose());
 const save = (key: string, value: unknown) => run(statement('INSERT INTO site_settings (key, value) VALUES (?, ?)', [key, JSON.stringify(value)]), { db: testDb.db });
 
 describe.each([
-  { name: 'readBranding', key: 'branding', read: readBranding, defaults: BRANDING_DEFAULTS, valid: { ...BRANDING_DEFAULTS, accent: 'navy', theme: 'dark' }, invalid: { theme: 'sepia' }, field: 'theme' },
+  {
+    name: 'readBranding',
+    key: 'branding',
+    read: readBranding,
+    defaults: BRANDING_DEFAULTS,
+    valid: { ...BRANDING_DEFAULTS, accent: 'navy', theme: 'dark' },
+    invalid: { theme: 'sepia' },
+    field: 'theme',
+    effective: (v: object) => v,
+  },
   {
     name: 'readGalleryDefaults',
     key: 'gallery_defaults',
@@ -36,24 +45,26 @@ describe.each([
     valid: { ...GALLERY_DEFAULTS, purpose: 'sharing', access: 'password' },
     invalid: { delivery: 'protected' },
     field: 'delivery',
+    // No watermark is saved in these tests: watermarkSelection reads false (nothing to bake).
+    effective: (v: object) => ({ ...v, watermarkSelection: false }),
   },
-])('$name', ({ key, read, defaults, valid, invalid, field }) => {
+])('$name', ({ key, read, defaults, valid, invalid, field, effective }) => {
   it('no row → the built-in defaults', async () => {
     useTestPlatform({ db: testDb.db });
-    expect(await read()).toEqual(defaults);
+    expect(await read()).toEqual(effective(defaults));
   });
 
   it('a valid row wins', async () => {
     useTestPlatform({ db: testDb.db });
     await save(key, valid);
-    expect(await read()).toEqual(valid);
+    expect(await read()).toEqual(effective(valid));
   });
 
   it('an invalid row → the defaults and one log line naming the field', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
     useTestPlatform({ db: testDb.db });
     await save(key, invalid);
-    expect(await read()).toEqual(defaults);
+    expect(await read()).toEqual(effective(defaults));
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith({ event: `${key}_settings_invalid`, field });
   });
@@ -61,7 +72,7 @@ describe.each([
   it('never throws: a failing database logs and uses the defaults', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
     useTestPlatform({ db: { first: () => Promise.reject(new Error('D1 down')) } as unknown as Db });
-    expect(await read()).toEqual(defaults);
+    expect(await read()).toEqual(effective(defaults));
     expect(warn).toHaveBeenCalledWith(expect.objectContaining({ event: `${key}_settings_unavailable` }));
   });
 
@@ -70,8 +81,16 @@ describe.each([
     const first = (await read()) as Record<string, unknown>;
     first.purpose = 'changed';
     first.theme = 'changed';
-    expect(await read()).toEqual(defaults);
+    expect(await read()).toEqual(effective(defaults));
   });
+});
+
+it('watermarkSelection keeps its value once a watermark is saved', async () => {
+  useTestPlatform({ db: testDb.db });
+  await save('watermark', { kind: 'text', text: 'Northlight', font: 'serif', ink: 'light', position: 'center', size: 30, opacity: 50, margin: 0 });
+  expect((await readGalleryDefaults()).watermarkSelection).toBe(true);
+  await save('gallery_defaults', { watermarkSelection: false });
+  expect((await readGalleryDefaults()).watermarkSelection).toBe(false);
 });
 
 it('a stored branding row naming a removed swatch reads it as Pine', async () => {

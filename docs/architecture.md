@@ -1,7 +1,7 @@
 ---
 title: Architecture
 type: reference
-updated: 2026-11-16
+updated: 2026-11-17
 related: [../AGENTS.md, deployment.md, recipes.md, plans/202611/plan_202611_p01_core_adapters.md]
 ---
 
@@ -126,6 +126,20 @@ mode follows the config:
   security headers. Phase 1's check in `npm run preview` showed why that matters: in a Next route, the
   site-wide `Content-Security-Policy` and `Referrer-Policy` from `next.config.mjs` replace the route's
   own (the dev read route's `sandbox` CSP and `no-referrer` never reach the browser).
+- **The CSP carries the media origins** (Phase 4, `lib/security/headers.mjs`). `next.config.mjs` reads
+  `MEDIA_PUBLIC_BASE_URL` and `MEDIA_S3_ENDPOINT` from `wrangler.jsonc` `vars` **at build time**, so
+  changing either needs a rebuild and deploy (guard `wrangler-config`: both are bare origins or empty).
+  Two profiles of `securityHeaders({ dev, profile, media })`: **studio** (every Next response) adds the
+  media domain to `img-src` and `connect-src` and the S3 endpoint to `connect-src` (presigned PUTs from
+  the browser); **gallery** (Phase 6's `worker.ts` responses) is the studio policy without the
+  Cloudflare beacon and the S3 endpoint, keeping Turnstile and `'unsafe-inline'` scripts. Locally the
+  dev routes are same-origin and need neither.
+- **Reading an image back in the studio** (the watermark, later logos) uses `publicUrl` in production
+  and the dev read route in development, never a presigned GET (`watermarkImageUrl`,
+  `lib/settings/watermark.ts`); without a public media domain an image watermark cannot be chosen.
+- Browser-side image code lives in `apps/web/src/lib/images/`: `watermark.ts` (`watermarkBox`,
+  `applyWatermark`: the same function previews the watermark and, from Phase 5, bakes it in the upload
+  worker) and `upload.ts` (`putToSignedUrl`, a PUT with progress).
 
 ### The Docker path (documented, not built)
 
@@ -159,7 +173,8 @@ public values down through `AppProvider`.
   secrets that protect the data stay out of the database they protect.
 - **Studio-level**, the photographer's, in D1 and edited in Settings: the sign-in email and password
   (`admin_account`, Settings → Security), the studio name and website address (the `studio` row of
-  `site_settings`, Settings → Studio); later email delivery (Phase 3), branding and time zone (Phase 4).
+  `site_settings`, Settings → Studio); email delivery (the `mail` row, Phase 3); the gallery look and
+  the watermark (Phase 4: the `branding`, `gallery_defaults` and `watermark` rows; the time zone in M2).
 
 **Effective value = D1, else env, else the default.** The env values that are only defaults live in
 `Config.bootstrap` (`appName`, `siteUrl`, `adminEmail`, `adminPasswordHash`) and are read only by
@@ -170,6 +185,12 @@ handlers and the relay. `readStudio()` never throws: a D1 error or an invalid ro
 `studio_settings_unavailable` / `studio_settings_invalid` and uses the defaults. Deleting a D1 row (an
 old backup restored) makes the env value effective again, hence deleting the env credentials after the
 first install (deployment.md → One-time setup).
+
+Phase 4's rows have **no env default**: `readBranding()`, `readGalleryDefaults()` and `readWatermark()`
+(`lib/settings/`, each with a `*.cached.ts` form) return the row, else the built-in default, through
+`readSettingRow` (never throws; logs `<key>_settings_unavailable` / `<key>_settings_invalid`). A new
+gallery copies them at creation (Phase 5); nothing reads them for an existing gallery. In M1 only the
+watermark has a screen and a write route (Settings → Watermarks); Branding and Galleries come in M2.
 
 ## Request lifecycle (API)
 

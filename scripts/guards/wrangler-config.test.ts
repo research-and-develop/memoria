@@ -96,6 +96,25 @@ export function bindingNames(config: WranglerConfig): string[] {
   return names;
 }
 
+/**
+ * The vars the CSP reads at build (plan p04 D4.15) must be bare origins (`https://host[:port]`, no
+ * path, no trailing slash) or empty: next.config.mjs puts them into the policy as they are.
+ */
+export const ORIGIN_VARS = ['MEDIA_PUBLIC_BASE_URL', 'MEDIA_S3_ENDPOINT'] as const;
+
+export function badOriginVars(vars: Record<string, unknown>): string[] {
+  return ORIGIN_VARS.filter((name) => {
+    const value = vars[name];
+    if (value === undefined || value === '') return false;
+    if (typeof value !== 'string') return true;
+    try {
+      return new URL(value).origin !== value;
+    } catch {
+      return true;
+    }
+  });
+}
+
 /** `KEY=value` lines of a .dev.vars file (comments and blanks skipped). */
 export function devVarsKeys(text: string): string[] {
   return [...text.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map(([, key = '']) => key);
@@ -177,6 +196,11 @@ describe('wrangler.jsonc', () => {
 
   it('never deploys NEXTJS_ENV (it opens the development-only routes)', () => {
     expect(Object.keys(config.vars ?? {})).not.toContain('NEXTJS_ENV');
+  });
+
+  it('the media vars the CSP reads are origins or empty', () => {
+    for (const name of ORIGIN_VARS) expect(config.vars, `vars.${name}`).toHaveProperty(name);
+    expect(badOriginVars(config.vars ?? {}), 'an origin: https://host, no path or trailing slash').toEqual([]);
   });
 
   it('every place that names the Worker uses its name', () => {
@@ -282,6 +306,19 @@ describe('the helpers catch the mistakes they are for', () => {
     ['SITE_URL', false],
   ])('%s looks secret: %s', (name, secret) => {
     expect(secretLookingVars({ [name]: 'x' })).toEqual(secret ? [name] : []);
+  });
+
+  it.each([
+    ['', true],
+    ['https://media.example.com', true],
+    ['https://acct.r2.cloudflarestorage.com', true],
+    ['http://localhost:9000', true],
+    ['https://media.example.com/', false],
+    ['https://media.example.com/photos', false],
+    ['media.example.com', false],
+    ['https://media.example.com?x=1', false],
+  ])('MEDIA_PUBLIC_BASE_URL %j is accepted: %s', (value, ok) => {
+    expect(badOriginVars({ MEDIA_PUBLIC_BASE_URL: value })).toEqual(ok ? [] : ['MEDIA_PUBLIC_BASE_URL']);
   });
 
   it('reads exported names', () => {
