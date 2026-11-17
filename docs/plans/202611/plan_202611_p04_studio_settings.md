@@ -443,7 +443,7 @@ readers, `watermarkImageUrl`); **Phase 5 commit 4 (the pipeline) needs commit 4*
 ## Checklist
 
 - [x] T4.1 Gallery theme, accents, contrast module, preset plugin, contrast rows
-- [ ] T4.2 Font registry, display font family and tokens, `Display`
+- [x] T4.2 Font registry, display font family and tokens, `Display`
 - [ ] T4.3 `RadioCards`, `SwatchPicker`, branding and gallery-defaults readers
 - [ ] T4.5 Settings → Watermarks, `applyWatermark`, upload helper, media CSP
 - [ ] Verification 1–3 (4 once the bucket and the public domain exist)

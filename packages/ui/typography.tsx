@@ -95,6 +95,28 @@ export function Heading({
   );
 }
 
+export type DisplaySize = 'cover' | 'lg' | 'md';
+
+const DISPLAY_SIZE: Record<DisplaySize, string> = {
+  cover: 'text-display-cover',
+  lg: 'text-display-lg',
+  md: 'text-display-md',
+};
+
+/**
+ * A title in the gallery's display face (`font-display`: the `--font-display` a
+ * `[data-gallery-font]` scope sets; Georgia outside one). Never bold: display faces are drawn at
+ * their regular weight. An `<h2>` by default.
+ */
+export function Display({ size = 'md', tone = 'ink', as, className, children, ...rest }: Polymorphic<{ size?: DisplaySize; tone?: TextTone }>) {
+  const Tag = as ?? 'h2';
+  return (
+    <Tag className={twMerge('font-display font-normal text-balance break-words', DISPLAY_SIZE[size], TEXT_TONE[tone], className)} {...rest}>
+      {children}
+    </Tag>
+  );
+}
+
 export type TextSize = 'micro' | 'caption' | 'body-sm' | 'body' | 'body-lg';
 
 const TEXT_SIZE: Record<TextSize, string> = {

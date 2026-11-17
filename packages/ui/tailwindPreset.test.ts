@@ -15,15 +15,16 @@ async function render(): Promise<string> {
 }
 
 describe('the Tailwind preset emits the gallery themes', () => {
-  it('dark, auto, an accent rule, all after :root', async () => {
+  it('dark, auto, an accent rule, a font rule, all after :root', async () => {
     const css = await render();
     const root = css.indexOf(':root');
     const darkRule = css.search(/\[data-gallery-theme="dark"\]\s*\{[^}]*--color-ground: 18 19 20;[^}]*color-scheme: dark/);
     const lightAuto = css.indexOf('[data-gallery-theme="auto"] {');
     const media = css.search(/@media \(prefers-color-scheme: dark\)\s*\{\s*\[data-gallery-theme="auto"\]/);
     const accent = css.search(/\[data-gallery-theme="dark"\]\[data-gallery-accent="navy"\]\s*\{[^}]*--color-accent: \d+ \d+ \d+/);
+    const font = css.search(/\[data-gallery-font="classic"\]\s*\{\s*--font-display: var\(--font-g-cormorant\), Georgia, serif/);
     expect(root).toBeGreaterThan(-1);
-    for (const at of [darkRule, lightAuto, media, accent]) expect(at).toBeGreaterThan(root);
+    for (const at of [darkRule, lightAuto, media, accent, font]) expect(at).toBeGreaterThan(root);
     expect(media).toBeGreaterThan(lightAuto);
   });
 });

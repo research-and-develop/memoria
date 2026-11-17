@@ -1,7 +1,7 @@
 ---
 title: Recipes
 type: reference
-updated: 2026-11-16
+updated: 2026-11-17
 related: [../AGENTS.md, architecture.md]
 ---
 
@@ -69,6 +69,28 @@ the `studio` row and Settings → Studio.
    audit names the fields, not the values.
 6. A card in a Settings section (`SettingsCard`; `components/admin/settings/nav.ts`), inside a
    `SecondFactorProvider` when the route can ask for a code; `router.refresh()` after saving.
+
+## A gallery colour
+
+A client gallery's accent is one of the curated swatches (plan p04 D4.5).
+
+1. One entry in `SWATCHES` (`packages/ui/theme/gallery.mjs`): `{ id, label, hex }`, the id lower-case
+   and never reused (a gallery stores it; an unknown id reads as Pine).
+2. Nothing else: `galleryAccent` mixes it per theme until it is legible, the preset emits its rules,
+   the contrast tests (`galleryAccent.test.ts`, `colorContrast.test.ts`) iterate the array, and
+   `/admin/design` → Gallery themes shows it. If the swatch is adjusted heavily on a theme (the design
+   page says *adjusted*), consider a slightly different hex.
+
+## A gallery font
+
+A gallery's typography is a curated pairing, never free mixing (plan p04 D4.7).
+
+1. A new face: one `next/font/google` call in `src/app/galleryFonts.ts` (`preload: false`,
+   `display: 'swap'`, `variable: '--font-g-<id>'`, the subsets of the scripts it covers) added to
+   `GALLERY_FONT_CLASSES`, and a `FAMILIES` entry in `packages/ui/theme/galleryFonts.mjs` (the same
+   variable, a fallback stack, `scripts`). `galleryFonts.test.ts` checks the two agree.
+2. One `PAIRINGS` entry (`{ id, label, display, text, scripts }`; `scripts` = what both faces cover).
+3. Check `/admin/design` → Gallery typography: the Latin and the Cyrillic title.
 
 ## A job kind
 

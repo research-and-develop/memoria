@@ -11,6 +11,8 @@
     /* Fallback font stacks; a next/font `variable` class on <html> overrides them. */
     --font-text: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    /* A gallery's display face; [data-gallery-font] sets it (packages/ui/theme/galleryFonts.mjs). */
+    --font-display: Georgia, serif;
   }
 
   html {

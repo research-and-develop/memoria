@@ -8,6 +8,7 @@ import { ControlsDemo } from './ControlsDemo';
 import { DesignSection } from './DesignSection';
 import { FieldsDemo } from './FieldsDemo';
 import { GalleryThemes } from './GalleryThemes';
+import { GalleryTypography } from './GalleryTypography';
 import { ShapesShowcase } from './ShapesShowcase';
 import { TypeScale } from './TypeScale';
 
@@ -46,6 +47,13 @@ export default function DesignPage() {
         note="The client gallery's light, dark and auto themes with every accent (packages/ui/theme/gallery.mjs). An accent too faint for a theme is adjusted automatically."
       >
         <GalleryThemes />
+      </DesignSection>
+      <DesignSection
+        id="gallery-type"
+        title="Gallery typography"
+        note="The font pairings a gallery can use (packages/ui/theme/galleryFonts.mjs), with a Latin and a Cyrillic title."
+      >
+        <GalleryTypography />
       </DesignSection>
     </div>
   );

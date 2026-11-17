@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast.mjs';
 import { themeCssVars } from './cssVars.mjs';
 import { dark, light, ROLE_MAPS, SWATCHES } from './gallery.mjs';
+import { PAIRINGS } from './galleryFonts.mjs';
 import { ACCENT_MIN, contrastText, galleryAccent, galleryThemeRules, mix, TEXT_MIN } from './galleryAccent.mjs';
 
 const THEMES = { light, dark } as const;
@@ -136,11 +137,17 @@ describe('galleryThemeRules', () => {
     expect(rules[darkAuto]?.vars['color-scheme']).toBe('dark');
   });
 
+  it('one rule per font pairing, setting --font-display', () => {
+    for (const p of PAIRINGS) {
+      expect(rules.find((r) => r.selector === `[data-gallery-font="${p.id}"]`)?.vars['--font-display']).toMatch(/^var\(--font-/);
+    }
+  });
+
   it('three accent rules per swatch, after every theme rule', () => {
     const accentRules = rules.filter((r) => r.selector.includes('data-gallery-accent'));
     expect(accentRules).toHaveLength(SWATCHES.length * 3);
     const firstAccent = rules.findIndex((r) => r.selector.includes('data-gallery-accent'));
-    const lastTheme = Math.max(...rules.map((r, i) => (r.selector.includes('data-gallery-accent') ? -1 : i)));
+    const lastTheme = Math.max(...rules.map((r, i) => (r.selector.includes('data-gallery-theme') && !r.selector.includes('data-gallery-accent') ? i : -1)));
     expect(firstAccent).toBeGreaterThan(lastTheme);
     const navyDark = rules.find((r) => r.selector === '[data-gallery-theme="dark"][data-gallery-accent="navy"]');
     expect(navyDark?.vars).toEqual(themeCssVars(galleryAccent('navy', 'dark')));

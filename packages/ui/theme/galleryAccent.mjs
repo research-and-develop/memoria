@@ -1,6 +1,7 @@
 import { contrastRatio } from './contrast.mjs';
 import { themeCssVars } from './cssVars.mjs';
 import { ROLE_MAPS, SWATCHES, dark, light } from './gallery.mjs';
+import { PAIRINGS, displayStack } from './galleryFonts.mjs';
 
 /**
  * The gallery accents and the CSS rules of every gallery theme (plan p04 D4.4–D4.7).
@@ -125,7 +126,8 @@ const DARK_MEDIA = '(prefers-color-scheme: dark)';
 /**
  * Every gallery CSS rule, in cascade order: one rule set per role map in `ROLE_MAPS` (with its
  * `color-scheme`), `auto` (light, then dark inside the media query), one rule per swatch × theme
- * (the light one also serves auto; the auto-dark one inside the media query). The preset adds them after the studio's `:root` rule, so a gallery scope wins.
+ * (the light one also serves auto; the auto-dark one inside the media query), one rule per font
+ * pairing (`--font-display`). The preset adds them after the studio's `:root` rule, so a gallery scope wins.
  * @returns {GalleryRule[]}
  */
 export function galleryThemeRules() {
@@ -146,6 +148,7 @@ export function galleryThemeRules() {
       { selector: `[data-gallery-theme="auto"]${accent}`, media: DARK_MEDIA, vars: themeCssVars(galleryAccent(id, 'dark')) },
     );
   }
+  for (const p of PAIRINGS) rules.push({ selector: `[data-gallery-font="${p.id}"]`, vars: { '--font-display': displayStack(p) } });
   return rules;
 }
 

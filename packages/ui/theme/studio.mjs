@@ -106,6 +106,15 @@ export const fontSize = {
   stat: ['1.75rem', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
   /** 12 px uppercase labels. */
   eyebrow: ['0.75rem', { lineHeight: '1.4', letterSpacing: '0.08em' }],
+  // The client gallery (ClientGallery.dc.html): display sizes in the gallery's display font.
+  /** The cover title: 56–112 px with the viewport. */
+  'display-cover': ['clamp(3.5rem, 9vw, 7rem)', { lineHeight: '0.95' }],
+  /** 48 px: a page title (Your favorites). */
+  'display-lg': ['3rem', { lineHeight: '1.05' }],
+  /** 32 px: section titles (a set's name, Sent to the studio). */
+  'display-md': ['2rem', { lineHeight: '1.15' }],
+  /** 14 px uppercase, wide: the cover's date line. */
+  'eyebrow-lg': ['0.875rem', { lineHeight: '1.4', letterSpacing: '0.18em' }],
 };
 
 /** Weights beyond Tailwind's (`font-semibold` 600 and `font-bold` 700 stay available). */
@@ -118,6 +127,8 @@ export const fontWeight = {
 export const fontFamily = {
   sans: ['var(--font-text)', 'system-ui', 'sans-serif'],
   mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+  /** A gallery's display face: `[data-gallery-font]` sets `--font-display` (theme/galleryFonts.mjs). */
+  display: ['var(--font-display)', 'Georgia', 'serif'],
 };
 
 export const borderRadius = {

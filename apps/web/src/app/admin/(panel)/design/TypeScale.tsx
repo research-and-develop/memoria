@@ -14,11 +14,11 @@ export function TypeScale() {
             <span className="flex w-40 shrink-0 flex-col">
               <Mono size="body-sm">text-{token}</Mono>
               <Caption>
-                {Number.parseFloat(size) * 16}px / {lineHeight}
+                {size.endsWith('rem') ? `${Number.parseFloat(size) * 16}px` : size} / {lineHeight}
                 {letterSpacing ? ` / ${letterSpacing}` : ''}
               </Caption>
             </span>
-            <span className="min-w-0 break-words font-sans text-ink" style={{ fontSize: size, lineHeight, letterSpacing, textTransform: token === 'eyebrow' ? 'uppercase' : undefined }}>
+            <span className="min-w-0 break-words font-sans text-ink" style={{ fontSize: size, lineHeight, letterSpacing, textTransform: token.startsWith('eyebrow') ? 'uppercase' : undefined }}>
               {SAMPLE}
             </span>
           </li>
