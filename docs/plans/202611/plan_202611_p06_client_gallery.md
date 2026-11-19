@@ -491,7 +491,7 @@ T6.9.
 
 - [x] T6.1 Static root layout, admin layout, static shell, build step, lazy OpenNext (S6.1)
 - [x] T6.2 `@repo/db/statement`, public builders, `importGraph.ts`, guard `edge-graph` (S6.2)
-- [ ] T6.3 Gallery handler, injection, access, visitor cookie, headers, cache, `worker.ts`, dev routes
+- [x] T6.3 Gallery handler, injection, access, visitor cookie, headers, cache, `worker.ts`, dev routes
 - [ ] T6.4 Gate route (IPv6 /64 keys, HMAC compare, daily notice), preview links, `Turnstile` `siteKey`
 - [ ] T6.5 Client app: header, cover, sets, grids, gate, share, deterrent, mobile
 - [ ] T6.6 Lightbox
@@ -578,6 +578,51 @@ Different from the design above:
   re-exports the same function.
 - AGENTS.md (approved by lane A): a new *Edge-safe code* section; `edge-graph` in the guards list;
   `statement.ts` on the `packages/db` row.
+
+**Commit 3 (T6.3), 2026-11-19, lane B** (on Phase 5's `523eabb`: `gallerySettings.ts`, `keys.ts`,
+`sortKey.ts`). The built Worker (node-direct `wrangler dev` on 8888, scratch D1 with 0006 and three
+seeded galleries) served:
+- a published link gallery: 200, `<html lang="en-GB" data-gallery-theme="dark">`, the wrapper's
+  theme/accent/font, the escaped Cyrillic title, `og:*`, an `mv` cookie, `X-Gallery-Cache: hit` on the
+  second view (the local Cache API works on localhost);
+- `/data`: an empty set of the gallery → `{ data: { …, photos: [] } }`; another gallery's set → 404;
+- a password gallery → the gate view, and its `/data` → 401;
+- a draft and an unknown slug → 404; `?cpu_probe=1` → 200.
+
+In a browser the page hydrates with the injected attributes and no console message. The dark theme
+reaches `<body>` (`color-scheme: dark`), and the view script sits outside the React root. The edge code
+is about 53 KB of the unminified bundle, all our own modules; the largest are the handler (8 KB) and
+`studio.mjs` (5 KB, through `accentId`). Not run live: `next dev` with the development routes; their
+route test drives them with a stubbed `fetch`.
+
+Different from the design above:
+
+- **The view is a union on `kind`**: `{ kind: 'gallery', gallery, studio, media, sets, page }` or
+  `{ kind: 'gate', gallery: { slug, title, theme, accent, font }, studio, turnstileSiteKey }`, instead
+  of a `gate` field. `gallery.cover` is the plan's object; the look is resolved through Phase 4's
+  registries (`accentId`, `pairing`), so an unknown id reads as the default.
+- **`/data` answers JSON for every outcome**: `{ data: page }`; 404 `NOT_FOUND` (an unknown or foreign
+  set, a malformed or > 700-character cursor, no `set`); **401 `GALLERY_LOCKED`** on a password gallery
+  without a valid cookie (the client reloads to show the gate); 503 `GALLERY_UNAVAILABLE`. The pages
+  keep the 404/503 HTML pages.
+- **An empty `/data` page reads the sets once more** (≤ 50 rows) to tell an empty set of the gallery
+  (200) from another gallery's set (404). It only happens when the join returns nothing.
+- **`routeEdge(request, { env, gallery: () => Promise<EdgeGalleryDeps> }, next)`**: the gallery deps
+  (and the HKDF keys) are built only for a `/g/` request. `edgeGalleryConfig(env)` and
+  `galleryConfig(parts)` (development, from `Config` and `readStudio()`) share `galleryKeysFor`.
+- **The studio row is parsed by Phase 2b's `parseStudioInput`** (import-free). The website is kept only
+  when it is `https`.
+- **`X-Gallery-Cache: hit|miss`** on pages and `/data` (Verification 5 reads it, not a log field).
+- **Description**: the welcome note (≤ 200 characters), else the studio name.
+- **The 503 template moves into `markers.mjs`** (`UNAVAILABLE_HTML`), shared by the build script and
+  the development routes.
+- **`edge-graph` also refuses the app's `@/` alias** anywhere `worker.ts` reaches (AGENTS.md: edge code
+  imports relatively). It asserts the walk reaches the handler, `gallerySettings.ts`, `keys.ts`,
+  `sortKey.ts` and the public builders.
+- **Signing exists for all three tokens now** (`signAccessCookie`, `signPreviewToken`,
+  `mintVisitorCookie`), so the tests mint real cookies; commit 4's gate and preview-link routes call them.
+- Tests: `access.test.ts`, `inject.test.ts`, `view.test.ts`, `handler.test.ts` (D1, 32 cases, including
+  502 photos paged by cursor in both sorts), `routes.test.ts`, `app/g/[slug]/route.test.ts`.
 
 ## Review log
 

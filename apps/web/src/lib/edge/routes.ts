@@ -9,15 +9,16 @@
  * Structural types only (no Cloudflare type: guard `platform-boundary`); everything reachable from here
  * must stay out of `server-only` and `@repo/db/client` (it runs outside Next's bundle).
  */
-import { galleryErrorPage, galleryPageHtml, type AssetFetcher } from './gallery/pages';
-import { galleryHeaders } from './gallery/headers';
+import type { EdgeGalleryDeps } from './gallery/deps';
+import { handleGalleryRequest } from './gallery/handler';
+import { galleryErrorPage } from './gallery/pages';
 
 export const HEALTH_PATH = '/healthz';
 
 /** Same value as the Next responses get (src/lib/security/headers.mjs): nothing is indexed. */
 export const ROBOTS_TAG = 'noindex, nofollow';
 
-export type EdgeEnv = { CF_VERSION_METADATA?: { id: string }; MEDIA_PUBLIC_BASE_URL?: string };
+export type EdgeEnv = { CF_VERSION_METADATA?: { id: string } };
 
 export function edgeResponse(request: Request, env: EdgeEnv): Response | null {
   const { pathname } = new URL(request.url);
@@ -61,7 +62,11 @@ export function inGalleryPrefix(pathname: string): boolean {
   return lower === '/g' || lower.startsWith('/g/');
 }
 
-export type EdgeDeps = { env: EdgeEnv; assets: AssetFetcher };
+/**
+ * `gallery()` builds the gallery deps on demand (the config derives keys): only a request under `/g/`
+ * pays for it.
+ */
+export type EdgeDeps = { env: EdgeEnv; gallery: () => Promise<EdgeGalleryDeps> };
 
 export async function routeEdge(request: Request, deps: EdgeDeps, next: () => Promise<Response>): Promise<Response> {
   const early = edgeResponse(request, deps.env);
@@ -69,13 +74,8 @@ export async function routeEdge(request: Request, deps: EdgeDeps, next: () => Pr
   const { pathname } = new URL(request.url);
   if (!inGalleryPrefix(pathname)) return next();
 
-  const mediaBaseUrl = deps.env.MEDIA_PUBLIC_BASE_URL || null;
-  const head = request.method === 'HEAD';
+  const gallery = await deps.gallery();
   const route = galleryRoute(pathname, request.method);
-  // The gallery's data (and `/data`) arrive with the handler (plan p06 T6.3); until then every gallery
-  // page is the bare shell.
-  if (!route || route.kind === 'data') return galleryErrorPage(deps.assets, 'notFound', { mediaBaseUrl, head });
-  const shell = await galleryPageHtml(deps.assets, 'shell');
-  if (shell === null) return galleryErrorPage(deps.assets, 'unavailable', { mediaBaseUrl, head });
-  return new Response(head ? null : shell, { status: 200, headers: galleryHeaders({ mediaBaseUrl, kind: 'page' }) });
+  if (!route) return galleryErrorPage(gallery.assets, 'notFound', { mediaBaseUrl: gallery.config.mediaBaseUrl, head: request.method === 'HEAD' });
+  return handleGalleryRequest(request, route, gallery);
 }

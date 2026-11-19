@@ -12,8 +12,8 @@
  * - a query module's `index.ts` barrel (it `export *`s the executing functions, hence
  *   `@repo/db/client`): the public builders are imported by path (`queries/<table>/public.ts`).
  * `@repo/logger`, `@repo/db/rows`, `@repo/db/statement` and type imports are fine. The alias map is
- * EMPTY (wrangler bundles `worker.ts` with no `alias`); `./.open-next/worker.js` exists only after a
- * build and is ignored. The walker: ./importGraph.ts (shared with `relay-graph`).
+ * EMPTY (wrangler bundles `worker.ts` with no `alias`), and the app's `@/` is refused too: edge code
+ * imports relatively (AGENTS.md). `./.open-next/worker.js` exists only after a build and is ignored. The walker: ./importGraph.ts (shared with `relay-graph`).
  */
 import { describe, expect, it } from 'vitest';
 
@@ -45,6 +45,7 @@ const EDGE_RULES: GraphRules = {
   bannedPackage: (spec) => BANNED_PACKAGE_RE.test(spec),
   bannedFile,
   ignoreUnresolved: (spec, from) => spec === OPEN_NEXT && from === ENTRY,
+  bannedSpecifier: (spec) => (spec.startsWith('@/') ? "the app's @/ alias: edge code imports relatively" : null),
 };
 
 const edgeWalk = (entry: string, sources: ReadonlyMap<string, string>) => walkImports(entry, sources, NO_ALIAS, EDGE_RULES);
@@ -56,7 +57,19 @@ describe('worker.ts reaches only edge-safe code', () => {
   it('finds the entry and walks into the edge code', () => {
     expect(sources.has(ENTRY)).toBe(true);
     const { reached } = edgeWalk(ENTRY, sources);
-    expect([...reached]).toEqual(expect.arrayContaining(['apps/web/src/lib/edge/routes.ts', 'apps/web/src/lib/edge/gallery/markers.mjs']));
+    expect([...reached]).toEqual(
+      expect.arrayContaining([
+        'apps/web/src/lib/edge/routes.ts',
+        'apps/web/src/lib/edge/gallery/handler.ts',
+        'apps/web/src/lib/edge/gallery/markers.mjs',
+        // Phase 5's import-free modules, on the gallery path (plan p05 D5.10, p06 D6.6).
+        'apps/web/src/lib/galleries/gallerySettings.ts',
+        'apps/web/src/lib/galleries/keys.ts',
+        'apps/web/src/lib/galleries/sortKey.ts',
+        'apps/web/src/lib/db/queries/galleries/public.ts',
+        'apps/web/src/lib/db/queries/photos/public.ts',
+      ]),
+    );
   });
 
   it('reaches no server-only, @repo/db/client, composition root, Next, React, OpenNext or barrel', () => {
@@ -100,7 +113,7 @@ describe('worker.ts reaches only edge-safe code', () => {
 
     it('catches a query module imported through its barrel, passes it by path', () => {
       const files = sample({
-        [ENTRY]: "import { a } from '@/lib/db/queries/site_settings';\nimport { b } from '@/lib/db/queries/site_settings/public';",
+        [ENTRY]: "import { a } from './src/lib/db/queries/site_settings';\nimport { b } from './src/lib/db/queries/site_settings/public';",
         'apps/web/src/lib/db/queries/site_settings/index.ts': "export * from './get';",
         'apps/web/src/lib/db/queries/site_settings/public.ts': 'export const b = 1;',
       });
@@ -120,6 +133,11 @@ describe('worker.ts reaches only edge-safe code', () => {
       expect(edgeWalk(ENTRY, sample({ [ENTRY]: "import { x } from '@opennextjs/aws';" })).violations).toEqual([`${ENTRY} → @opennextjs/aws`]);
       const elsewhere = sample({ [ENTRY]: "import './src/y';", 'apps/web/src/y.ts': `import '${OPEN_NEXT}';` });
       expect(edgeWalk(ENTRY, elsewhere).violations).toEqual([`${ENTRY} → apps/web/src/y.ts → ${OPEN_NEXT} (not found)`]);
+    });
+
+    it("catches the app's @/ alias, even where it resolves", () => {
+      const files = sample({ [ENTRY]: "import { x } from '@/lib/edge/x';", 'apps/web/src/lib/edge/x.ts': 'export const x = 1;' });
+      expect(edgeWalk(ENTRY, files).violations).toEqual([`${ENTRY} → @/lib/edge/x (the app's @/ alias: edge code imports relatively)`]);
     });
 
     it('catches Next and React', () => {

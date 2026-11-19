@@ -50,6 +50,8 @@ export type GraphRules = {
   bannedFile: (file: string) => string | null;
   /** A local specifier that resolves to nothing on purpose (a build output), not reported. */
   ignoreUnresolved?: (spec: string, from: string) => boolean;
+  /** Why a specifier must not be written at all (e.g. an alias the bundle lacks), or null. Checked before resolving. */
+  bannedSpecifier?: (spec: string) => string | null;
 };
 
 export type GraphWalk = { violations: string[]; reached: ReadonlySet<string> };
@@ -73,6 +75,8 @@ export function walkImports(
   while (queue.length) {
     const file = queue.shift() as string;
     for (const spec of runtimeImports(sources.get(file) ?? '')) {
+      const specReason = rules.bannedSpecifier?.(spec);
+      if (specReason) violations.push(`${chain(file)} → ${spec} (${specReason})`);
       const target = resolveSpecifier(spec, file, files, alias);
       if ('external' in target) {
         if (rules.bannedPackage(target.external)) violations.push(`${chain(file)} → ${spec}`);

@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { Db } from '@repo/platform/ports';
+
+import { NO_CACHE, type EdgeGalleryDeps } from './gallery/deps';
 import { GALLERY_PAGES } from './gallery/markers.mjs';
 import { HEALTH_PATH, ROBOTS_TAG, edgeResponse, galleryRoute, routeEdge, type EdgeDeps } from './routes';
 
-const env = { CF_VERSION_METADATA: { id: 'v-123' }, MEDIA_PUBLIC_BASE_URL: 'https://media.example.test' };
+const env = { CF_VERSION_METADATA: { id: 'v-123' } };
 
 describe('edgeResponse', () => {
   it('answers the health probe with the running version, uncached', async () => {
@@ -57,27 +60,33 @@ describe('galleryRoute', () => {
 });
 
 describe('routeEdge', () => {
-  const SHELL = '<!DOCTYPE html><html lang="en"><body>shell</body></html>';
   const NOT_FOUND = '<html><title>Page not found</title></html>';
-  const UNAVAILABLE = '<html><title>Not available right now</title></html>';
 
-  function deps(pages: Partial<Record<string, string>> = {}): EdgeDeps & { fetched: string[] } {
-    const files: Record<string, string | undefined> = {
-      [GALLERY_PAGES.shell]: SHELL,
-      [GALLERY_PAGES.notFound]: NOT_FOUND,
-      [GALLERY_PAGES.unavailable]: UNAVAILABLE,
-      ...pages,
-    };
+  /** Gallery deps whose D1 knows no gallery: a routed request reaches the handler (one batch) and gets the 404 page. */
+  function deps(): EdgeDeps & { fetched: string[]; batches: () => number } {
     const fetched: string[] = [];
-    return {
-      env,
-      fetched,
+    let batches = 0;
+    const db = {
+      batch: async () => {
+        batches += 1;
+        return [
+          { rows: [], changes: 0 },
+          { rows: [], changes: 0 },
+        ];
+      },
+    } as unknown as Db;
+    const gallery: EdgeGalleryDeps = {
+      db,
       assets: async (path) => {
         fetched.push(path);
-        const body = files[path];
-        return body === undefined ? new Response('missing', { status: 404 }) : new Response(body, { status: 200 });
+        return path === GALLERY_PAGES.notFound ? new Response(NOT_FOUND, { status: 200 }) : new Response('missing', { status: 404 });
       },
+      cache: NO_CACHE,
+      config: { mediaBaseUrl: 'https://media.example.test', keys: null, turnstileSiteKey: '', appName: 'Studio', isDevelopment: false },
+      now: () => new Date(),
+      waitUntil: () => {},
     };
+    return { env, fetched, batches: () => batches, gallery: async () => gallery };
   }
 
   const throwingNext = () => {
@@ -91,15 +100,14 @@ describe('routeEdge', () => {
     expect(res.status).toBe(200);
   });
 
-  it('serves a gallery page from the shell, without calling Next', async () => {
+  it.each(['/g/maria-jonas-k7x2qpm4rt', '/g/abc/data', '/g/abc?cpu_probe=1'])('%s reaches the gallery handler, not Next', async (path) => {
     const d = deps();
-    const res = await routeEdge(new Request('https://x.test/g/maria-jonas-k7x2qpm4rt'), d, throwingNext);
-    expect(res.status).toBe(200);
-    expect(await res.text()).toBe(SHELL);
-    expect(d.fetched).toEqual([GALLERY_PAGES.shell]);
+    const res = await routeEdge(new Request(`https://x.test${path}`), d, throwingNext);
+    expect(d.batches()).toBe(1);
+    expect(res.status).toBe(404);
   });
 
-  it('sets the gallery headers (D6.13)', async () => {
+  it('sets the gallery headers on the 404 page (D6.13)', async () => {
     const res = await routeEdge(new Request('https://x.test/g/abc'), deps(), throwingNext);
     expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
     expect(res.headers.get('cache-control')).toBe('private, no-store');
@@ -112,12 +120,6 @@ describe('routeEdge', () => {
     expect(csp).not.toContain('cloudflareinsights');
   });
 
-  it('answers HEAD without a body', async () => {
-    const res = await routeEdge(new Request('https://x.test/g/abc', { method: 'HEAD' }), deps(), throwingNext);
-    expect(res.status).toBe(200);
-    expect(await res.text()).toBe('');
-  });
-
   it.each([
     ['/G/abc', 'GET'],
     ['/g/abc/', 'GET'],
@@ -125,37 +127,15 @@ describe('routeEdge', () => {
     ['/g/abc', 'POST'],
     ['/g/', 'GET'],
     ['/g', 'GET'],
-    // The data route arrives with the handler (T6.3).
-    ['/g/abc/data', 'GET'],
-  ])('%s by %s → the 404 page, never Next', async (path, method) => {
-    const res = await routeEdge(new Request(`https://x.test${path}`, { method }), deps(), throwingNext);
+  ])('%s by %s → the 404 page without a D1 read, never Next', async (path, method) => {
+    const d = deps();
+    const res = await routeEdge(new Request(`https://x.test${path}`, { method }), d, throwingNext);
     expect(res.status).toBe(404);
     expect(await res.text()).toBe(NOT_FOUND);
-    expect(res.headers.get('x-robots-tag')).toBe(ROBOTS_TAG);
+    expect(d.batches()).toBe(0);
   });
 
-  it('answers the 503 page when the shell is missing', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    const res = await routeEdge(new Request('https://x.test/g/abc'), deps({ [GALLERY_PAGES.shell]: undefined }), throwingNext);
-    expect(res.status).toBe(503);
-    expect(await res.text()).toBe(UNAVAILABLE);
-    expect(error.mock.calls.flat().join(' ')).not.toContain('abc');
-  });
-
-  it('answers a bare 503 when the error page is missing too', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    const res = await routeEdge(
-      new Request('https://x.test/g/abc'),
-      deps({ [GALLERY_PAGES.shell]: undefined, [GALLERY_PAGES.unavailable]: undefined }),
-      throwingNext,
-    );
-    expect(res.status).toBe(503);
-    expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
-  });
-
-  it.each(['/', '/admin', '/api/admin/login', '/gallery-shell', '/galleries', '/_next/static/x.js'])(
+  it.each(['/', '/admin', '/api/admin/login', '/api/g/abc/access', '/gallery-shell', '/galleries', '/_next/static/x.js'])(
     'hands %s to Next',
     async (path) => {
       const next = vi.fn(async () => new Response('next'));

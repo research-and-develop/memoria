@@ -29,3 +29,25 @@ export const GALLERY_PAGES = Object.freeze({
   notFound: '/__gallery/404',
   unavailable: '/__gallery/503',
 });
+
+/**
+ * The 503 page ("The gallery is not available right now": a D1 error, a missing shell or key). The
+ * build writes it to `__gallery/503.html`; the development route handlers serve it directly.
+ */
+export const UNAVAILABLE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Not available right now</title>
+<style>body{margin:0;font-family:system-ui,sans-serif;line-height:1.5}main{max-width:36rem;margin:0 auto;padding:4rem 1rem}h1{font-size:1.5rem}</style>
+</head>
+<body>
+<main>
+<h1>The gallery is not available right now</h1>
+<p>Please try again in a few minutes.</p>
+</main>
+</body>
+</html>
+`;

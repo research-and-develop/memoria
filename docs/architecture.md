@@ -35,16 +35,58 @@ re-exported). A gallery page is **one static shell for every gallery**: `app/gal
 prerendered (`force-static`), and `build:app` (`opennextjs-cloudflare build`, then
 `scripts/gallery-shell.mjs`) copies it with the 404 page into `.open-next/assets/__gallery/` and writes
 a 503 page; the build fails when the shell or one of its markers (`src/lib/edge/gallery/markers.mjs`)
-is missing. `worker.ts` fetches `/__gallery/shell` through `ASSETS` and (from Phase 6 commit 3)
-injects the gallery's head, theme attributes and data; its responses set their own headers (the gallery
-CSP profile, `Referrer-Policy: no-referrer`, `X-Robots-Tag`; `src/lib/edge/gallery/headers.ts`).
-Anything else under `/g/` is the 404 page. Plan: [p06](plans/202611/plan_202611_p06_client_gallery.md).
+is missing. `worker.ts` fetches `/__gallery/shell` through `ASSETS` and injects the gallery's head,
+theme attributes and data; its responses set their own headers (the gallery CSP profile,
+`Referrer-Policy: no-referrer`, `X-Robots-Tag`; `src/lib/edge/gallery/headers.ts`). Anything else
+under `/g/` is the 404 page. Plan: [p06](plans/202611/plan_202611_p06_client_gallery.md).
 
 **One static root layout**: `app/layout.tsx` (html, body, studio fonts, `viewport`) reads no D1, so
 the shell under it can be prerendered. What reads config per request declares it:
 `app/admin/layout.tsx` (`force-dynamic`, the title template, `getAppConfig`, `AppProvider` for the
 panel and the sign-in page) and `app/page.tsx` (`force-dynamic`, the studio name as title).
 `not-found.tsx` and `error.tsx` carry static titles.
+
+### Client galleries (Phase 6)
+
+```
+GET /g/<slug>                   worker.ts → routeEdge → handleGalleryRequest (src/lib/edge/gallery/handler.ts)
+  one D1 batch: the gallery by slug (public columns only, cover joined) + the `studio` row
+  unknown, deleted, or a draft without a valid ?preview=     → the 404 page
+  password gallery without a valid mg_ cookie                → the shell with the GATE view (title, look, studio)
+  else: sets + first photo page from caches.default, or D1 (then cached in waitUntil)
+  injectGallery(shell, view) → 200, gallery headers, an mv cookie if none
+GET /g/<slug>/data?set=&cursor=  the same checks → { data: { setId, photos, next } } (401 locked, 404 foreign set)
+D1 error / missing shell / missing key                     → the 503 page (/data: 503 JSON), logged without id or slug
+```
+
+- **One handler, two hosts**: `worker.ts` builds its deps from `env` (`d1Db(env.DB)`, `env.ASSETS`,
+  `caches.default`, `ctx.waitUntil`, `edgeGalleryConfig(env)`); under `next dev` (which never runs
+  `worker.ts`) the route handlers `app/g/[slug]/route.ts` and `…/data/route.ts` build them from
+  `getPlatform()` (`lib/galleries/devGalleryDeps.ts`: Next's `/gallery-shell` page as the shell, no
+  cache) and answer 404 unless `NEXTJS_ENV=development`.
+- **The view JSON** (`view.ts`, `GalleryView` v1) is built from the public reads
+  (`lib/db/queries/*/public.ts`), so no password, client field, filename or original key can reach it;
+  photos are `[id, w, h, color, rev, ext]` (≤ 500 a page, then a `sort_key` cursor), and the browser
+  builds the public media URLs with Phase 5's `thumbKey`/`displayKey`. It is injected as
+  `<script id="__gallery" type="application/json">` before `</body>`, outside React's tree; every
+  injected value goes through one HTML escaper, the JSON has every `<` escaped (`inject.ts`).
+- **Three signed tokens, three keys** (`access.ts`): HKDF-SHA256 of `SETTINGS_ENCRYPTION_KEY` (salt
+  `memoria:gallery:salt:v1`) into an **access** key (`mg_<12 hex of the gallery id>` =
+  `v1.<password_version>.<expiry>.<MAC>`, 30 days: a password change ends it), a **preview** key
+  (`?preview=<expiry>.<MAC>`, 1 hour, opens drafts only) and a **visitor** key (`mv` =
+  `v1.<128-bit id>.<MAC>`, 1 year, set on every gallery response without a D1 write, for Phases 7 and
+  11). All cookies `Path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS. The keys are derived once
+  per isolate (`globalThis`). Without the secret, link galleries still open (no `mv`); password
+  galleries and previews answer 503 (`gallery_key_missing`). Rotating it ends every cookie and preview.
+- **Cache**: the photo JSON, never the HTML, in `caches.default` for a day, keyed
+  `https://cache.internal/g/<id>/<content_version>/first/start` (the first view: sets + first page) and
+  `…/<setId>/<cursor|start>` (`/data`); a cached entry is a separate internal `public` response without
+  `Set-Cookie`. Access and the studio name are read fresh on every request (2 D1 rows on a hit);
+  `content_version` (Phase 5) changes the key when the photos change. `X-Gallery-Cache: hit|miss`
+  says which. Inert on `workers.dev`: every view reads D1 there.
+- **Headers**: the gallery CSP profile (Turnstile kept for the gate, no beacon, no S3 endpoint, the media
+  domain in `img-src`), `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`,
+  `Cache-Control: private, no-store` for pages and `private, max-age=60` for `/data`.
 
 ### The relay Worker (Phase 3)
 
