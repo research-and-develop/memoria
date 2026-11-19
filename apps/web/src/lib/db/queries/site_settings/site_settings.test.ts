@@ -4,6 +4,7 @@ import { batch } from '@repo/db/client';
 import { createTestDb, type TestDb } from '@repo/db/test-utils';
 
 import { getSiteSetting, listSiteSettings, upsertSiteSetting, upsertSiteSettingStatement } from './index';
+import { studioSettingStatement, toSiteSettingRow, type SiteSettingDbRow } from './public';
 
 let testDb: TestDb;
 const opts = () => ({ db: testDb.db });
@@ -37,5 +38,15 @@ describe('site_settings queries', () => {
       batch([upsertSiteSettingStatement('seo', { title: 'x' }), upsertSiteSettingStatement('Bad Key', 1)], opts()),
     ).rejects.toThrow(/CHECK constraint failed/);
     expect(await listSiteSettings(opts())).toEqual([]);
+  });
+});
+
+describe('the public read (edge-safe, plan p06 D6.6)', () => {
+  it('reads the studio row on the Db port, or nothing', async () => {
+    expect(await testDb.db.first<SiteSettingDbRow>(studioSettingStatement())).toBeNull();
+    await upsertSiteSetting('studio', { name: 'North Light', siteUrl: null }, opts());
+    await upsertSiteSetting('branding', { x: 1 }, opts());
+    const row = await testDb.db.first<SiteSettingDbRow>(studioSettingStatement());
+    expect(row && toSiteSettingRow(row)).toMatchObject({ key: 'studio', value: { name: 'North Light', siteUrl: null } });
   });
 });

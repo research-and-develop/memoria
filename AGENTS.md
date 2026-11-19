@@ -38,7 +38,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `packages/api` | the HTTP envelope: `responses`, `withErrorHandling`, `publicErrorMessage`, `responseHeaders` |
 | `packages/platform` | the ports (`Db`, `BlobStore`, `Config`, `defer`: `ports.ts`), config parsing, media rules, blob tokens/URLs; `current.ts` = the composition root (`getPlatform()`); `mail/` = the mailers (`smtp.ts`, `brevo.ts`, `ses.ts`, `microsoft365.ts`, `mime.ts`, `mask.ts`, `transport.ts`); `testing/` = the test platform and scripted SMTP server / fetch, `contract/` = the adapter contract suites |
 | `packages/platform-cloudflare` | the Cloudflare adapters: `d1.ts`, `r2.ts`, `platform.ts` (`cloudflarePlatform(env, waitUntil)`), `next.ts` (OpenNext), `relay.ts` (the relay's composition root: `withPlatform`), `smtp.ts` (`cloudflare:sockets` for the SMTP client; vitest aliases the module to a stub), `testing/proxy.ts` |
-| `packages/db` | the database layer on the `Db` port: `client.ts` (`statement`, `query`, `queryFirst`, `execute`, `batch`, `all`/`first`/`run`, `allRows`/`firstRow`, `getDb`), `rows.ts` (pure converters), `migrations.ts`, `test-utils` |
+| `packages/db` | the database layer on the `Db` port: `client.ts` (`statement`, `query`, `queryFirst`, `execute`, `batch`, `all`/`first`/`run`, `allRows`/`firstRow`, `getDb`), `statement.ts` (`statement()`, import-free: edge code imports it from here), `rows.ts` (pure converters), `migrations.ts`, `test-utils` |
 | `packages/ui` | `theme/studio.mjs` = every design value (colour roles, type scale, radii); `theme/gallery.mjs` + `galleryAccent.mjs` + `galleryFonts.mjs` = the client gallery's themes, accent swatches and font pairings (Phase 4); primitives (`button`, `input`, `layout`), `typography.tsx` (single source of text styling), `cn.ts` (`twMerge`), `date.tsx`, `hooks/useApi`; the Tailwind preset maps the theme |
 | `migrations/*.sql` | the authoritative D1 schema, applied by wrangler and by the test harness |
 | `scripts/guards/*.test.ts` | repo-wide rules enforced by the suite |
@@ -124,6 +124,20 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
   `perRender` ones (`getStudio`, `getAdminAccount`: React). Type-only imports are fine.
 - Both Workers' configs agree (account, D1, bucket, compatibility, shared vars); only the app has
   `migrations_dir`; the relay has no public URL. Guard: `wrangler-config`.
+
+## Edge-safe code
+
+- **`apps/web/worker.ts` answers `/healthz` and the client galleries (`/g/*`) before Next loads**
+  (`routeEdge` in `src/lib/edge/routes.ts`) and imports OpenNext **lazily**, on the Next path only.
+  Everything it reaches is bundled outside Next with NO alias: no `server-only`, `@repo/db/client`,
+  `@repo/platform/current`, `next`, `react`, `@opennextjs/*`, `@repo/api` or `@repo/ui` (except
+  `theme/`), and never a static import of `.open-next/worker.js`. Guard: `edge-graph` (it prints the
+  import chain).
+- **SQL on the edge**: build statements with `@repo/db/statement` (import-free; `@repo/db/client`
+  re-exports it). The public reads are `lib/db/queries/<table>/public.ts` builders (only
+  `@repo/db/statement`, `@repo/db/rows`, the module's import-free `types.ts`, type imports), imported
+  **by path, never through the `index.ts` barrel**; the edge code runs them on the `Db` port it is given
+  (`d1Db(env.DB)` in `worker.ts`). Edge files take structural types (no Cloudflare type: `platform-boundary`).
 
 ## Workspace rules
 
@@ -318,7 +332,9 @@ no `NEXTJS_ENV` in `vars`, every hard-coded Worker name = `name`),
 `getCloudflareContext()` or Cloudflare runtime type outside the adapters; contract suites only in tests),
 `settings-through-store` (`Config.bootstrap`, the env defaults of studio settings, read only in
 `packages/platform/config.ts`, the test platform, `lib/settings/**` and `lib/auth/account.ts`),
-`relay-graph` (the relay bundles no Next, React, OpenNext, `@repo/api` or `@repo/ui` outside `theme/`).
+`relay-graph` (the relay bundles no Next, React, OpenNext, `@repo/api` or `@repo/ui` outside `theme/`),
+`edge-graph` (`worker.ts` and every `queries/*/public.ts` reach no `server-only`, `@repo/db/client`,
+composition root, Next, React, OpenNext or query barrel; walker shared in `importGraph.ts`).
 
 - Need a repo-wide rule? **Add a guard test, not a linter.**
 - A guard reads source through `readSourceFiles` from `@repo/core/testing/sourceIndex` (one

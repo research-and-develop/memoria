@@ -490,7 +490,7 @@ T6.9.
 ## Checklist
 
 - [x] T6.1 Static root layout, admin layout, static shell, build step, lazy OpenNext (S6.1)
-- [ ] T6.2 `@repo/db/statement`, public builders, `importGraph.ts`, guard `edge-graph` (S6.2)
+- [x] T6.2 `@repo/db/statement`, public builders, `importGraph.ts`, guard `edge-graph` (S6.2)
 - [ ] T6.3 Gallery handler, injection, access, visitor cookie, headers, cache, `worker.ts`, dev routes
 - [ ] T6.4 Gate route (IPv6 /64 keys, HMAC compare, daily notice), preview links, `Turnstile` `siteKey`
 - [ ] T6.5 Client app: header, cover, sets, grids, gate, share, deterrent, mobile
@@ -540,6 +540,44 @@ Different from the design above:
   `build:app`.
 - **`error.tsx`** renders `<title>` (a client component cannot export `metadata`). The source test is
   `app/layouts.test.ts`.
+
+**Commit 2 (T6.2), 2026-11-19, lane B.** **S6.2 passed**, as a spike that was reverted: `worker.ts`
+imported `d1Db` (`@repo/platform-cloudflare/d1`) and `site_settings/public.ts` and answered a probe path
+with `d1Db(env.DB).first(studioSettingStatement())`. `wrangler deploy --dry-run` bundled it and the
+bundle grew by **1,804 bytes** (6,994,765 → 6,996,569; limit 20 KB). `edge-graph` passed with those imports,
+and the built Worker returned the studio row from a scratch D1. Commit 3 wires the deps for real.
+
+Different from the design above:
+
+- **The four public builders**, on Phase 5's migration 0006 (rebased on its commit 2, `151ad96`):
+  - `site_settings/public.ts`: `studioSettingStatement()`, re-exporting the import-free `toSiteSettingRow`.
+  - `galleries/public.ts`: `galleryBySlugStatement(slug)` with `PublicGalleryRow`/`toPublicGalleryRow`.
+    It has its own column list (never `password_sealed`, `client_name`, `client_email`), and the cover's
+    sizes come through a `LEFT JOIN photos` on the cover id (a ready, visible photo of the gallery
+    only), so a view reads one gallery row. It excludes deleted galleries; drafts are left to the
+    handler (preview links).
+  - `photo_sets/public.ts`: `publicSetsStatement(galleryId)` (`id, name, photo_count`, by `position`,
+    `LIMIT MAX_SETS`).
+  - `photos/public.ts`: `publicPhotosStatement(galleryId, setId, afterSortKey, limit = 501)`. It returns
+    `w`/`h` = the display copy's size, the colour, `rev`, `ext` and `sort_key`. The limit is clamped
+    to 1–501 (one row past the page tells the handler a next page exists), and the first page passes `''`.
+
+  Their D1 tests are one file, `galleries/public.test.ts` (what one view runs): no client or password
+  field (a deep key scan); deleted → not found; the cover gone once hidden; another gallery's set →
+  nothing; hidden, deleted and uploading photos absent; cursor paging; `ix_photos_set_order` in the query
+  plan. The gate's read of `password_sealed` (Phase 5 keeps it out of `GalleryRow`) is a separate
+  builder in commit 4.
+- **`importGraph.ts`** exports `runtimeImports`, `resolveSpecifier` and `walkImports(entry, sources,
+  alias, rules)`, which returns the violations and the files reached. Each guard brings its rules
+  (`bannedPackage`, `bannedFile`, `ignoreUnresolved`); `relay-graph` keeps its rules and tests.
+- **`edge-graph` also walks every `queries/*/public.ts` as an entry**, so a public builder is checked
+  before `worker.ts` imports it. It also bans `@repo/api` and `@repo/ui` outside `theme/` (as
+  `relay-graph` does) and `packages/platform-cloudflare/next.ts`. `./.open-next/worker.js` is ignored
+  only when `worker.ts` imports it.
+- `statement()`'s tests move to `packages/db/statement.test.ts` (no D1), plus a check that `@repo/db/client`
+  re-exports the same function.
+- AGENTS.md (approved by lane A): a new *Edge-safe code* section; `edge-graph` in the guards list;
+  `statement.ts` on the `packages/db` row.
 
 ## Review log
 

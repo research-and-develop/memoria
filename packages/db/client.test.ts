@@ -29,21 +29,7 @@ async function labels(): Promise<string[]> {
 
 const insert = (label: string) => statement('INSERT INTO batch_probe (label) VALUES (?)', [label]);
 
-describe('statement', () => {
-  it('is plain, frozen data', () => {
-    const stmt = statement('SELECT ?', ['a']);
-    expect(stmt).toEqual({ sql: 'SELECT ?', params: ['a'] });
-    expect(Object.isFrozen(stmt) && Object.isFrozen(stmt.params)).toBe(true);
-  });
-
-  it.each([
-    ['undefined', [undefined], /parameter 0 is undefined/],
-    ['a boolean', ['ok', true], /parameter 1 is boolean/],
-    ['an object', [{}], /parameter 0 is object/],
-  ])('refuses %s', (_label, params, message) => {
-    expect(() => statement('SELECT ?, ?', params as never)).toThrow(message);
-  });
-});
+// statement() itself: ./statement.test.ts.
 
 describe('batch', () => {
   it('commits every statement together', async () => {

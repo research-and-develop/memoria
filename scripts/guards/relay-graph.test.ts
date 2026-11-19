@@ -7,10 +7,9 @@
  * Next's composition root. One such import drags megabytes into the relay (or fails its build), and
  * nothing else would notice until a deploy.
  *
- * It resolves specifiers the way the relay's bundle does: the relay's `alias` map first (read from
- * apps/relay/wrangler.jsonc), then relative paths, `@/` → apps/web/src, `@repo/<pkg>/<path>` →
- * packages/<pkg>/<path>. Any other specifier is a third-party leaf. Type-only imports are skipped
- * (erased). A failure prints the import chain from the entry.
+ * It resolves specifiers the way the relay's bundle does (the walker in ./importGraph.ts, shared with
+ * guard `edge-graph`), with the relay's `alias` map read from apps/relay/wrangler.jsonc. A failure
+ * prints the import chain from the entry.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -18,10 +17,11 @@ import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-import { readSourceFiles, repoRoot, stripComments } from '@repo/core/testing/sourceIndex';
+import { readSourceFiles, repoRoot } from '@repo/core/testing/sourceIndex';
+
+import { runtimeImports, walkImports, type GraphRules } from './importGraph';
 
 const ENTRY = 'apps/relay/src/index.ts';
-const CANDIDATE_SUFFIXES = ['', '.ts', '.tsx', '.mts', '.mjs', '.js', '/index.ts', '/index.tsx'];
 
 const BANNED_PACKAGE_RE = /^(?:next|react|react-dom|@opennextjs\/[^/]+)(?:\/|$)/;
 const BANNED_FILES: Record<string, string> = {
@@ -35,68 +35,11 @@ function bannedFile(file: string): string | null {
   return null;
 }
 
-const IMPORT_RES = [
-  /^\s*import\s+(?!type\b)[^'"]*?\bfrom\s*['"]([^'"]+)['"]/gm, // import x from 'y' (not `import type`)
-  /^\s*import\s*['"]([^'"]+)['"]/gm, // import 'y'
-  /^\s*export\s+(?!type\b)[^'"]*?\bfrom\s*['"]([^'"]+)['"]/gm, // export … from 'y' (not `export type`)
-  /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g, // import('y')
-];
+const RELAY_RULES: GraphRules = { bannedPackage: (spec) => BANNED_PACKAGE_RE.test(spec), bannedFile };
 
-/** The runtime import specifiers of a source file. */
-export function runtimeImports(source: string): string[] {
-  const text = stripComments(source);
-  return [...new Set(IMPORT_RES.flatMap((re) => [...text.matchAll(re)].map((m) => m[1] ?? '')))];
-}
-
-type Resolved = { file: string } | { external: string } | { unresolved: string };
-
-/** Where a specifier leads, over the given files (repo-relative paths). */
-export function resolveSpecifier(spec: string, from: string, files: ReadonlySet<string>, alias: Readonly<Record<string, string>>): Resolved {
-  const find = (base: string): Resolved => {
-    const normal = path.posix.normalize(base);
-    for (const suffix of CANDIDATE_SUFFIXES) if (files.has(normal + suffix)) return { file: normal + suffix };
-    return { unresolved: spec };
-  };
-  if (alias[spec]) return find(alias[spec]);
-  if (spec.startsWith('.')) return find(path.posix.join(path.posix.dirname(from), spec));
-  if (spec.startsWith('@/')) return find(`apps/web/src/${spec.slice(2)}`);
-  const pkg = /^@repo\/([^/]+)(?:\/(.+))?$/.exec(spec);
-  if (pkg) return find(`packages/${pkg[1]}/${pkg[2] ?? 'index'}`);
-  return { external: spec };
-}
-
-/** Every rule break reachable from `entry`, each with its import chain. Pure over `sources`. */
-export function relayViolations(entry: string, sources: ReadonlyMap<string, string>, alias: Readonly<Record<string, string>>): string[] {
-  const files = new Set(sources.keys());
-  const parent = new Map<string, string | null>([[entry, null]]);
-  const chain = (file: string) => {
-    const out: string[] = [];
-    for (let at: string | null | undefined = file; at; at = parent.get(at)) out.unshift(at);
-    return out.join(' → ');
-  };
-  const found: string[] = [];
-  const queue = [entry];
-  while (queue.length) {
-    const file = queue.shift() as string;
-    for (const spec of runtimeImports(sources.get(file) ?? '')) {
-      const target = resolveSpecifier(spec, file, files, alias);
-      if ('external' in target) {
-        if (BANNED_PACKAGE_RE.test(target.external)) found.push(`${chain(file)} → ${spec}`);
-        continue;
-      }
-      if ('unresolved' in target) {
-        if (spec.startsWith('.') || spec.startsWith('@/') || spec.startsWith('@repo/')) found.push(`${chain(file)} → ${spec} (not found)`);
-        continue;
-      }
-      const reason = bannedFile(target.file);
-      if (reason) found.push(`${chain(file)} → ${target.file} (${reason})`);
-      if (!parent.has(target.file)) {
-        parent.set(target.file, file);
-        if (!reason) queue.push(target.file);
-      }
-    }
-  }
-  return found;
+/** Every rule break reachable from `entry`, each with its import chain (the walker: ./importGraph.ts). */
+function relayViolations(entry: string, sources: ReadonlyMap<string, string>, alias: Readonly<Record<string, string>>): string[] {
+  return walkImports(entry, sources, alias, RELAY_RULES).violations;
 }
 
 /** Repo-relative alias targets from the relay's wrangler.jsonc (its paths are relative to it). */

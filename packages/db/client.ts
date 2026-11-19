@@ -3,6 +3,8 @@ import 'server-only';
 import { getPlatform } from '@repo/platform/current';
 import type { BatchResult, Db, SqlValue, Statement, WriteResult } from '@repo/platform/ports';
 
+import { statement } from './statement';
+
 /**
  * The database layer, on the `Db` port (D1 in production; see @repo/platform-cloudflare/d1).
  * Every executing function takes `opts?: Options` LAST and threads it here, so a test (or a caller
@@ -32,15 +34,8 @@ export function getDb(opts?: Options): Db {
   return opts?.db ?? getPlatform().db();
 }
 
-/** A statement: SQL and its parameters, frozen. The unit `batch()` takes. Executes nothing. */
-export function statement(sql: string, params: readonly SqlValue[] = []): Statement {
-  params.forEach((value: unknown, i) => {
-    if (value !== null && typeof value !== 'string' && typeof value !== 'number') {
-      throw new TypeError(`statement parameter ${i} is ${value === undefined ? 'undefined' : typeof value}: bind a string, a number or null`);
-    }
-  });
-  return Object.freeze({ sql, params: Object.freeze([...params]) });
-}
+/** `statement()` lives in the import-free `./statement` (code `worker.ts` reaches builds statements too). */
+export { statement };
 
 /** All rows of a statement. */
 export function all<T = Record<string, unknown>>(stmt: Statement, opts?: Options): Promise<T[]> {
