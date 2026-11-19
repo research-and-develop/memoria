@@ -763,7 +763,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [x] T5.1 Originals bucket, per-bucket stores, signer cache
 - [x] T5.2 Migration and query modules
 - [x] T5.3 Gallery library, create/list/get/patch/publish/new-link, New gallery and Galleries pages
-- [ ] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
+- [x] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
 - [ ] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
 - [ ] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
 - [ ] T5.9 `Chip`, `Tabs`, `scrim`
@@ -841,6 +841,45 @@ on them; this commit adds the rest. Different from the design above:
 - Gate: route tests (18) and component tests (6) on the create/list/patch/publish/new-link flow;
   `build:worker` lists the new pages and routes, and the built Worker answers them (307 to sign-in, 401
   for the API without a session). The owner checks the screens at the M1 review.
+
+**Commit 4 (T5.4), 2026-11-19, lane C (worktree `photo-gallery-p5pipe`).** As designed, plus:
+
+- **More modules than the listing**: `probe.ts` (on the page, before a worker: type from the bytes,
+  ≤ 100 MB, ≤ 100 MP from the frame header, `megapixels` for the pool; reads 512 KB, else the whole
+  file), `process.ts` (`processFile`, the steps of D5.5 with the browser APIs injected; the worker is a
+  thin wrapper), `imagePool.ts` (`createImagePool`, `poolSize`, `MAX_MEGAPIXELS_IN_FLIGHT` = 80),
+  `refusals.ts` (refusal codes and the upload panel's sentences), `canvas.ts` (the canvas slice the
+  pure cores take), `metadata/refusal.ts`, `metadata/bytes.ts`, `testing/fakeCanvas.ts`.
+- **D5.6 removes a little more**: the XMP, IPTC and Photoshop blocks a TIFF tag can carry (0x02BC,
+  0x83BB, 0x8649) and Photoshop's `OwnerName` (0xFDE8); `MakerNote` and the free-text tags go from
+  any kept IFD (IFD0, Exif, Interop); every next-IFD pointer is written 0.
+- **The allow-list keeps DAC and DNL** (decoding tables of arithmetic-coded and height-in-trailer
+  files, no metadata); APP0 only as `JFIF` (JFXX thumbnails dropped), APP14 only as `Adobe`; IPTC
+  keeps 2:00 (the record version, structural) with the four records.
+- **The browser decodes the cleaned original**, so a rebuilt JPEG that would not decode is refused
+  (`decode`) and the stored bytes are the ones that were looked at. The thumbnail is drawn from the
+  display copy before the watermark; each derivative gets the watermark at its own size; the
+  placeholder is taken before either. A worker that saw one PNG-for-WebP answer encodes JPEG from then
+  on; the thumbnail always follows the display copy's format (one `derivative_ext`).
+- **`sniffImageType(bytes, filename)`**: the bytes decide; the name only labels a TIFF-based raw (NEF,
+  ARW, DNG) as `raw` rather than `tiff`. `taken_at` is `DateTimeOriginal` only.
+- **Folder drop**: ONE dropped folder is the shoot (its subfolders are sets, its own files go to the
+  chosen set); several dropped items make each folder a set. Hidden files and OS clutter (`.DS_Store`,
+  `Thumbs.db`, `desktop.ini`, `__MACOSX`) are skipped, not listed as unsupported.
+- **The white matte** (JPEG fallback, placeholder) is `IMAGE_MATTE` in `packages/ui/theme/pipeline.mjs`
+  (guard `no-raw-colors`).
+- **Fixtures are built in memory** (`fixtures/index.ts`: a TIFF writer in both byte orders, every
+  segment kind, PNG/WebP chunks) on real encoder output (`fixtures/base.ts`, Chrome 157's canvas); each
+  is first read by `exifr` (root devDependency, test-only) to prove it carries what it claims.
+- **Not here**: `uploader.ts` (needs the upload routes: commit 5).
+- Gate: Verification 3 (pipeline only) in **Chrome 157** (Playwright's Chromium, Windows, 20 threads)
+  through `next dev` with a throwaway page (not committed): Turbopack bundles the module worker, no CSP
+  violation; the EXIF-rotated fixture comes out upright; originals decode to the same pixels after the
+  edit; HEIC, a PNG with `tEXt` and a WebP with XMP refused; Safari's WebP→PNG answer forced with real
+  canvases gives JPEG derivatives with transparency on white. **50 × 24 MP JPEGs** (≈ 1.8 MB, EXIF +
+  XMP + IPTC) in 23.9 s: **≈ 0.48 s per photo** with 4 workers, none failed. **Firefox and Safari were
+  not run** (Firefox is not installed here, Safari needs a Mac; Playwright's WebKit build did not
+  match the installed driver): Verification 3 stays open for them.
 
 ## Review log
 
