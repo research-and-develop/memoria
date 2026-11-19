@@ -3,7 +3,20 @@
  * strokes in `currentColor`, decorative (`aria-hidden`); the text next to them is the name.
  * No icon library.
  */
-export type IconName = 'logo' | 'plus' | 'dashboard' | 'galleries' | 'selections' | 'insights' | 'settings' | 'menu' | 'close' | 'signOut';
+export type IconName =
+  | 'logo'
+  | 'plus'
+  | 'dashboard'
+  | 'galleries'
+  | 'selections'
+  | 'insights'
+  | 'settings'
+  | 'menu'
+  | 'close'
+  | 'signOut'
+  | 'up'
+  | 'down'
+  | 'pencil';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   logo: (
@@ -26,6 +39,9 @@ const PATHS: Record<IconName, React.ReactNode> = {
   settings: <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
   close: <path d="M18 6L6 18M6 6l12 12" />,
+  up: <path d="M18 15l-6-6-6 6" />,
+  down: <path d="M6 9l6 6 6-6" />,
+  pencil: <path d="M17 3l4 4L8 20H4v-4z" />,
   signOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
 };
 

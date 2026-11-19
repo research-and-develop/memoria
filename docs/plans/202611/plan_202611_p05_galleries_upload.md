@@ -765,7 +765,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [x] T5.3 Gallery library, create/list/get/patch/publish/new-link, New gallery and Galleries pages
 - [x] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
 - [ ] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
-- [ ] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
+- [x] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
 - [x] T5.9 `Chip`, `Tabs`, `scrim`
 - [ ] T5.7 Sharing panel, the template `load` step, `gallery.ready`
 - [ ] T5.8 Soft delete, restore, purge jobs
@@ -935,6 +935,15 @@ its own commit; T5.6 is ticked with it.
   latter daily. `gallery.purge` comes with commit 8. **The relay must be deployed before the app once
   this ships (D3.14).**
 - `lib/testing/galleryHarness.ts` (`makeGallery`, `makeReadyPhotos`) for route tests.
+
+**Commit 6, the manager UI (T5.6), 2026-11-19, lane A.** `/admin/galleries/[id]` is the manager now:
+`GalleryManager` (Tabs *Photos* / *Settings*), `SetsRail` (select, rename, ↑/↓ buttons for the
+keyboard, add), `PhotoGrid` (pages of 200 at their aspect ratio on the placeholder colour, a checkbox
+per ready photo, *Cover* / *Hidden* / *Unfinished* badges on `bg-scrim/80`), `BulkBar` (move, hide,
+show, set as cover, delete with `ConfirmDialog`). Requests go through `adminFetch` (many URLs per
+screen; it returns `details.message`). *Settings* holds the order for now (delete: commit 8). Drag
+reordering is M4 (T5.13). The uploader (lane C) mounts at the marked slot in `GalleryManager`;
+the unfinished-uploads banner comes with it. Icons `up`, `down`, `pencil` added to the studio set.
 
 ## Review log
 

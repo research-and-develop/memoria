@@ -1,0 +1,83 @@
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { GalleryManager } from './GalleryManager';
+
+type Reply = { status: number; body: unknown };
+let routes: Record<string, Reply[]>;
+let fetchMock: ReturnType<typeof vi.fn>;
+const calls = () => fetchMock.mock.calls.map((c) => `${(c[1] as RequestInit | undefined)?.method ?? 'GET'} ${String(c[0]).split('?')[0]}`);
+const bodyOf = (method: string, path: string) => {
+  const call = fetchMock.mock.calls.find((c) => ((c[1] as RequestInit | undefined)?.method ?? 'GET') === method && String(c[0]).startsWith(path));
+  return JSON.parse(String((call![1] as RequestInit).body)) as Record<string, unknown>;
+};
+
+const G = 'g1';
+const SETS = [
+  { id: 's1', name: 'Photos', photoCount: 2 },
+  { id: 's2', name: 'Ceremony', photoCount: 0 },
+];
+const PHOTOS = [
+  { id: 'p1', filename: 'IMG_1.jpg', width: 3, height: 2, color: '#777777', hidden: false, status: 'ready', thumbUrl: '/t/1' },
+  { id: 'p2', filename: 'IMG_2.jpg', width: 3, height: 2, color: '#777777', hidden: true, status: 'ready', thumbUrl: '/t/2' },
+];
+const GALLERY = { cover_photo_id: 'p1', settings: { sort: 'filename' }, sets: SETS };
+
+beforeEach(() => {
+  routes = {};
+  fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    const key = `${init?.method ?? 'GET'} ${url.split('?')[0]}`;
+    const queued = routes[key]?.shift();
+    if (queued) return new Response(JSON.stringify(queued.body), { status: queued.status });
+    if (key === `GET /api/admin/galleries/${G}/photos`) return new Response(JSON.stringify({ data: PHOTOS, next: null }));
+    if (key === `GET /api/admin/galleries/${G}`) return new Response(JSON.stringify({ data: GALLERY }));
+    return new Response(JSON.stringify({ data: {} }));
+  });
+  vi.stubGlobal('fetch', fetchMock);
+});
+afterEach(() => vi.unstubAllGlobals());
+
+const renderManager = () => render(<GalleryManager initial={{ id: G, coverPhotoId: 'p1', sort: 'filename', sets: SETS }} />);
+
+describe('GalleryManager', () => {
+  it('shows the first set with Cover and Hidden badges; selecting a photo opens the bulk bar', async () => {
+    renderManager();
+    const first = await screen.findByRole('checkbox', { name: 'Select IMG_1.jpg' });
+    expect(screen.getByText('Cover')).toBeInTheDocument();
+    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    expect(screen.queryByRole('toolbar')).toBeNull();
+    await userEvent.click(first);
+    const bar = screen.getByRole('toolbar', { name: 'Selected photos' });
+    expect(within(bar).getByText('1 selected')).toBeInTheDocument();
+    await userEvent.click(within(bar).getByRole('button', { name: 'Hide' }));
+    await waitFor(() => expect(calls()).toContain(`POST /api/admin/galleries/${G}/photos/bulk`));
+    expect(bodyOf('POST', `/api/admin/galleries/${G}/photos/bulk`)).toEqual({ ids: ['p1'], action: 'hide' });
+    // After the action the gallery is reloaded and the selection cleared.
+    await waitFor(() => expect(screen.queryByRole('toolbar')).toBeNull());
+  });
+
+  it('delete asks first; move sends the target set', async () => {
+    renderManager();
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select IMG_2.jpg' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Move to set' }), 's2');
+    await waitFor(() => expect(bodyOf('POST', `/api/admin/galleries/${G}/photos/bulk`)).toEqual({ ids: ['p2'], action: 'move', setId: 's2' }));
+  });
+
+  it('reorders sets with the arrow buttons; the first cannot move up', async () => {
+    renderManager();
+    await userEvent.click(await screen.findByRole('button', { name: 'Move Ceremony up' }));
+    await waitFor(() => expect(bodyOf('PUT', `/api/admin/galleries/${G}/sets/order`)).toEqual({ ids: ['s2', 's1'] }));
+    expect(screen.getByRole('button', { name: 'Move Photos up' })).toBeDisabled();
+  });
+
+  it('adds a set by name', async () => {
+    routes[`POST /api/admin/galleries/${G}/sets`] = [{ status: 400, body: { error: 'x', errorCode: 'TOO_MANY_SETS', details: { message: 'A gallery can have up to 50 sets.' } } }];
+    renderManager();
+    await userEvent.click(await screen.findByRole('button', { name: '+ Add set' }));
+    await userEvent.type(screen.getByLabelText('Set name'), 'Party');
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(await screen.findByText('A gallery can have up to 50 sets.')).toBeInTheDocument();
+    expect(bodyOf('POST', `/api/admin/galleries/${G}/sets`)).toEqual({ name: 'Party' });
+  });
+});
