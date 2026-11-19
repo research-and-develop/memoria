@@ -320,6 +320,12 @@ scripts/guards/edge-graph.test.ts       D6.6
 - A photo text shadow (`textShadow.photo` in `studio.mjs`, a `text-shadow-photo` utility) for text over the
   cover; the `scrim` Button variant (fill `scrim/55` — the token from Phase 5 T5.9 —, `inverse` text) for
   controls over photos.
+- **No `Button variant="dark"` in a gallery** (Phase 4 M1 finding): `bg-ink text-inverse` is about 1.1:1 on a
+  dark gallery, where `ink` is light and `inverse` stays white. Gallery components use `primary`, `secondary`,
+  `ghost` and `scrim` (primary's hover is `accent-hover`, pinned in `galleryAccent.test.ts`). Guard
+  **`no-dark-button-in-gallery`** (commit 5, when `components/gallery/` exists): scans
+  `apps/web/src/components/gallery/**`, flags `variant="dark"` / `variant: 'dark'`, asserts it scanned
+  files and tests its matcher on a good and a bad sample.
 
 ### Errors and limits
 

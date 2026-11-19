@@ -108,7 +108,9 @@ npm run wrangler -- r2 bucket cors set memoria-media --file r2-cors.json
 - **Vars** in `wrangler.jsonc`: `MEDIA_S3_ENDPOINT` = `https://<account id>.r2.cloudflarestorage.com`
   (presigned URLs work only there, not on a custom domain); `MEDIA_S3_BUCKET` = the bucket (the guard
   checks it matches `r2_buckets`); `MEDIA_PUBLIC_BASE_URL` = the public media domain once one is chosen
-  (R2 → bucket → Settings → Custom Domains), empty until then.
+  (R2 → bucket → Settings → Custom Domains), empty until then. **Both origins are baked into the
+  pages' Content-Security-Policy at `next build`** (`connect-src`, `img-src`): changing either needs a
+  rebuild and a deploy, not only a var change.
 - Without all four S3 settings, every upload/download URL fails with `MEDIA_NOT_CONFIGURED` (503):
   there is no fallback in production. The `/api/blobs/*` routes answer 404 there (they need
   `NEXTJS_ENV=development`, which only `.dev.vars` sets; the guard keeps it out of `vars`).
