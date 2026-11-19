@@ -918,6 +918,24 @@ Phase 6's client gallery can start on them). As designed, plus:
 - `/admin/design` → *Tabs, chips and the scrim*, checked at 360 px and 1440 px (no page overflow), in
   the studio and in a dark gallery scope.
 
+**Commit 6, server half (T5.6 APIs + `media.purge`), 2026-11-19, lane A.** The manager's UI follows in
+its own commit; T5.6 is ticked with it.
+
+- `lib/galleries/manager.ts`: sets (add ≤ 50 → 400 `TOO_MANY_SETS`; rename; delete → 409
+  `SET_NOT_EMPTY`, never the last; reorder takes every set once), the photo pages (`thumbUrl` from the
+  public domain or the dev read route), bulk move/hide/show/delete and *Set as cover* (400
+  `INVALID_COVER`). Routes: `…/sets`, `…/sets/[setId]`, `…/sets/order`, `…/photos`, `…/photos/bulk`,
+  `…/cover`; parsers in `parseManagerInput.ts`.
+- **A bulk batch**: change → its audit only if it changed (`changes() > 0`) → `clearCoverStatement` →
+  recount the touched sets (read before the batch; a recount heals whatever moved meanwhile) → the
+  gallery count → the cover default → the bump guarded by "a photo was written in this batch" → for a
+  delete, `media.purge` unless one is pending. A delete that changed something nudges the relay.
+- `lib/galleries/purge.ts`: `mediaPurgeJob` (registered in `JOB_KINDS`; relay-safe, guard
+  `relay-graph`), `mediaPurgeJobStatement`, `mediaPurgeIfNeededStatement`; housekeeping runs the
+  latter daily. `gallery.purge` comes with commit 8. **The relay must be deployed before the app once
+  this ships (D3.14).**
+- `lib/testing/galleryHarness.ts` (`makeGallery`, `makeReadyPhotos`) for route tests.
+
 ## Review log
 
 - **Round 1** (2026-11-16, code and docs check): restore/purge windows made disjoint; claim-first purge;

@@ -1,6 +1,8 @@
+import { batch } from '@repo/db/client';
 import { logger } from '@repo/logger';
 
 import { expireStaleJobs, pruneFinishedJobs } from '@/lib/db/queries/jobs';
+import { mediaPurgeIfNeededStatement } from '@/lib/galleries/purge';
 
 import type { JobKind } from './types';
 
@@ -13,7 +15,8 @@ export const PRUNE_LIMIT = 500;
 
 /**
  * The daily housekeeping job (plan p03, D3.10), enqueued by `enqueuePeriodicJobs` once per UTC day.
- * Later phases add steps (the R2 sweep in Phase 5, IP expiry in Phase 11).
+ * Later phases add steps: Phase 5 enqueues `media.purge` when photos wait to be purged (the gallery
+ * purge sweep comes with Phase 5 commit 8); IP expiry in Phase 11.
  */
 export const housekeepingJob: JobKind<Record<string, never>> = {
   kind: 'housekeeping',
@@ -26,6 +29,8 @@ export const housekeepingJob: JobKind<Record<string, never>> = {
     const now = ctx.now.getTime();
     const expired = await expireStaleJobs({ before: new Date(now - STALE_AFTER_MS).toISOString(), now: ctx.now.toISOString() });
     const pruned = await pruneFinishedJobs({ before: new Date(now - KEEP_FINISHED_MS).toISOString(), limit: PRUNE_LIMIT });
-    if (expired || pruned) logger.info({ event: 'housekeeping', expired, pruned });
+    const [purge] = await batch([mediaPurgeIfNeededStatement(ctx.now)]);
+    const mediaPurge = (purge?.changes ?? 0) > 0;
+    if (expired || pruned || mediaPurge) logger.info({ event: 'housekeeping', expired, pruned, mediaPurge });
   },
 };

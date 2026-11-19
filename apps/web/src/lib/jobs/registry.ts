@@ -1,4 +1,5 @@
 import { emailJob } from '@/lib/email/job';
+import { mediaPurgeJob } from '@/lib/galleries/purge';
 
 import { housekeepingJob } from './housekeeping';
 import type { AnyJobKind } from './types';
@@ -8,4 +9,4 @@ import type { AnyJobKind } from './types';
  * it: it stays as a handler that fails permanently with a reason for 30 days (D3.14). The relay
  * deploys before the app, so it knows a kind before the app enqueues one.
  */
-export const JOB_KINDS: readonly AnyJobKind[] = [emailJob as AnyJobKind, housekeepingJob];
+export const JOB_KINDS: readonly AnyJobKind[] = [emailJob as AnyJobKind, housekeepingJob, mediaPurgeJob];
