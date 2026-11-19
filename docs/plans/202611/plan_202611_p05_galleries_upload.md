@@ -762,7 +762,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 
 - [x] T5.1 Originals bucket, per-bucket stores, signer cache
 - [x] T5.2 Migration and query modules
-- [ ] T5.3 Gallery library, create/list/get/patch/publish/new-link, New gallery and Galleries pages
+- [x] T5.3 Gallery library, create/list/get/patch/publish/new-link, New gallery and Galleries pages
 - [ ] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
 - [ ] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
 - [ ] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
@@ -814,6 +814,33 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
   `EXPLAIN QUERY PLAN` test shows `ix_photos_purge` for the claim and the purgeable list and
   `ix_photos_set_order` for a set page. Docs: architecture.md → Data; deployment.md → the migration
   rehearsal (`.rehearsal/` ignored).
+
+**Commit 3 (T5.3), 2026-11-19, in two commits.** `523eabb` landed the pure modules first
+(`gallerySettings.ts`, `keys.ts`, `sortKey.ts`, `slug.ts` and their tests) so Phase 6's T6.3 could start
+on them; this commit adds the rest. Different from the design above:
+
+- **`gallerySettings.ts` has no imports at all**, so it cannot check accent and font ids against the
+  registries: it checks their shape and the user of the value resolves them (an unknown one → the
+  default there); its copies of Phase 4's defaults and bounds are pinned by its test.
+  `newGallerySettings` is not a function of its own: `createGallery` (`lib/galleries/galleries.ts`)
+  builds the snapshot from the parsed input, which the route prefilled from `readGalleryDefaults` and
+  `readBranding`.
+- **The watermark flag with no studio watermark** is 400 `WATERMARK_NONE` (the form disables the toggle).
+- **A link gallery's slug**: `slugBase` changes the readable part and keeps the random one; `slug`
+  (the whole address) only on a password gallery (400 `SLUG_SUFFIX_REQUIRED` otherwise); switching a
+  custom-address password gallery to link appends a fresh random part.
+- **Publish/unpublish chain their guards**: the bump runs only if the status changed (`changes() > 0`)
+  and the audit only if the bump did, so a repeat writes nothing.
+- **`randomString` (keys.ts)** serves both the 8-character `rev` and the 10-character slug suffix
+  (rejection sampling over `[a-z2-9]`). Passwords: two of 64 words and two digits.
+- **The galleries list fetches the envelope itself**: `useApi` unwraps `data` and would drop `next`.
+- **`/admin/galleries/[id]` is a first page** (status, Publish/Unpublish, address, sets) where *Create
+  gallery* lands; the manager replaces it in commit 6. Nav: Galleries and *New gallery* are links now.
+- `photoDependents.ts` (D5.24) is in, empty. The count of unfinished uploads in `GET …/[id]` comes with
+  the upload routes (commit 5).
+- Gate: route tests (18) and component tests (6) on the create/list/patch/publish/new-link flow;
+  `build:worker` lists the new pages and routes, and the built Worker answers them (307 to sign-in, 401
+  for the API without a session). The owner checks the screens at the M1 review.
 
 ## Review log
 

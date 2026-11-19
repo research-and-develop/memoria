@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MobileBar } from './MobileBar';
@@ -34,18 +34,19 @@ describe('NavList', () => {
 
   it('shows "Soon" items as text: not links, not focusable, announced once', () => {
     render(<NavList />);
-    expect(screen.queryByRole('link', { name: /Galleries/ })).toBeNull();
-    const item = screen.getByText('Galleries').closest('li') as HTMLElement;
-    expect(item.textContent).toBe('Galleries, not available yetSoon');
+    expect(screen.queryByRole('link', { name: /Selections/ })).toBeNull();
+    const item = screen.getByText('Selections').closest('li') as HTMLElement;
+    expect(item.textContent).toBe('Selections, not available yetSoon');
     expect(within(item).getByText('Soon').closest('[aria-hidden]')).not.toBeNull();
     expect(item.querySelector('a, button, [tabindex]')).toBeNull();
   });
 
-  it('the New gallery action is not a button while it is Soon', () => {
+  it('links Galleries and the New gallery action now that Phase 5 built them', () => {
+    render(<NavList />);
+    expect(screen.getByRole('link', { name: 'Galleries' })).toHaveAttribute('href', '/admin/galleries');
+    cleanup();
     render(<NewGalleryAction />);
-    expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.getByText('New gallery')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /New gallery/ })).toHaveAttribute('href', '/admin/galleries/new');
   });
 });
 

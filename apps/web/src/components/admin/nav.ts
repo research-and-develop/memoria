@@ -20,11 +20,11 @@ export type NavItem = {
 };
 
 /** The sidebar's primary action. */
-export const NEW_GALLERY: NavItem = { id: 'new-gallery', label: 'New gallery', href: '/admin/galleries/new', icon: 'plus', soonPhase: 5 };
+export const NEW_GALLERY: NavItem = { id: 'new-gallery', label: 'New gallery', href: '/admin/galleries/new', icon: 'plus' };
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/admin', icon: 'dashboard' },
-  { id: 'galleries', label: 'Galleries', href: '/admin/galleries', icon: 'galleries', soonPhase: 5 },
+  { id: 'galleries', label: 'Galleries', href: '/admin/galleries', icon: 'galleries' },
   { id: 'selections', label: 'Selections', href: '/admin/selections', icon: 'selections', soonPhase: 8 },
   { id: 'insights', label: 'Insights', href: '/admin/insights', icon: 'insights', soonPhase: 11 },
   { id: 'settings', label: 'Settings', href: '/admin/settings', icon: 'settings' },

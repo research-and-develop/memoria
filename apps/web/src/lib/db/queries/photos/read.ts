@@ -68,3 +68,13 @@ export function listPurgeablePhotos(input: { galleryId?: string; limit: number }
     opts,
   );
 }
+
+/** The cover photos of a page of galleries (≤ 50 ids, by primary key): what a card's thumbnail needs. */
+export function getCoverPhotos(photoIds: readonly string[], opts?: Options): Promise<Pick<PhotoRow, 'id' | 'gallery_id' | 'rev' | 'derivative_ext'>[]> {
+  if (photoIds.length === 0) return Promise.resolve([]);
+  if (photoIds.length > MAX_BULK_PHOTOS) throw new Error(`getCoverPhotos: at most ${MAX_BULK_PHOTOS} ids`);
+  return all(
+    statement(`SELECT id, gallery_id, rev, derivative_ext FROM photos WHERE id IN (${ids(photoIds.length)}) AND status = 'ready'`, [...photoIds]),
+    opts,
+  );
+}
