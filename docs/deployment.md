@@ -152,6 +152,21 @@ against the NEW schema. Every migration must be safe for the code that is still 
 tables/columns (nullable or with a default) first; drop or rename only in a later release, once no
 deployed code reads them.
 
+**Rehearse a migration that changes existing data's tables** (first: `0006`, Phase 5) against a copy of
+production before `db:migrate:remote`:
+
+```sh
+npm run wrangler -- d1 export DB --remote --output=rehearsal.sql          # written to apps/web/; client data: delete it after
+cd apps/web
+npx wrangler d1 execute DB --local --persist-to ../../.rehearsal --file=rehearsal.sql   # a scratch local D1, not your dev one
+npx wrangler d1 migrations apply DB --local --persist-to ../../.rehearsal               # the new migrations on real data
+```
+
+Only when that applies cleanly, run `npm run db:migrate:remote`. Rollback is a forward fix (a new
+migration); Time Travel (*Rollback*) restores the data if one went wrong. Delete `rehearsal.sql` and
+`.rehearsal/` afterwards. (Local `--persist-to` commands never touch Cloudflare, so plain `npx wrangler`
+is fine for them.)
+
 ### Preview versions
 
 There is no CI preview job. `npm run wrangler -- versions upload` (after `npm run build:worker`)

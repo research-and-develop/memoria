@@ -23,6 +23,8 @@ coverage/
 /apps/web/*.sql
 /apps/web/*.sql.gz*
 /d1.sql*
+# A migration rehearsal's scratch D1 (docs/deployment.md → Migrations run before the code)
+/.rehearsal/
 
 # The relay's dry-run bundle (npm run build:relay).
 apps/relay/dist/

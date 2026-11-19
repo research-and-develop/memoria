@@ -390,3 +390,32 @@ D1 for tests. Rules: [AGENTS.md → Data rules](../AGENTS.md#data-rules-d1--non-
 | `admin_setup_codes` | the hash of the setup code for the first enrolment |
 | `admin_mfa_challenges` | half-finished sign-ins (between the password and the code) |
 | `rate_limits` | fixed-window counters (upserts), pruned after a write in `getPlatform().defer` |
+| `jobs` | the background queue (Phase 3): see *Jobs* |
+| `galleries` | one per client gallery (Phase 5): slug, purpose, status, access (the password **sealed**, never hashed), `settings` JSON (processing profile, look, sort), stored counts, `content_version`, soft delete |
+| `photo_sets` | a gallery's sets (≤ 50), ordered by `position`, with a stored count of visible ready photos |
+| `photos` | one per uploaded photo: the original's metadata, the derivatives' `rev`/extension, `sha256` (unique per gallery until deleted), `sort_key`, `status` (`uploading` → `ready` → `deleted`), `hidden` |
+
+**Galleries, sets and photos** (plan p05 → Data, migration `0006`):
+
+- **The schema holds the invariants.** A photo's set belongs to its gallery (`fk_photos_set` on
+  `(set_id, gallery_id)` → `uq_photo_sets_id_gallery`); a hash is unique per gallery
+  (`uq_photos_gallery_sha256`) and released on delete (`sha256 = NULL`); `status`/`published_at` and
+  `access`/`password_sealed` are CHECKed pairs. No cascades: the purges delete dependents, photos, sets,
+  then the gallery.
+- **Four structures on `photos`** (index writes count as rows written): the table,
+  `uq_photos_gallery_sha256`, `ix_photos_set_order (set_id, sort_key)` — the ONE order index of the client
+  page and the manager, in either sort — and the partial `ix_photos_purge (updated_at) WHERE status IN
+  ('uploading', 'deleted')`, whose predicate every purge read repeats. `status` and `hidden` are in no
+  index key, so marking ready or hiding rewrites only the row.
+- **`sort_key`** = `name_key|taken_key|id` (or `taken_key|name_key|id` for the capture-time sort), composed
+  in SQL from the gallery's current sort in the same statement that registers a photo (from the bound
+  keys) or re-sorts the gallery (from the columns), so a sort change and an upload never interleave
+  into a stale key.
+- **Counts and the cache key are written, never counted on a request**: `photo_sets.photo_count` is
+  incremented by the complete batch (only for photos marked in that batch) and recounted for the sets a
+  bulk action touched; `galleries.photo_count` is the sum of ≤ 50 sets. `content_version` moves only on a
+  real change (the bump is guarded by `changes() > 0` or "a photo of the gallery was written in this
+  batch"): Phase 6 caches a gallery's JSON by it.
+- **Budgets**: an 800-photo upload writes ≈ 6,000 rows (of 100k a day); a sort change of 800 photos ≈
+  1,600. Query modules: `lib/db/queries/galleries`, `photo_sets`, `photos`; `GalleryRow` never carries the
+  sealed password (`getGalleryPasswordSealed` only).

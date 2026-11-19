@@ -761,7 +761,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 ## Checklist
 
 - [x] T5.1 Originals bucket, per-bucket stores, signer cache
-- [ ] T5.2 Migration and query modules
+- [x] T5.2 Migration and query modules
 - [ ] T5.3 Gallery library, create/list/get/patch/publish/new-link, New gallery and Galleries pages
 - [ ] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
 - [ ] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
@@ -791,6 +791,29 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
   object is absent from the other one (both directions).
 - Gate: `npm run build:worker` + `wrangler dev` (port 8788, scratch state) lists `MEDIA` and `ORIGINALS`;
   `/healthz` 200, `/admin` 307; the probe passes for both buckets. 1818 tests.
+
+**Commit 2 (T5.2), 2026-11-19.** As designed, plus:
+
+- **More CHECKs**: `ck_galleries_shoot_date` (a real date), `ck_galleries_client` (name ≤ 80, address ≤
+  254), `settings` must be a JSON *object*, `password_version >= 1`, `ck_galleries_deleted_at` and
+  `ck_photos_updated_at` (exactly `Date#toISOString()`: the restore/purge windows and the stale claim
+  compare them as text), `ck_photos_keys` (`name_key` ≤ 120, `taken_key` 1–19, `sort_key` ≤ 200),
+  `ck_photos_color` (`#RRGGBB`, `substr` + one class: six GLOB classes are "too complex" for D1).
+- **`GalleryRow.settings` is the stored JSON object as is**; the typed `parseGallerySettings` (import-free,
+  commit 3) is applied by `lib/galleries`, whose caller logs what was invalid — the query module stays
+  free of the logger and of the settings registry. `GalleryRow` has no `password_sealed`
+  (`getGalleryPasswordSealed` only; a test pins the column list).
+- **`clearCoverStatement(galleryId)` takes no id list**: it clears a cover that is no longer a visible
+  ready photo of the gallery, whatever the batch did (hide, move out, delete).
+- **No-op writes write nothing**: `galleryCountStatement` and `recountSetsStatement` write only when the
+  count differs, `renameSetStatement` only when the name does, `setCoverStatement` only a new cover — rows
+  written are the budget.
+- **Gallery-purge statements** beyond `deleteGalleryStatement` and `deleteGallerySetsStatement` come with
+  commit 8; `media.purge`'s claim, list and row delete are here with their tests.
+- Gate: wrangler applied 0001–0006 to a scratch local D1 (`--persist-to`), not the owner's; the
+  `EXPLAIN QUERY PLAN` test shows `ix_photos_purge` for the claim and the purgeable list and
+  `ix_photos_set_order` for a set page. Docs: architecture.md → Data; deployment.md → the migration
+  rehearsal (`.rehearsal/` ignored).
 
 ## Review log
 
