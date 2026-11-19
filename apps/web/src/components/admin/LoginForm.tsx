@@ -7,7 +7,7 @@ import { Button } from '@repo/ui/button';
 import { useApi } from '@repo/ui/hooks/useApi';
 import { FormField, Input } from '@repo/ui/input';
 
-import { Turnstile, type TurnstileHandle } from '@/components/forms/Turnstile';
+import { AdminTurnstile, type TurnstileHandle } from '@/components/forms/Turnstile';
 import { parseLoginInput } from '@/lib/auth/parseLoginInput';
 
 import { rememberedLoginEmail, rememberLoginEmail, takeLoginNote } from './login/loginFlash';
@@ -72,7 +72,7 @@ export function LoginForm() {
         <FormField label="Password" error={error?.field === 'password' ? error.message : null}>
           {(ids) => <Input {...ids} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
         </FormField>
-        <Turnstile ref={turnstileRef} action="login" onToken={setToken} onError={() => setError({ message: 'The security check did not load. Reload the page.' })} />
+        <AdminTurnstile ref={turnstileRef} action="login" onToken={setToken} onError={() => setError({ message: 'The security check did not load. Reload the page.' })} />
         <Button type="submit" variant="primary" loading={loading} className="w-full">
           Continue
         </Button>

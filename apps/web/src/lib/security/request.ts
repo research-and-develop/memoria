@@ -9,6 +9,29 @@ export function clientIp(req: Request): string {
 }
 
 /**
+ * The part of an IP address that names ONE client, for rate-limit keys (plan p06 D6.10): an IPv4
+ * address as is (/32); an IPv6 address by its /64 (one home or phone network holds a whole /64, so a
+ * per-address key would be a fresh key per request). IPv4-mapped IPv6 (`::ffff:1.2.3.4`) is IPv4; a
+ * zone (`%eth0`) is dropped; anything else is returned unchanged.
+ */
+export function ipPrefix(ip: string): string {
+  const raw = ip.trim().toLowerCase().replace(/%.*$/, '');
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(raw)) return raw;
+  const mapped = /^(?:0{0,4}:){0,4}:?(?:0{0,4}:)?ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(raw);
+  if (mapped?.[1]) return mapped[1];
+  if (!raw.includes(':') || !/^[0-9a-f:]+$/.test(raw)) return raw;
+  const halves = raw.split('::');
+  if (halves.length > 2) return raw;
+  const head = halves[0] ? halves[0].split(':') : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const missing = 8 - head.length - tail.length;
+  if ((halves.length === 2 && missing < 1) || (halves.length === 1 && missing !== 0)) return raw;
+  const groups = [...head, ...Array<string>(halves.length === 2 ? missing : 0).fill('0'), ...tail];
+  if (groups.some((g) => g.length === 0 || g.length > 4)) return raw;
+  return `${groups.slice(0, 4).map((g) => g.padStart(4, '0')).join(':')}::/64`;
+}
+
+/**
  * The visitor's country from Cloudflare's `CF-IPCountry` (two letters), or null:
  * missing, unknown (`XX`) or Tor (`T1`).
  */

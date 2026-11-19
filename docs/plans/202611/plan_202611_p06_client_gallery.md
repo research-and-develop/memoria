@@ -492,7 +492,7 @@ T6.9.
 - [x] T6.1 Static root layout, admin layout, static shell, build step, lazy OpenNext (S6.1)
 - [x] T6.2 `@repo/db/statement`, public builders, `importGraph.ts`, guard `edge-graph` (S6.2)
 - [x] T6.3 Gallery handler, injection, access, visitor cookie, headers, cache, `worker.ts`, dev routes
-- [ ] T6.4 Gate route (IPv6 /64 keys, HMAC compare, daily notice), preview links, `Turnstile` `siteKey`
+- [x] T6.4 Gate route (IPv6 /64 keys, HMAC compare, daily notice), preview links, `Turnstile` `siteKey`
 - [ ] T6.5 Client app: header, cover, sets, grids, gate, share, deterrent, mobile
 - [ ] T6.6 Lightbox
 - [ ] T6.7 Lightbox map, photo text shadow, `scrim` button
@@ -623,6 +623,39 @@ Different from the design above:
   `mintVisitorCookie`), so the tests mint real cookies; commit 4's gate and preview-link routes call them.
 - Tests: `access.test.ts`, `inject.test.ts`, `view.test.ts`, `handler.test.ts` (D1, 32 cases, including
   502 photos paged by cursor in both sorts), `routes.test.ts`, `app/g/[slug]/route.test.ts`.
+
+**Commit 4 (T6.4), 2026-11-19, lane B.** As designed (D6.10, D6.11), with these choices:
+
+- **The gate's order**: same-origin → `GATE_IP_RULE` (30 a minute, counted) → slug shape and body →
+  Turnstile (action `gallery-gate`; a failure is **403** `TURNSTILE_FAILED`) → the gallery (published,
+  password access, else 404; a password draft is opened by a preview link, not the gate) →
+  `gateFailureRule` (10 per 15 min per IP and gallery, checked, not counted) → open the sealed password
+  (`settingsCipher`, in the route only) → `passwordsMatch` (HMAC of both under the ACCESS key, then
+  `constantTimeEqual` of 32 bytes) → 401 `WRONG_PASSWORD` ("That password is not right.") or 200 with
+  `mg_<id>` (30 days, `Path=/`). The supplied password is trimmed (pasted from an email); capped at 256.
+  Missing key or an unreadable sealed password → 503 `GALLERY_UNAVAILABLE`, logged.
+- **The daily notice**: `recordGateFailure` counts the IP's failure bucket and the gallery's daily
+  bucket (`gallery-gate:day:<id>:<password_version>`) in one batch. The attempt whose count is exactly
+  200 logs `gallery_gate_suspicious` and queues `security.gallery-gate` (the gallery title only) in a
+  follow-up batch, conditioned on the count, as `security.locked` does. A new password starts a new
+  bucket, so a second attack after a password change can notify again the same day. The template links
+  to Galleries, not Settings → Security (`security.test.ts` now expects the link per template).
+- **IP keys** (`ipKey`, every rate limit): `ipPrefix` in `lib/security/request.ts` (pure) keys IPv4 by
+  the address and IPv6 by its /64 (compressed, expanded, upper case, zone, IPv4-mapped → IPv4).
+- **Preview links** answer `{ data: { url: '/g/<slug>?preview=…', expiresAt } }` for any gallery that
+  is not deleted (ignored by the handler once published); 503 `GALLERY_KEY_MISSING` without the key.
+  **The *View as client* button is a component, not wired**: `components/admin/galleries/ViewAsClientButton.tsx`
+  (opens a blank tab on the click, then points it at the link, so popup blockers allow it). Lane A
+  places it on the manager page (Phase 5 commit 6, in progress on that page).
+- **`Turnstile`** takes `siteKey` (and `theme`, default `light`; the gate passes `auto`) as props;
+  `AdminTurnstile` reads `AppProvider`, and the sign-in form uses it. `verifyTurnstile` accepts the
+  `gallery-gate` action.
+- AGENTS.md: the `worker.ts` + `src/lib/edge/` row names `lib/edge/gallery/` (approved by lane A).
+  deployment.md: a runbook line for the notice (approved).
+- Tests: the gate route (15: the order, both limits, IPv6 /64, the notice at 200 and not at 201, the
+  cookie verifies, a password change ends it), the preview-link route (its link opens the draft
+  through the handler), `ipPrefix` rows, `parseGateInput`, `passwordsMatch`, `Turnstile`/`AdminTurnstile`,
+  `ViewAsClientButton`.
 
 ## Review log
 

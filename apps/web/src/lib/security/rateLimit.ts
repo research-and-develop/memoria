@@ -6,6 +6,8 @@ import { logger } from '@repo/logger';
 import { hmacSha256Hex } from '@/lib/auth/crypto';
 import { deleteOldRateLimitsStatement, getRateLimitCount, hitRateLimitStatement } from '@/lib/db/queries/rate_limits';
 
+import { ipPrefix } from './request';
+
 /**
  * Fixed-window rate limits on D1. Each rule is a bucket + a limit per window;
  * `hit` counts the request in every bucket in ONE batch (atomic upserts) and
@@ -58,11 +60,12 @@ export function pruneRateLimits(opts?: Options & { now?: Date }): Promise<unknow
 /**
  * A visitor's IP as a bucket key: an HMAC with the secret salt AND the day, so
  * a stored key cannot be turned back into an IP and does not link visits
- * across days. Nothing else about the visitor is ever stored.
+ * across days. Nothing else about the visitor is ever stored. An IPv6 client is
+ * keyed by its /64 (`ipPrefix`): every address of one network shares a limit.
  */
 export async function ipKey(ip: string, salt: string, now: Date = new Date()): Promise<string> {
   if (!salt) warnMissingSalt();
-  return (await hmacSha256Hex(salt || 'unsalted', `${now.toISOString().slice(0, 10)}|${ip}`)).slice(0, 32);
+  return (await hmacSha256Hex(salt || 'unsalted', `${now.toISOString().slice(0, 10)}|${ipPrefix(ip)}`)).slice(0, 32);
 }
 
 /**

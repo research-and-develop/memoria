@@ -78,6 +78,13 @@ D1 error / missing shell / missing key                     → the 503 page (/da
   11). All cookies `Path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS. The keys are derived once
   per isolate (`globalThis`). Without the secret, link galleries still open (no `mv`); password
   galleries and previews answer 503 (`gallery_key_missing`). Rotating it ends every cookie and preview.
+- **The password gate** is a Next route, `POST /api/g/[slug]/access` (rare, and the house pattern for
+  a public write): same-origin → 30 POSTs a minute per IP (before Turnstile) → Turnstile → 10 wrong
+  passwords per 15 minutes per IP and gallery → the comparison (HMAC of both under the access key,
+  constant time; the sealed password is opened only here) → the `mg_` cookie. IP keys are the
+  address for IPv4 and the /64 for IPv6 (`ipPrefix`, every rate limit). No hard lock: 200 wrong
+  passwords in a UTC day queue one `security.gallery-gate` notice. **Preview links**:
+  `POST /api/admin/galleries/[id]/preview-link` (*View as client*) answers `/g/<slug>?preview=…`.
 - **Cache**: the photo JSON, never the HTML, in `caches.default` for a day, keyed
   `https://cache.internal/g/<id>/<content_version>/first/start` (the first view: sets + first page) and
   `…/<setId>/<cursor|start>` (`/data`); a cached entry is a separate internal `public` response without

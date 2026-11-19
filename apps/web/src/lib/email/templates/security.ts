@@ -18,9 +18,16 @@ const record = (value: unknown): Record<string, unknown> | null => (typeof value
 const NOT_YOU =
   'If this was not you, sign in and check Settings → Security: remove what you do not recognise and change your password. If you cannot sign in, ask the person who installed Memoria to reset your sign-in.';
 
-function notice(ctx: EmailContext, subject: string, heading: string, lines: string[], opts: { notYou?: boolean } = {}): RenderedEmail {
+function notice(
+  ctx: EmailContext,
+  subject: string,
+  heading: string,
+  lines: string[],
+  opts: { notYou?: boolean; action?: { label: string; path: string } } = {},
+): RenderedEmail {
   const paragraphs = opts.notYou === false ? lines : [...lines, NOT_YOU];
-  const action = ctx.siteUrl ? { label: 'Open Settings → Security', href: ctx.link('/admin/settings/security') } : undefined;
+  const target = opts.action ?? { label: 'Open Settings → Security', path: '/admin/settings/security' };
+  const action = ctx.siteUrl ? { label: target.label, href: ctx.link(target.path) } : undefined;
   return { subject: `${subject} · ${ctx.studioName}`, ...renderLayout(ctx, { heading, paragraphs, ...(action ? { action } : {}) }) };
 }
 
@@ -145,6 +152,35 @@ export const lockedNotice = atOnly(
   (at) => `${when(at)}: too many wrong codes were entered today, so sign-in is locked until midnight UTC.`,
 );
 
+/** A gallery title (≤ 120 characters, Phase 5's CHECK), no control or bidi character. */
+const isTitle = (value: unknown): value is string => typeof value === 'string' && value.length >= 1 && value.length <= 120 && !/[\p{Cc}\p{Cf}]/u.test(value);
+
+/**
+ * Many wrong passwords on one gallery's gate in a UTC day (plan p06 D6.10): sent once, by the attempt
+ * that reaches the daily threshold. The gate has no hard lock (a lock would shut the client out), so
+ * the photographer is told and can set a new password, which ends every access cookie.
+ */
+export const galleryGateNotice: EmailTemplate<At & { gallery: string }> = {
+  id: 'security.gallery-gate',
+  label: 'Security: many wrong gallery passwords',
+  parse(params) {
+    const p = record(params);
+    return p && isIso(p.at) && isTitle(p.gallery) ? { at: p.at, gallery: p.gallery } : null;
+  },
+  render({ at, gallery }, ctx) {
+    return notice(
+      ctx,
+      'Many wrong gallery passwords',
+      'Someone is guessing a gallery password',
+      [
+        `${when(at)}: the gallery “${gallery}” has had many wrong passwords today. Your clients can still open it with the right one.`,
+        'If you did not expect this, give the gallery a new password in Galleries and send it to your clients: every device that opened the gallery will need it.',
+      ],
+      { notYou: false, action: { label: 'Open Galleries', path: '/admin/galleries' } },
+    );
+  },
+};
+
 export const SECURITY_TEMPLATES = [
   signInNotice,
   authenticatorAddedNotice,
@@ -156,4 +192,5 @@ export const SECURITY_TEMPLATES = [
   mailSettingsChangedNotice,
   noticesOffNotice,
   lockedNotice,
+  galleryGateNotice,
 ] as const;

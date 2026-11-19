@@ -20,6 +20,7 @@ const GOOD: Record<string, Record<string, unknown>> = {
   'security.mail-settings-changed': { at: AT, provider: 'Brevo', fromDomain: 'lumen.example' },
   'security.notices-off': { at: AT },
   'security.locked': { at: AT },
+  'security.gallery-gate': { at: AT, gallery: 'Maria & Jonas' },
 };
 
 describe('security notice templates', () => {
@@ -34,10 +35,12 @@ describe('security notice templates', () => {
     expect(email.subject).toMatch(/· Lumen$/);
     expect(email.text).toContain('16 Nov 2026, 10:05 (UTC)');
     expect(email.html).toContain('16 Nov 2026, 10:05 (UTC)');
-    // Nothing that acts: no code-looking digits, no token, only the plain Settings link.
+    // Nothing that acts: no code-looking digits, no token, only one plain admin link (Settings →
+    // Security; the gallery-gate notice: Galleries, where a new password is set).
     expect(email.text).not.toMatch(/\b\d{6}\b|token|secret=/i);
     const links = [...email.html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-    expect(links).toEqual(['https://photos.example.com/admin/settings/security']);
+    const path = id === 'security.gallery-gate' ? '/admin/galleries' : '/admin/settings/security';
+    expect(links).toEqual([`https://photos.example.com${path}`]);
   });
 
   it.each(SECURITY_TEMPLATES.map((t) => [t.id, t] as const))('%s: no link when the website address is not known', (id, template) => {
@@ -58,6 +61,8 @@ describe('security notice templates', () => {
     ['security.sign-in', { at: AT, method: 'code', device: 'x'.repeat(81), country: null }],
     ['security.authenticator-added', { at: AT, label: 'a\u0000b' }],
     ['security.authenticator-removed', { at: 'yesterday', label: 'Phone' }],
+    ['security.gallery-gate', { at: AT, gallery: '' }],
+    ['security.gallery-gate', { at: AT, gallery: 'x'.repeat(121) }],
     ['security.email-changed', { at: AT, role: 'both' }],
     ['security.mail-settings-changed', { at: AT, provider: 'Brevo', fromDomain: 'Lumen Example' }],
     ['security.locked', {}],

@@ -20,7 +20,7 @@ export async function verifyTurnstile(input: {
   token: unknown;
   secret: string | undefined;
   /** The form the token was issued for; add one per Turnstile-protected form. */
-  action: 'login';
+  action: 'login' | 'gallery-gate';
   remoteIp?: string;
   /** The hostname the widget must have run on (from the request); null skips the check. */
   hostname?: string | null;

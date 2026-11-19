@@ -5,8 +5,9 @@ import { createContext, useContext, type ReactNode } from 'react';
 import type { AppConfig } from '@/lib/config/appConfig';
 
 /**
- * Hands server-read runtime config to client components. The root layout
- * (a server component) calls `getAppConfig()` and passes the result here.
+ * Hands server-read runtime config to client components. The admin layout
+ * (app/admin/layout.tsx, a server component) calls `getAppConfig()` and passes
+ * the result here. The client gallery has none: it reads the view JSON.
  * `import type` above is erased before bundling, so the server-only module
  * never reaches the browser.
  */

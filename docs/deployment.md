@@ -227,6 +227,10 @@ rewrite the envelope sender), its SPF include, and a DMARC record (`v=DMARC1; p=
   `MessageRejected` for an unverified From): fix it at the provider, then Retry the email.
 - *Rotating the provider's secret*: create the new one, enter it in Settings → Emails, then revoke the
   old one. Queued emails use the new one on their next attempt.
+- *"Someone is guessing a gallery password"* (`security.gallery-gate`, Phase 6): 200 wrong passwords for
+  one gallery in a UTC day (sent once that day; `gallery_gate_suspicious` in the tail). Clients are
+  never locked out, and each IP is limited to 10 wrong tries per 15 minutes. If it was not expected, give
+  the gallery a new password in Galleries and send it to the clients: every old access cookie ends.
 - *`SETTINGS_ENCRYPTION_KEY` lost or changed*: emails fail `MAIL_SECRET_UNREADABLE` and retry; enter
   the secret again in Settings → Emails, then Retry the failed ones. Two-factor is unaffected.
 - *A stuck queue*: `npm run wrangler -- d1 execute DB --remote --command "SELECT id, kind, status,
