@@ -764,7 +764,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [x] T5.2 Migration and query modules
 - [x] T5.3 Gallery library, create/list/get/patch/publish/new-link, New gallery and Galleries pages
 - [x] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
-- [ ] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
+- [x] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
 - [x] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
 - [x] T5.9 `Chip`, `Tabs`, `scrim`
 - [x] T5.7 Sharing panel, the template `load` step, `gallery.ready`
@@ -944,6 +944,56 @@ show, set as cover, delete with `ConfirmDialog`). Requests go through `adminFetc
 screen; it returns `details.message`). *Settings* holds the order for now (delete: commit 8). Drag
 reordering is M4 (T5.13). The uploader (lane C) mounts at the marked slot in `GalleryManager`;
 the unfinished-uploads banner comes with it. Icons `up`, `down`, `pencil` added to the studio set.
+
+**Commit 5, browser half (T5.5), 2026-11-20, lane C (worktree `photo-gallery-p5pipe`).** As designed, plus:
+
+- **`lib/images/uploader.ts`** (`createUploader`; probe, process, post and put injected, so the tests
+  run it with fakes): probe → process in the pool (≤ 80 MP in flight) → register 10 per request, one set
+  per request → the 3 PUTs of a photo, 4 PUTs in parallel, each retried once → complete 8 per request.
+  `UPLOAD_MISSING` / `UPLOAD_MISMATCH` re-PUT the photo once, then it fails; `NOT_FOUND` fails it. At most
+  `MAX_HELD` = 20 processed photos hold their blobs (more than `REGISTER_BATCH + COMPLETE_BATCH − 2`, so
+  the stages cannot stall each other); blobs are dropped once complete. The same hash twice in one drop
+  is a local duplicate. Cancel aborts the workers and the requests; *Retry* re-queues the failed files.
+  `whenIdle`, `onReady(setId, ids)` and a stable snapshot for `useSyncExternalStore`.
+- **`lib/images/uploaderStore.ts`**: one uploader per gallery on `globalThis` (`uploaderFor`), so it
+  keeps running while the manager re-renders or switches sets; the pool is created on the first file and
+  terminated when the queue drains. `postJson` speaks the envelope; a failure shows `details.message`,
+  never an error code or a 5xx's text.
+- **Folders → sets** (`components/admin/galleries/upload/folderSets.ts`, pure): a folder's name is
+  cleaned like the server cleans a set name and cut to 60 characters, then matched to an existing set
+  ignoring case (the sets route does not de-duplicate names). Missing sets are created **before**
+  anything is queued; one failed create (e.g. `TOO_MANY_SETS`) stops the whole drop with its sentence.
+  Sets created by a drop count for the next drop before the manager has reloaded.
+- **`GalleryUploader` sits in the manager's *Photos* tab above the grid**: loose photos go into the
+  current set (the rail's selection, named under the drop zone, so there is no second set picker);
+  `onPhotosReady` (at most one call per `READY_EVERY_MS` = 3 s: a complete is 8 photos, and each reload
+  refetches the grid) and `onSetsChanged` call the manager's `reload()`. The unfinished-uploads banner
+  reads `unfinishedUploads` (the page's first render, then each reload). The page asks before closing
+  while a run lasts.
+- **The page hands the manager the processing snapshot and watermark URL** (`galleryView`, D5.4);
+  `reload()` takes a fresh `imageUrl`, since the dev read route's URL expires.
+- **The upload panel**: "Uploading X of N photos · bytes · time left" with Cancel; afterwards the count,
+  Clear, the folders and their sets, duplicates skipped and unfinished uploads finished, failed files
+  with *Retry*, refused files with their sentence; each list is cut at 50.
+- Gate (upload part of Verification 2, Chrome 157 only, `next dev` on its own port against the real
+  routes and the worktree's local D1):
+  - **2026-11-19, a throwaway mount**: 26 photos uploaded (3 register requests, 78 PUTs, 4 completes);
+    1 duplicate skipped; 3 unsupported files refused; the EXIF-rotated photo stored upright; EXIF meta
+    and the cover set. A re-drop of ready photos gave 22 duplicates and no PUT.
+  - **2026-11-20, in the manager, a folder drop**: 2 sets created, `photos` reused *Photos*, and
+    `.thumbnails` skipped; 8 uploaded, 1 duplicate skipped. A second drop with *Ceremony* selected reused
+    *Party* for `PARTY` without a create, sent its loose photo to *Ceremony* and skipped 2 duplicates.
+    The rail counts and the grid followed. At 360 px and 1440 px the page has no sideways scroll.
+  - **The banner and resume**: a run cancelled at 8 of 12 photos, some PUTs of the other 4 already
+    landed. After a reload the banner said "4 photos did not finish uploading". The same 12 files
+    dropped again: 4 unfinished uploads finished, 8 duplicates skipped, and the banner went away after
+    the reload (`unfinishedUploads` 0, 12 ready photos).
+  - **The drop was scripted** (fake `FileSystemEntry` objects carrying real JPEG files): a real OS folder
+    drag cannot be scripted here. `readDrop`'s handling of real entries is covered by its unit tests.
+  - **Found on the way**: the dev upload route refused to overwrite (`ifAbsent`, 409 `BLOB_EXISTS`),
+    so a resume whose parts had partly landed failed locally. Presigned S3 PUTs overwrite. Lane A fixed
+    the route to match (`fix(media): the dev upload route overwrites…`), and the resume above ran on it.
+  - Firefox and Safari stay the owner's (Verification 3).
 
 **Commit 7 (T5.7), 2026-11-20, lane A.** As designed, plus:
 

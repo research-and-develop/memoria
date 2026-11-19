@@ -13,8 +13,7 @@ import { PageHeader } from '@/components/admin/PageHeader';
 import { getAdminSession } from '@/lib/auth/requireAdmin';
 import { getGallery } from '@/lib/db/queries/galleries';
 import { listSets } from '@/lib/db/queries/photo_sets';
-import { countUnfinishedUploads } from '@/lib/db/queries/photos';
-import { gallerySettingsOf } from '@/lib/galleries/galleries';
+import { gallerySettingsOf, galleryView } from '@/lib/galleries/galleries';
 import { getStudio } from '@/lib/settings/studio.cached';
 
 export const metadata: Metadata = { title: 'Gallery' };
@@ -32,7 +31,8 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
   if (!isUuid(id)) notFound();
   const gallery = await getGallery(id);
   if (!gallery || gallery.deleted_at) notFound();
-  const [sets, unfinished, studio] = await Promise.all([listSets(id), countUnfinishedUploads(id), getStudio()]);
+  const [sets, studio] = await Promise.all([listSets(id), getStudio()]);
+  const view = await galleryView({ ...gallery, settingsParsed: gallerySettingsOf(gallery), sets });
   const live = gallery.status === 'published';
   return (
     <div className="flex flex-col gap-7">
@@ -60,7 +60,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
                 access: gallery.access,
                 clientName: gallery.client_name,
                 clientEmail: gallery.client_email,
-                unfinished,
+                unfinished: view.unfinishedUploads,
               }}
             />
           </>
@@ -70,8 +70,10 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
         initial={{
           id,
           coverPhotoId: gallery.cover_photo_id,
-          sort: gallerySettingsOf(gallery).sort,
+          sort: view.settings.sort,
           sets: sets.map((s) => ({ id: s.id, name: s.name, photoCount: s.photo_count })),
+          upload: { processing: view.processing, watermark: view.watermark, imageUrl: view.imageUrl },
+          unfinishedUploads: view.unfinishedUploads,
         }}
       />
     </div>

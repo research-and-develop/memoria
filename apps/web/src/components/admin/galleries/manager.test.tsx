@@ -22,7 +22,8 @@ const PHOTOS = [
   { id: 'p1', filename: 'IMG_1.jpg', width: 3, height: 2, color: '#777777', hidden: false, status: 'ready', thumbUrl: '/t/1' },
   { id: 'p2', filename: 'IMG_2.jpg', width: 3, height: 2, color: '#777777', hidden: true, status: 'ready', thumbUrl: '/t/2' },
 ];
-const GALLERY = { cover_photo_id: 'p1', settings: { sort: 'filename' }, sets: SETS };
+const UPLOAD = { processing: { display: { longEdge: 2048, quality: 82 }, thumb: { longEdge: 600, quality: 78 } }, watermark: null, imageUrl: null };
+const GALLERY = { cover_photo_id: 'p1', settings: { sort: 'filename' }, sets: SETS, ...UPLOAD, unfinishedUploads: 0 };
 
 beforeEach(() => {
   routes = {};
@@ -38,9 +39,30 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const renderManager = () => render(<GalleryManager initial={{ id: G, coverPhotoId: 'p1', sort: 'filename', sets: SETS }} />);
+const renderManager = (unfinishedUploads = 0) =>
+  render(<GalleryManager initial={{ id: G, coverPhotoId: 'p1', sort: 'filename', sets: SETS, upload: UPLOAD, unfinishedUploads }} />);
 
 describe('GalleryManager', () => {
+  it('the uploader sits above the grid and uploads into the current set', async () => {
+    const user = userEvent.setup();
+    renderManager();
+    expect(screen.getByRole('region', { name: 'Upload' })).toBeInTheDocument();
+    expect(screen.getByText('Loose photos go into “Photos”; photos in a folder go into the set named after it.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Ceremony/ }));
+    expect(screen.getByText('Loose photos go into “Ceremony”; photos in a folder go into the set named after it.')).toBeInTheDocument();
+  });
+
+  it('the unfinished-uploads banner follows the server: shown from the page, gone after a reload says 0', async () => {
+    const user = userEvent.setup();
+    renderManager(4);
+    expect(screen.getByRole('status')).toHaveTextContent('4 photos did not finish uploading.');
+    await user.click(screen.getByRole('tab', { name: 'Settings' }));
+    await user.click(screen.getByRole('radio', { name: 'Capture time' }));
+    await waitFor(() => expect(calls()).toContain(`GET /api/admin/galleries/${G}`));
+    await user.click(screen.getByRole('tab', { name: 'Photos' }));
+    await waitFor(() => expect(screen.queryByText(/did not finish uploading/)).not.toBeInTheDocument());
+  });
+
   it('shows the first set with Cover and Hidden badges; selecting a photo opens the bulk bar', async () => {
     renderManager();
     const first = await screen.findByRole('checkbox', { name: 'Select IMG_1.jpg' });

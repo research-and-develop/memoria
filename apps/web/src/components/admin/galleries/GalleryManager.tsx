@@ -13,12 +13,17 @@ import { adminFetch } from './adminFetch';
 import { BulkBar } from './BulkBar';
 import { PhotoGrid } from './PhotoGrid';
 import { SetsRail, type ManagerSet } from './SetsRail';
+import { GalleryUploader, type UploadProfile } from './upload/GalleryUploader';
 
 export type ManagerGallery = {
   id: string;
   coverPhotoId: string | null;
   sort: 'filename' | 'taken';
   sets: ManagerSet[];
+  /** The processing snapshot and watermark URL the uploader draws with. */
+  upload: UploadProfile;
+  /** Photos still `uploading` on the server (the uploader's banner). */
+  unfinishedUploads: number;
 };
 
 type Tab = 'photos' | 'settings';
@@ -31,11 +36,16 @@ const SORTS = [
   { value: 'taken', label: 'Capture time' },
 ] as const;
 
-type GalleryResponse = { cover_photo_id: string | null; settings: { sort: 'filename' | 'taken' }; sets: ManagerSet[] };
+type GalleryResponse = UploadProfile & {
+  cover_photo_id: string | null;
+  settings: { sort: 'filename' | 'taken' };
+  sets: ManagerSet[];
+  unfinishedUploads?: number;
+};
 
 /**
- * The gallery manager (plan p05 → Screens): *Photos* (sets rail, grid, selection, bulk bar, and the
- * uploader slot) and *Settings* (order; delete arrives with commit 8). Selections, Downloads and
+ * The gallery manager (plan p05 → Screens): *Photos* (sets rail, the uploader, grid, selection, bulk
+ * bar) and *Settings* (order; delete arrives with commit 8). Selections, Downloads and
  * Activity tabs come with Phases 8, 9 and 11. Every change reloads the gallery from the API.
  */
 export function GalleryManager({ initial }: { initial: ManagerGallery }) {
@@ -54,7 +64,16 @@ export function GalleryManager({ initial }: { initial: ManagerGallery }) {
       return;
     }
     const sets = result.data.sets;
-    setGallery({ id: initial.id, coverPhotoId: result.data.cover_photo_id, sort: result.data.settings.sort, sets });
+    const { processing, watermark, imageUrl } = result.data;
+    setGallery({
+      id: initial.id,
+      coverPhotoId: result.data.cover_photo_id,
+      sort: result.data.settings.sort,
+      sets,
+      // The dev read route's watermark URL expires: take the fresh one.
+      upload: { processing, watermark, imageUrl },
+      unfinishedUploads: result.data.unfinishedUploads ?? 0,
+    });
     setSetId((current) => (sets.some((s) => s.id === current) ? current : (sets[0]?.id ?? '')));
     setSelected(new Set());
     setVersion((v) => v + 1);
@@ -84,7 +103,15 @@ export function GalleryManager({ initial }: { initial: ManagerGallery }) {
             onError={setError}
           />
           <div className="flex min-w-0 flex-col gap-4">
-            {/* The uploader (lane C, T5.5) mounts here: drop zone + panel for `setId`, reload() when photos are ready. */}
+            <GalleryUploader
+              galleryId={gallery.id}
+              setId={setId}
+              sets={gallery.sets}
+              profile={gallery.upload}
+              unfinished={gallery.unfinishedUploads}
+              onPhotosReady={() => void reload()}
+              onSetsChanged={() => void reload()}
+            />
             {setId ? <PhotoGrid galleryId={gallery.id} setId={setId} coverId={gallery.coverPhotoId} version={version} selected={selected} onSelectedChange={setSelected} /> : null}
             {selected.size > 0 ? (
               <BulkBar galleryId={gallery.id} selected={[...selected]} sets={gallery.sets} currentSet={setId} onDone={() => void reload()} onError={setError} />
