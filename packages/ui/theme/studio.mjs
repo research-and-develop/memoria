@@ -60,6 +60,12 @@ export const colors = {
   inverse: '#FFFFFF',
   /** Count badges and warnings: on `surface` only. */
   alert: '#B4530A',
+  /**
+   * A dark veil over a PHOTO, always with an opacity: badges `bg-scrim/80 text-inverse` (text AA over
+   * any photo), icon buttons `bg-scrim/55 text-inverse` (3:1). The same in every theme: it sits on
+   * the picture, not on the page (colorContrast.test.ts pins both over white).
+   */
+  scrim: '#16171A',
   danger: {
     /** Destructive actions, error text. */
     DEFAULT: '#9B2C22',
@@ -145,6 +151,14 @@ export const borderRadius = {
 export const boxShadow = {
   /** A raised control (the selected segment). */
   control: '0 1px 2px rgba(0, 0, 0, 0.12)',
+  /** The selected tab's underline, in the text colour (`Tabs`). */
+  tab: 'inset 0 -2px 0 currentColor',
+};
+
+/** Border widths beyond Tailwind's (`border` 1 px, `border-2`). */
+export const borderWidth = {
+  /** A selectable pill (`Chip`). */
+  chip: '1.5px',
 };
 
 export const maxWidth = {
@@ -168,5 +182,5 @@ export const meta = {
   themeColor: colors.ground,
 };
 
-export const studioTheme = { colors, fontSize, fontWeight, fontFamily, borderRadius, boxShadow, maxWidth, width, meta };
+export const studioTheme = { colors, fontSize, fontWeight, fontFamily, borderRadius, boxShadow, borderWidth, maxWidth, width, meta };
 export default studioTheme;

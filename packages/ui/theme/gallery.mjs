@@ -54,6 +54,8 @@ export const light = {
   accent: { DEFAULT: '#1F6F5C', ink: '#1F6F5C', tint: '#E1E9E4', hover: '#1B6251' },
   focus: '#1F6F5C',
   inverse: '#FFFFFF',
+  /** Over a photo, like the studio's. */
+  scrim: studio.colors.scrim,
   ...unused,
 };
 
@@ -80,6 +82,8 @@ export const dark = {
   accent: { DEFAULT: '#357D6C', ink: '#579385', tint: '#141E1D', hover: '#2F6E5F' },
   focus: '#579385',
   inverse: '#FFFFFF',
+  /** Over a photo, like the studio's. */
+  scrim: studio.colors.scrim,
   ...unused,
 };
 

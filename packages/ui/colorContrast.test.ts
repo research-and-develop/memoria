@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { contrastRatio } from './colorContrast';
+import { contrastRatio, tokenHex } from './colorContrast';
 import { dark as galleryDark, light as galleryLight, SWATCHES } from './theme/gallery.mjs';
 import { galleryAccent } from './theme/galleryAccent.mjs';
 
@@ -76,5 +76,27 @@ describe('gallery theme contrast', () => {
     expect(contrastRatio('inverse', 'accent', colors)).toBeGreaterThanOrEqual(AA);
     // The primary button's hover (packages/ui/button.tsx: hover:bg-accent-hover).
     expect(contrastRatio('inverse', 'accent-hover', colors)).toBeGreaterThanOrEqual(AA);
+  });
+});
+
+/**
+ * The scrim sits on a PHOTO, with an opacity (theme/studio.mjs): checked over the worst case, a white
+ * photo. Badges (`bg-scrim/80 text-inverse`) need AA, icon buttons (`bg-scrim/55`) 3:1 (WCAG 1.4.11).
+ */
+describe('scrim over a photo', () => {
+  /** `hex` at `alpha` over `under`, as #RRGGBB. */
+  const over = (hex: string, alpha: number, under: string) => {
+    const ch = (h: string, i: number) => Number.parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16);
+    return `#${[0, 1, 2].map((i) => Math.round(ch(hex, i) * alpha + ch(under, i) * (1 - alpha)).toString(16).padStart(2, '0')).join('')}`;
+  };
+  const WHITE_PHOTO = '#FFFFFF';
+  const themes = { studio: undefined, 'gallery light': galleryLight, 'gallery dark': galleryDark } as const;
+
+  it.each(Object.keys(themes) as (keyof typeof themes)[])('%s: badge text on scrim/80 (AA), icons on scrim/55 (3:1)', (name) => {
+    const colors = themes[name];
+    const scrim = colors ? tokenHex('scrim', colors) : tokenHex('scrim');
+    const inverse = colors ? tokenHex('inverse', colors) : tokenHex('inverse');
+    expect(contrastRatio(inverse, over(scrim, 0.8, WHITE_PHOTO))).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(inverse, over(scrim, 0.55, WHITE_PHOTO))).toBeGreaterThanOrEqual(3);
   });
 });

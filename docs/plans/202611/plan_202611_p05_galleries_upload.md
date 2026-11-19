@@ -766,7 +766,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [x] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
 - [ ] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
 - [ ] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
-- [ ] T5.9 `Chip`, `Tabs`, `scrim`
+- [x] T5.9 `Chip`, `Tabs`, `scrim`
 - [ ] T5.7 Sharing panel, the template `load` step, `gallery.ready`
 - [ ] T5.8 Soft delete, restore, purge jobs
 - [ ] Verification 1–3, 6 (4–5 once the buckets, the domain and a deploy exist)
@@ -896,6 +896,27 @@ half (lane C: `uploader.ts`, the drop zone, the panel, the banner); T5.5 is tick
   (their sum) plus the 10 MB cap each; the original against `original_bytes` exactly.
 - Rate limit: 600 register requests an hour (`upload_register`).
 - Docs: architecture.md → Upload; AGENTS.md → Where to look (`lib/images/`, `lib/galleries/`).
+
+**T5.9, split out of commit 6, 2026-11-19, lane C** (`feat(ui): Chip, Tabs and the scrim token`, so
+Phase 6's client gallery can start on them). As designed, plus:
+
+- **`scrim`** = `#16171A` (rgb 22 23 26) in the studio and in both gallery maps (it sits on a photo,
+  not on the page). Usage pinned in `studio.mjs` and `colorContrast.test.ts`, composited over a white
+  photo: badges `bg-scrim/80 text-inverse` (AA), icon buttons `bg-scrim/55` (3:1).
+- **Two new tokens**: `boxShadow.tab` (the selected tab's 2 px underline in the text colour,
+  `shadow-tab`) and a new `borderWidth` group with `chip` = 1.5 px (`border-chip`). The preset and
+  `cn.ts` read the group, and `cn.test.ts` checks it.
+- **`Chip`** (`packages/ui/chip.tsx`): 40 px pill, 44 px on a coarse pointer, optional `count`.
+  `aria-pressed` by default, `aria-selected` with `role="tab"`. **Selected = an accent fill with
+  `inverse` text, not the mockup's ink fill**: in a dark gallery `ink` is light, and `inverse` is only
+  legible on an accent fill (every swatch is already contrast-tested for it).
+- **`Tabs`** (`packages/ui/tabs.tsx`): `variant` `line` (the GalleryEditor look: 44 px, underline,
+  `ink-muted` when unselected) or `chip` (the Mobile set chips: `Chip`s with `role="tab"`, scrolling
+  sideways). `activation` `automatic` or `manual` (arrows move focus and Enter selects, for panels that
+  cost a fetch). Disabled tabs are skipped; `TabPanel`, `tabId` and `tabPanelId` wire
+  `aria-controls`/`aria-labelledby` (ids are safe for values with spaces).
+- `/admin/design` → *Tabs, chips and the scrim*, checked at 360 px and 1440 px (no page overflow), in
+  the studio and in a dark gallery scope.
 
 ## Review log
 

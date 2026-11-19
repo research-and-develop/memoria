@@ -54,6 +54,7 @@ export default {
       fontWeight: studio.fontWeight,
       borderRadius: studio.borderRadius,
       boxShadow: studio.boxShadow,
+      borderWidth: studio.borderWidth,
       maxWidth: studio.maxWidth,
       width: studio.width,
       // No custom spacing: Tailwind's scale. (A key here must also go into cn.ts SPACING_TOKENS.)

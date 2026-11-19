@@ -11,6 +11,7 @@ import { GalleryThemes } from './GalleryThemes';
 import { GalleryTypography } from './GalleryTypography';
 import { PickersDemo } from './PickersDemo';
 import { ShapesShowcase } from './ShapesShowcase';
+import { TabsChipsDemo } from './TabsChipsDemo';
 import { TypeScale } from './TypeScale';
 
 export const metadata: Metadata = { title: 'Design', robots: { index: false, follow: false } };
@@ -41,6 +42,13 @@ export default function DesignPage() {
       </DesignSection>
       <DesignSection id="pickers" title="Radio cards and swatch picker" note="Keyboard: Tab into the group; the arrow keys move and select.">
         <PickersDemo />
+      </DesignSection>
+      <DesignSection
+        id="tabs"
+        title="Tabs, chips and the scrim"
+        note="Keyboard: Tab to the selected tab; the arrow keys move (the set chips select on Enter). Chips grow to 44 px on a touch screen. The scrim is only for badges and buttons on a photo."
+      >
+        <TabsChipsDemo />
       </DesignSection>
       <DesignSection id="shapes" title="Pills, cards, radii, focus">
         <ShapesShowcase />
