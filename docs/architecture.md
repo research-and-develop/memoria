@@ -105,12 +105,25 @@ vitest aliases it to ──► @repo/platform/testing              a test D1, an
 
 ### Media
 
+**Two buckets** (Phase 5, D5.1):
+
+| Bucket | Binding | Holds | Reached by |
+| --- | --- | --- | --- |
+| `memoria-media` | `MEDIA` | display copies, thumbnails, branding (the watermark, later logos) | the public media domain (`publicUrl`), presigned PUTs |
+| `memoria-originals` | `ORIGINALS` | the uploaded originals (location data stripped in the browser) | presigned PUTs; short-lived presigned GETs for downloads (Phase 9); **never a public domain** |
+
+`getPlatform().blobs(bucket)` returns one `BlobStore` per bucket (`media` by default); `blobUrls`
+takes `{ bucket }` on `uploadUrl` and `readUrl` (S3: the bucket in the path; dev: the token's `b`, from
+which the dev routes pick the binding) and `publicUrl` refuses `originals`. No URL guessed or edited
+from a display copy can reach an original. Signing keys are cached per access key on `globalThis`
+(D5.25): an upload batch signs 30 URLs with one key derivation.
+
 `blobUrls(config)` (`@repo/platform/blobUrls`) mints every URL a browser uses for a stored file. Its
 mode follows the config:
 
 | Mode | When | Upload | Download |
 | --- | --- | --- | --- |
-| `s3` | all four `MEDIA_S3_*` set (production) | presigned PUT straight to R2's S3 endpoint; the Content-Type is signed | presigned GET with `response-content-disposition` |
+| `s3` | all five `MEDIA_S3_*` set (production) | presigned PUT straight to R2's S3 endpoint; the Content-Type is signed | presigned GET with `response-content-disposition` |
 | `dev` | `NEXTJS_ENV=development` and `MEDIA_DEV_SIGNING_SECRET` | `PUT /api/blobs/upload?t=…` (buffered, ≤ 32 MB) | `GET /api/blobs/read?t=…` |
 | `none` | otherwise | `MEDIA_NOT_CONFIGURED` (503) | `MEDIA_NOT_CONFIGURED` (503) |
 

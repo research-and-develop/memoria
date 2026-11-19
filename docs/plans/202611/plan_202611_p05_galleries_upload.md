@@ -1,8 +1,8 @@
 ---
 title: "Phase 5: Galleries and upload"
 type: plan
-status: ready
-updated: 2026-11-17
+status: in-progress
+updated: 2026-11-19
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, plan_202611_p03_relay_email.md, plan_202611_p04_studio_settings.md, plan_202611_p06_client_gallery.md, ../../architecture.md, ../../deployment.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
@@ -760,7 +760,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 
 ## Checklist
 
-- [ ] T5.1 Originals bucket, per-bucket stores, signer cache
+- [x] T5.1 Originals bucket, per-bucket stores, signer cache
 - [ ] T5.2 Migration and query modules
 - [ ] T5.3 Gallery library, create/list/get/patch/publish/new-link, New gallery and Galleries pages
 - [ ] T5.4 Pipeline libraries (JPEG editor), folders, worker, pool
@@ -772,6 +772,25 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [ ] Verification 1–3, 6 (4–5 once the buckets, the domain and a deploy exist)
 - [ ] M4: T5.10 presets · T5.11 auto-split · T5.13 filters, drag order, ranges, QR download, autosave, IndexedDB · T5.14 PNG/WebP editors
 - [ ] M5: T5.12 replace with edited · T5.13b reprocess · T5.15 processing switch
+
+## Built
+
+**Commit 1 (T5.1), 2026-11-19.** As designed, plus:
+
+- **Five S3 settings, not four**: `Config.media.s3` is null unless `MEDIA_S3_ORIGINALS_BUCKET` is set too
+  (`S3Config.originalsBucket`), so a half-configured production never mints for one bucket only.
+- **The dev token's `b` is required** (`'m' | 'o'`, `bucketOfToken` in `blobToken.ts`); a token without it
+  is invalid (they live minutes, so nothing outstanding breaks).
+- **`publicUrl(key, { bucket })`** takes the bucket only to refuse `originals` (throws a plain `Error`: a
+  programming error, not a 400).
+- **The signer cache** is `signerCache(accessKeyId)` in `blobUrls.ts` (a `Map` per access key on
+  `globalThis`); the test counts `crypto.subtle.sign` calls: a warm URL costs one HMAC, a cold one five.
+- **`useTestPlatform({ blobs: { media?, originals? } })`** replaces `blobs: BlobStore` (one caller, its
+  own test); the contract runs on the test platform's originals store and on both workerd buckets.
+- **`npm run media:probe -- <url> --originals`** round-trips through the originals bucket and checks the
+  object is absent from the other one (both directions).
+- Gate: `npm run build:worker` + `wrangler dev` (port 8788, scratch state) lists `MEDIA` and `ORIGINALS`;
+  `/healthz` 200, `/admin` 307; the probe passes for both buckets. 1818 tests.
 
 ## Review log
 

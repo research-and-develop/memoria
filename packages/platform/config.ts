@@ -67,6 +67,7 @@ export function parseConfig(env: StringEnv): Config {
   const s3 = {
     endpoint: origin(env, 'MEDIA_S3_ENDPOINT'),
     bucket: optional(env, 'MEDIA_S3_BUCKET'),
+    originalsBucket: optional(env, 'MEDIA_S3_ORIGINALS_BUCKET'),
     accessKeyId: optional(env, 'MEDIA_S3_ACCESS_KEY_ID'),
     secretAccessKey: optional(env, 'MEDIA_S3_SECRET_ACCESS_KEY'),
   };
@@ -90,8 +91,14 @@ export function parseConfig(env: StringEnv): Config {
       devSigningSecret: devSigningSecret.length >= MIN_SIGNING_SECRET_LENGTH ? devSigningSecret : null,
       publicBaseUrl: origin(env, 'MEDIA_PUBLIC_BASE_URL'),
       s3:
-        s3.endpoint && s3.bucket && s3.accessKeyId && s3.secretAccessKey
-          ? { endpoint: s3.endpoint, bucket: s3.bucket, accessKeyId: s3.accessKeyId, secretAccessKey: s3.secretAccessKey }
+        s3.endpoint && s3.bucket && s3.originalsBucket && s3.accessKeyId && s3.secretAccessKey
+          ? {
+              endpoint: s3.endpoint,
+              bucket: s3.bucket,
+              originalsBucket: s3.originalsBucket,
+              accessKeyId: s3.accessKeyId,
+              secretAccessKey: s3.secretAccessKey,
+            }
           : null,
     },
   };

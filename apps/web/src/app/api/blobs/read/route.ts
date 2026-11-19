@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { notFoundError } from '@repo/api/responses';
 import { withErrorHandling } from '@repo/api/withErrorHandling';
+import { bucketOfToken } from '@repo/platform/blobToken';
 import { getPlatform } from '@repo/platform/current';
 
 import { blobReadHeaders, withBlobSecurityHeaders } from '@/lib/media/blobResponseHeaders';
@@ -24,7 +25,7 @@ export const GET = withErrorHandling(
     if (!checked.ok) return withBlobSecurityHeaders(checked.response);
     const { key } = checked.value;
 
-    const blobs = platform.blobs();
+    const blobs = platform.blobs(bucketOfToken(checked.value.b));
     const meta = await blobs.head(key);
     if (!meta) return withBlobSecurityHeaders(notFoundError());
     const headers = blobReadHeaders(meta, checked.value, now);

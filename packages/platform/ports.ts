@@ -67,8 +67,24 @@ export interface BlobStore {
 /** The env's SMTP fallback (`Config.bootstrap.mail`): `none` and a local host only in development. */
 export type EnvMail = { from: string; smtp: SmtpSettings };
 
+/**
+ * The buckets (plan p05, D5.1). `media`: what browsers may fetch (display copies, thumbnails,
+ * branding; the public media domain points here). `originals`: the uploaded originals, private, never
+ * on a public domain; only short-lived presigned GETs reach it (Phase 9).
+ */
+export type BucketName = 'media' | 'originals';
+export const BUCKET_NAMES: readonly BucketName[] = ['media', 'originals'];
+
 /** S3-compatible credentials for presigned URLs (R2's S3 endpoint in production). */
-export type S3Config = { endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string };
+export type S3Config = {
+  endpoint: string;
+  /** The `media` bucket's name (`MEDIA_S3_BUCKET`). */
+  bucket: string;
+  /** The `originals` bucket's name (`MEDIA_S3_ORIGINALS_BUCKET`). */
+  originalsBucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
 
 /**
  * The runtime configuration, parsed from plain string env by `parseConfig` (config.ts). Holds
@@ -117,7 +133,7 @@ export type Config = {
     devSigningSecret: string | null;
     /** The public media domain (R2 custom domain), without a trailing slash; null = none. */
     publicBaseUrl: string | null;
-    /** null unless all four S3 settings are present. */
+    /** null unless all five S3 settings are present (endpoint, both buckets, the key pair). */
     s3: S3Config | null;
   };
 };
@@ -161,7 +177,8 @@ export interface Mailer {
 export interface Platform {
   readonly name: 'cloudflare' | 'test';
   db(): Db;
-  blobs(): BlobStore;
+  /** One store per bucket (default `media`); the same instance on every call. */
+  blobs(bucket?: BucketName): BlobStore;
   config(): Config;
   /** Keep `task` running after the response. Rejections are logged (`deferred_task_failed`), never thrown. */
   defer(task: Promise<unknown>): void;

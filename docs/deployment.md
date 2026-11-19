@@ -94,28 +94,44 @@ they always had; wrangler prints that id in a deploy's binding list, but the upl
 
 Needed before the first upload ships (Phase 5); local dev, the tests and CI never touch it. R2 must be
 enabled on the account first (the dashboard may ask for billing details; the free tier still applies).
+**Two buckets** (plan p05, D5.1): `memoria-media` holds what browsers fetch (display copies, thumbnails,
+branding) and gets the public media domain; `memoria-originals` holds the uploaded originals and is
+**private**: no public domain, no `r2.dev` URL, ever. Both are bound on both Workers (`MEDIA`,
+`ORIGINALS`). The owner's checklist, in order:
 
-```sh
-npm run wrangler -- r2 bucket create memoria-media --location <hint>   # the name in wrangler.jsonc r2_buckets
-# apps/web/r2-cors.json: replace the placeholder origin with the production origin first
-npm run wrangler -- r2 bucket cors set memoria-media --file r2-cors.json
-```
+1. **Buckets**, in the same location (`memoria-media` exists since the smoke deploy, `eeur`):
+   ```sh
+   npm run wrangler -- r2 bucket create memoria-media --location <hint>       # = wrangler.jsonc r2_buckets
+   npm run wrangler -- r2 bucket create memoria-originals --location <hint>   # the same hint as memoria-media
+   ```
+2. **CORS** for both, after replacing the placeholder origin in both files with the production origin
+   (`r2-cors.json` also gets the public media domain's site origin if pages are served from another one):
+   ```sh
+   npm run wrangler -- r2 bucket cors set memoria-media --file r2-cors.json
+   npm run wrangler -- r2 bucket cors set memoria-originals --file r2-cors-originals.json
+   ```
+3. **The S3 API token**: Dashboard → R2 → **Manage API tokens → Create API token**, permission **Object
+   Read & Write**, scoped to **`memoria-media` and `memoria-originals` only**. It shows an *Access Key ID*
+   and a *Secret Access Key* once: `npm run wrangler -- secret put MEDIA_S3_ACCESS_KEY_ID` and
+   `npm run wrangler -- secret put MEDIA_S3_SECRET_ACCESS_KEY`. Then `MEDIA_S3_ENDPOINT` in `wrangler.jsonc`
+   `vars` = `https://<account id>.r2.cloudflarestorage.com` (presigned URLs work only there, not on a
+   custom domain).
+4. **The public media domain, on `memoria-media` only**: R2 → `memoria-media` → Settings → Custom
+   Domains (e.g. `media.<domain>`), its DNS, then `MEDIA_PUBLIC_BASE_URL` in `vars`. **This var and
+   `MEDIA_S3_ENDPOINT` are baked into the pages' Content-Security-Policy at `next build`** (`connect-src`,
+   `img-src`): changing either needs a rebuild and a deploy, not only a var change or a dashboard edit.
+5. **`MEDIA_S3_BUCKET` and `MEDIA_S3_ORIGINALS_BUCKET`** in `vars` stay `memoria-media` and
+   `memoria-originals` (the guard checks they match `r2_buckets`).
+6. **Deploy the relay, then the app** (`npm run deploy:relay`, `npm run deploy`).
+7. **Check from a browser once** (plan Phase 1, Verification 5; Phase 5, Verification 4): a presigned PUT
+   and GET against each bucket with the CORS rules, `response-content-disposition`, and that a PUT with
+   another Content-Type fails. (`npm run media:probe -- <url> [--originals]` checks the same round trip
+   locally, through the development routes.)
 
-- **The S3 API token**: Dashboard → R2 → **Manage API tokens → Create API token**, permission **Object
-  Read & Write**, scoped to **the `memoria-media` bucket only**. It shows an *Access Key ID* and a
-  *Secret Access Key* once: `npm run wrangler -- secret put MEDIA_S3_ACCESS_KEY_ID` and
-  `npm run wrangler -- secret put MEDIA_S3_SECRET_ACCESS_KEY`.
-- **Vars** in `wrangler.jsonc`: `MEDIA_S3_ENDPOINT` = `https://<account id>.r2.cloudflarestorage.com`
-  (presigned URLs work only there, not on a custom domain); `MEDIA_S3_BUCKET` = the bucket (the guard
-  checks it matches `r2_buckets`); `MEDIA_PUBLIC_BASE_URL` = the public media domain once one is chosen
-  (R2 → bucket → Settings → Custom Domains), empty until then. **Both origins are baked into the
-  pages' Content-Security-Policy at `next build`** (`connect-src`, `img-src`): changing either needs a
-  rebuild and a deploy, not only a var change.
-- Without all four S3 settings, every upload/download URL fails with `MEDIA_NOT_CONFIGURED` (503):
-  there is no fallback in production. The `/api/blobs/*` routes answer 404 there (they need
-  `NEXTJS_ENV=development`, which only `.dev.vars` sets; the guard keeps it out of `vars`).
-- Check from a browser once (plan Phase 1, Verification 5): a presigned PUT and GET against the bucket
-  with the CORS rules, `response-content-disposition`, and that a PUT with another Content-Type fails.
+- Without all five S3 settings (the endpoint, both buckets, the key pair), every upload/download URL
+  fails with `MEDIA_NOT_CONFIGURED` (503): there is no fallback in production. The `/api/blobs/*` routes
+  answer 404 there (they need `NEXTJS_ENV=development`, which only `.dev.vars` sets; the guard keeps it
+  out of `vars`).
 
 ## How a change ships
 
@@ -164,8 +180,8 @@ which exist. Setting a secret deploys a new version.
 | `ADMIN_PASSWORD_HASH` | development and a first install only (`npm run admin:hash-password`): the account lives in D1 (`admin:mfa -- password`). Delete it once a D1 account exists |
 | `HASH_SALT` | a long random string; hashes IPs for rate limits (missing → logged `hash_salt_missing`) |
 | `TOTP_ENCRYPTION_KEY` | `npm run admin:mfa -- key` (32 random bytes): encrypts the authenticator secrets, keys the recovery codes. Missing → sign-in answers 503. Changing it disables every authenticator: reset (below) |
-| `MEDIA_S3_ACCESS_KEY_ID`, `MEDIA_S3_SECRET_ACCESS_KEY` | the bucket-scoped R2 API token (One-time setup → Media) |
-| `SETTINGS_ENCRYPTION_KEY` | **both Workers, the same value**: `npm run admin:mfa -- key --settings`, then `secret put` without and with `-c ../relay/wrangler.jsonc`. Encrypts the mail password or key saved in Settings → Emails. Changing it = enter that secret again |
+| `MEDIA_S3_ACCESS_KEY_ID`, `MEDIA_S3_SECRET_ACCESS_KEY` | the R2 API token scoped to the two buckets (One-time setup → Media) |
+| `SETTINGS_ENCRYPTION_KEY` | **both Workers, the same value**: `npm run admin:mfa -- key --settings`, then `secret put` without and with `-c ../relay/wrangler.jsonc`. Encrypts the mail password or key saved in Settings → Emails and every gallery password (Phase 5). Changing it = enter the mail secret again, **set every gallery password again**, and every gallery access cookie ends (Phase 6) |
 
 `MEDIA_DEV_SIGNING_SECRET` is local only (it signs the development blob routes): never set it in
 production. So are `MAIL_FROM` and `SMTP_*` (the Mailpit fallback, *Email → Locally*).
@@ -279,6 +295,13 @@ npm run wrangler -- d1 delete memoria-restore-test
 
 To restore production itself, prefer Time Travel (Rollback) while within its 7 days; an export is for
 older points or a lost database.
+
+**R2 is not backed up.** Neither bucket is covered by the D1 export or Time Travel. `memoria-media` can
+be rebuilt from the originals (Phase 5 M5's reprocess), but **`memoria-originals` is irreplaceable**, and
+a deleted gallery's purge (7 days after the delete) is final. Options, the owner's choice (plan p05, open
+question 11): keep the photographer's own copies (Lightroom catalogue, exports) as the backup; an
+`rclone` copy of `memoria-originals` to an external store, run by hand like the D1 backup; R2 object
+versioning or bucket replication once Cloudflare offers it on the plan.
 
 ## Dependencies
 

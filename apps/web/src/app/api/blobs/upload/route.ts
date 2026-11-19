@@ -21,13 +21,13 @@ export const PUT = withErrorHandling(
     const platform = getPlatform();
     const checked = await checkUpload(req, platform.config(), Math.floor(Date.now() / 1000));
     if (!checked.ok) return withBlobSecurityHeaders(checked.response);
-    const { key, contentType, size } = checked.value;
+    const { bucket, key, contentType, size } = checked.value;
 
     const bytes = await req.arrayBuffer();
     if (bytes.byteLength !== size) {
       return withBlobSecurityHeaders(invalidParamsError('The body must be the size the upload link was made for', 'body'));
     }
-    const stored = await platform.blobs().put(key, bytes, { contentType, ifAbsent: true });
+    const stored = await platform.blobs(bucket).put(key, bytes, { contentType, ifAbsent: true });
     if (!stored) {
       return withBlobSecurityHeaders(
         jsonError(409, { error: 'A file already exists under this key', errorCode: 'BLOB_EXISTS' }),

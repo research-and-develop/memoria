@@ -18,7 +18,7 @@ let testDb: TestDb;
 let passwordHash: string;
 const db = () => ({ db: testDb.db });
 const DEV = { NEXTJS_ENV: 'development', MEDIA_DEV_SIGNING_SECRET: 'd'.repeat(32) };
-const S3 = { MEDIA_S3_ENDPOINT: 'https://acct.r2.cloudflarestorage.com', MEDIA_S3_BUCKET: 'memoria-media', MEDIA_S3_ACCESS_KEY_ID: 'id', MEDIA_S3_SECRET_ACCESS_KEY: 'secret' };
+const S3 = { MEDIA_S3_ENDPOINT: 'https://acct.r2.cloudflarestorage.com', MEDIA_S3_BUCKET: 'memoria-media', MEDIA_S3_ORIGINALS_BUCKET: 'memoria-originals', MEDIA_S3_ACCESS_KEY_ID: 'id', MEDIA_S3_SECRET_ACCESS_KEY: 'secret' };
 const ENV = (extra: Record<string, string> = {}) => ({
   ADMIN_EMAIL: 'admin@example.com',
   ADMIN_PASSWORD_HASH: passwordHash,

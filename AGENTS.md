@@ -25,7 +25,7 @@ Docs wiki: [`docs/README.md`](docs/README.md). How to add a table, a route, a se
 | `apps/web/src/lib/db/queries/<table_name>/**` | the ONLY place SQL lives (reference modules: `site_settings`, `admin_sessions`) |
 | `apps/web/src/lib/config/appConfig.ts` | the public part of the config and the studio settings, handed down via `AppProvider` |
 | `apps/web/src/lib/settings/**`, `lib/auth/account.ts` | the photographer's settings (studio name, website address; the sign-in account; mail: `mail.ts`, `parseMailSettings.ts`, `secrets.ts` = the secrets sealed under `SETTINGS_ENCRYPTION_KEY`): D1, else the env default (`Config.bootstrap`) |
-| `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA`, assets, …), vars, compatibility flags; `r2-cors.json` = the bucket's CORS rules |
+| `apps/web/wrangler.jsonc` | the Worker: bindings (D1 `DB`, R2 `MEDIA` + `ORIGINALS`, assets, …), vars, compatibility flags; `r2-cors.json` / `r2-cors-originals.json` = the buckets' CORS rules |
 | `apps/web/src/lib/media/` | the development blob routes' checks (`devBlobRequest.ts`) and headers (`blobResponseHeaders.ts`) |
 | `apps/web/src/lib/images/` | browser image code (Phase 4): `watermark.ts` (`watermarkBox`, `applyWatermark`: previews and, from Phase 5, bakes the watermark), `upload.ts` (`putToSignedUrl`, a PUT with progress) |
 | `apps/relay/` | the relay Worker (Phase 3): `src/index.ts` (`POST /run` nudge + a cron every minute), `wrangler.jsonc` (`alias`: `@repo/platform/current` → `packages/platform-cloudflare/relay.ts`, `server-only` → empty), generated `relay-env.d.ts`. It runs the app's `lib/**` code: see *Relay-safe code* |
@@ -228,6 +228,10 @@ first when the change can redirect links, then the write and its audit row in on
 
 ## Media rules (non-negotiable)
 
+- **Two buckets** (plan p05, D5.1): `media` (display copies, thumbnails, branding: what browsers fetch, behind
+  the public media domain) and `originals` (private: **an original is stored only there**, never on a public
+  domain; reached only by short-lived presigned GETs). `getPlatform().blobs('originals')`,
+  `blobUrls(config).uploadUrl(key, { bucket: 'originals', … })`; `publicUrl` refuses `originals`.
 - **Through the port only**: `getPlatform().blobs()` (`BlobStore`) to store and read; `blobUrls(config)`
   (`@repo/platform/blobUrls`) for URLs a browser uses. Production uploads and downloads are presigned S3
   URLs straight to R2 (`MEDIA_S3_*`); there is no fallback (`MEDIA_NOT_CONFIGURED`, 503). Locally,
@@ -306,7 +310,7 @@ first when the change can redirect links, then the write and its audit row in on
 `scripts/guards/`: `every-route-wrapped`, `admin-routes-require-admin`, `no-client-public-env`,
 `no-server-imports-in-client`, `no-host-locale-date`, `no-app-alias-in-packages`, `tailwind-ui-content`,
 `no-one-off-text-size`, `tailwind-merge-via-ui`, `no-raw-colors` (colours only as theme roles),
-`wrangler-config` (`cloudflare-env.d.ts` fresh, no secret in `vars`, `MEDIA_S3_BUCKET` = the `MEDIA` bucket,
+`wrangler-config` (`cloudflare-env.d.ts` fresh, no secret in `vars`, `MEDIA_S3_BUCKET` / `MEDIA_S3_ORIGINALS_BUCKET` = the `MEDIA` / `ORIGINALS` buckets,
 no `NEXTJS_ENV` in `vars`, every hard-coded Worker name = `name`),
 `migrations` (numbering, named constraints, no transaction control),
 `file-size` (700 lines prod / 800 tests; allowlist `file-size-allowlist.json`),

@@ -1,6 +1,6 @@
 import { logger } from '@repo/logger';
 import { parseConfig } from '@repo/platform/config';
-import type { Jobs, Platform } from '@repo/platform/ports';
+import type { BucketName, Jobs, Platform } from '@repo/platform/ports';
 
 import { d1Db } from './d1';
 import { stringEnv } from './env';
@@ -14,18 +14,23 @@ import { r2BlobStore } from './r2';
 export type CloudflarePlatformEnv = {
   DB: D1Database;
   MEDIA: R2Bucket;
+  /** The private originals bucket (plan p05, D5.1): both Workers bind it. */
+  ORIGINALS: R2Bucket;
   /** The relay Worker's service binding (the app has it; the relay itself does not). Plan p03. */
   RELAY?: Fetcher;
 };
 
 export function cloudflarePlatform(env: CloudflarePlatformEnv, waitUntil: (task: Promise<unknown>) => void): Platform {
   const db = d1Db(env.DB);
-  const blobs = r2BlobStore(env.MEDIA);
+  const stores: Record<BucketName, ReturnType<typeof r2BlobStore>> = {
+    media: r2BlobStore(env.MEDIA),
+    originals: r2BlobStore(env.ORIGINALS),
+  };
   const jobs = relayJobs(env.RELAY);
   return {
     name: 'cloudflare',
     db: () => db,
-    blobs: () => blobs,
+    blobs: (bucket = 'media') => stores[bucket],
     // Parsed per call: a handful of string reads, and never stale.
     config: () => parseConfig(stringEnv(env)),
     jobs: () => jobs,

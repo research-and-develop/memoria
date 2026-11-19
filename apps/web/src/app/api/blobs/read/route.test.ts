@@ -26,6 +26,14 @@ const get = (url: string, headers: Record<string, string> = {}) => new NextReque
 const errorCode = async (res: Response) => ((await res.json()) as { errorCode?: string }).errorCode;
 
 describe('GET /api/blobs/read', () => {
+  it('reads from the bucket the token names', async () => {
+    await getPlatform().blobs('originals').put('galleries/g/p/original.png', PNG, { contentType: 'image/png' });
+    const urls = blobUrls(getPlatform().config());
+    expect((await GET(get(await urls.readUrl('galleries/g/p/original.png', { bucket: 'originals' })))).status).toBe(200);
+    expect((await GET(get(await urls.readUrl('galleries/g/p/original.png')))).status).toBe(404);
+    expect((await GET(get(await urls.readUrl('dev/photo.png', { bucket: 'originals' })))).status).toBe(404);
+  });
+
   it('serves the bytes with inert, private, cacheable headers', async () => {
     const res = await GET(get(await readUrl('dev/photo.png', { expiresInSeconds: 120 })));
     expect(res.status).toBe(200);
@@ -74,7 +82,7 @@ describe('GET /api/blobs/read', () => {
     ['a missing key', 'dev/missing.png'],
     ['an existing key', 'dev/photo.png'],
   ])('answers 403, never 404, to a bad token for %s', async (_label, key) => {
-    const token = await signBlobToken({ v: 1, op: 'get', key, exp: Math.floor(Date.now() / 1000) + 60 }, `${SECRET}-other`);
+    const token = await signBlobToken({ v: 1, op: 'get', b: 'm', key, exp: Math.floor(Date.now() / 1000) + 60 }, `${SECRET}-other`);
     const res = await GET(get(`/api/blobs/read?t=${token}`));
     expect(res.status).toBe(403);
     expect(await errorCode(res)).toBe('BLOB_TOKEN_INVALID');

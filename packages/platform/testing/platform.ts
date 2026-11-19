@@ -1,6 +1,6 @@
 import { parseConfig, type StringEnv } from '../config';
 import { memoryBlobStore } from '../memory/blobStore';
-import type { BlobStore, Config, Db, Jobs, Platform } from '../ports';
+import type { BlobStore, BucketName, Config, Db, Jobs, Platform } from '../ports';
 
 /**
  * The test platform: what `getPlatform()` returns under vitest (vitest.config.ts aliases
@@ -13,7 +13,8 @@ import type { BlobStore, Config, Db, Jobs, Platform } from '../ports';
  *   nudgeCount();            // how often `jobs().nudge()` ran (lib/jobs/enqueue.ts → nudgeRelay)
  *
  * - `config()` parses the given `env` object on EVERY call, so a test may change it mid-test.
- * - `blobs` defaults to a fresh in-memory store; `db()` throws until a db is installed
+ * - each bucket (`blobs('media')`, `blobs('originals')`) defaults to its own fresh in-memory store;
+ *   `useTestPlatform({ blobs: { media } })` installs a given one; `db()` throws until a db is installed
  *   (`useTestDb(testDb.db)` from @repo/db/test-utils, or `useTestPlatform({ db })`).
  * - `defer(task)` handles the task's rejection at once (no unhandled rejection) and records it;
  *   `flushDeferred()` awaits every recorded task and rethrows the first failure.
@@ -24,7 +25,7 @@ import type { BlobStore, Config, Db, Jobs, Platform } from '../ports';
 type State = {
   env: Record<string, string | undefined>;
   db: Db | null;
-  blobs: BlobStore;
+  blobs: Record<BucketName, BlobStore>;
   deferred: Promise<{ ok: true } | { ok: false; error: unknown }>[];
   nudges: number;
 };
@@ -34,7 +35,7 @@ type Holder = { [KEY]?: State };
 const holder = globalThis as Holder;
 
 function fresh(): State {
-  return { env: {}, db: null, blobs: memoryBlobStore(), deferred: [], nudges: 0 };
+  return { env: {}, db: null, blobs: { media: memoryBlobStore(), originals: memoryBlobStore() }, deferred: [], nudges: 0 };
 }
 
 function state(): State {
@@ -43,8 +44,13 @@ function state(): State {
 }
 
 /** Install the test platform's parts for the current test. Anything not given is reset to its default. */
-export function useTestPlatform(parts: { db?: Db | null; env?: Record<string, string | undefined>; blobs?: BlobStore } = {}): void {
-  holder[KEY] = { ...fresh(), env: parts.env ?? {}, db: parts.db ?? null, blobs: parts.blobs ?? memoryBlobStore() };
+export function useTestPlatform(parts: {
+  db?: Db | null;
+  env?: Record<string, string | undefined>;
+  blobs?: Partial<Record<BucketName, BlobStore>>;
+} = {}): void {
+  const base = fresh();
+  holder[KEY] = { ...base, env: parts.env ?? {}, db: parts.db ?? null, blobs: { ...base.blobs, ...parts.blobs } };
 }
 
 /** Set or clear only the database (the other parts stay). */
@@ -78,7 +84,7 @@ export const testPlatform: Platform = {
     if (!db) throw new Error('no test db: call useTestDb(testDb.db) or useTestPlatform({ db }), or pass { db }');
     return db;
   },
-  blobs: () => state().blobs,
+  blobs: (bucket: BucketName = 'media') => state().blobs[bucket],
   config: (): Config => parseConfig(state().env as StringEnv),
   jobs: (): Jobs => ({
     async nudge() {

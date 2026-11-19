@@ -16,9 +16,15 @@ import { r2BlobStore } from '../r2';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const WRANGLER_CONFIG = path.join(REPO_ROOT, 'apps', 'web', 'wrangler.jsonc');
 
-export type Proxy = { db: Db; blobs: BlobStore; dispose: () => Promise<void> };
+/** `blobs` = the MEDIA bucket, `originals` = the ORIGINALS bucket (plan p05, D5.1). */
+export type Proxy = { db: Db; blobs: BlobStore; originals: BlobStore; dispose: () => Promise<void> };
 
 export async function createProxy(configPath: string = WRANGLER_CONFIG): Promise<Proxy> {
-  const proxy = await getPlatformProxy<{ DB: D1Database; MEDIA: R2Bucket }>({ configPath, persist: false });
-  return { db: d1Db(proxy.env.DB), blobs: r2BlobStore(proxy.env.MEDIA), dispose: () => proxy.dispose() };
+  const proxy = await getPlatformProxy<{ DB: D1Database; MEDIA: R2Bucket; ORIGINALS: R2Bucket }>({ configPath, persist: false });
+  return {
+    db: d1Db(proxy.env.DB),
+    blobs: r2BlobStore(proxy.env.MEDIA),
+    originals: r2BlobStore(proxy.env.ORIGINALS),
+    dispose: () => proxy.dispose(),
+  };
 }

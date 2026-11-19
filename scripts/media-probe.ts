@@ -3,6 +3,7 @@
  *
  *   npm run preview                                   (or npm run dev, port 3210)
  *   npm run media:probe -- http://localhost:8787
+ *   npm run media:probe -- http://localhost:8787 --originals   (the private originals bucket, plan p05)
  *
  * Reads `apps/web/.dev.vars` for MEDIA_DEV_SIGNING_SECRET, mints an upload and a read URL with
  * `blobUrls` in dev mode (as server code would), PUTs a built-in 1×1 PNG to `dev/probe-<uuid>.png`
@@ -37,7 +38,8 @@ function fail(message: string): never {
 
 async function main(): Promise<void> {
   const base = process.argv[2]?.replace(/\/+$/, '');
-  if (!base || !/^https?:\/\//.test(base)) fail('usage: npm run media:probe -- <base-url>, e.g. http://localhost:8787');
+  if (!base || !/^https?:\/\//.test(base)) fail('usage: npm run media:probe -- <base-url> [--originals], e.g. http://localhost:8787');
+  const bucket = process.argv.includes('--originals') ? 'originals' : 'media';
 
   let text: string;
   try {
@@ -52,18 +54,22 @@ async function main(): Promise<void> {
 
   const png = Uint8Array.from(atob(PNG_1X1), (c) => c.charCodeAt(0));
   const key = `dev/probe-${crypto.randomUUID()}.png`;
-  const upload = await urls.uploadUrl(key, { contentType: 'image/png', size: png.byteLength });
+  const upload = await urls.uploadUrl(key, { contentType: 'image/png', size: png.byteLength, bucket });
   const put = await fetch(`${base}${upload.url}`, { method: 'PUT', headers: { ...upload.headers, origin: base }, body: png });
-  console.log(`PUT ${key} → ${put.status} ${await put.text()}`);
+  console.log(`PUT ${bucket}:${key} → ${put.status} ${await put.text()}`);
   if (!put.ok) fail('the upload was refused');
 
-  const get = await fetch(`${base}${await urls.readUrl(key, { downloadName: 'probe.png' })}`);
+  const other = await fetch(`${base}${await urls.readUrl(key, { bucket: bucket === 'media' ? 'originals' : 'media' })}`);
+  console.log(`GET from the other bucket → ${other.status}`);
+  if (other.status !== 404) fail('the object is visible in the other bucket');
+
+  const get = await fetch(`${base}${await urls.readUrl(key, { downloadName: 'probe.png', bucket })}`);
   const back = new Uint8Array(await get.arrayBuffer());
   console.log(`GET → ${get.status}`);
   get.headers.forEach((value, name) => console.log(`  ${name}: ${value}`));
   if (!get.ok) fail('the read was refused');
   if (back.byteLength !== png.byteLength || back.some((b, i) => b !== png[i])) fail('the bytes read back differ from the bytes sent');
-  console.log(`PASS: ${png.byteLength} bytes round-tripped through ${base}`);
+  console.log(`PASS: ${png.byteLength} bytes round-tripped through ${base} (${bucket} bucket)`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

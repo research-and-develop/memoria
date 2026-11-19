@@ -5,7 +5,8 @@ import { cloudflarePlatform, relayJobs } from './platform';
 
 const fakeD1 = {} as D1Database;
 const fakeR2 = {} as R2Bucket;
-const bindings = { DB: fakeD1, MEDIA: fakeR2 };
+const fakeOriginals = {} as R2Bucket;
+const bindings = { DB: fakeD1, MEDIA: fakeR2, ORIGINALS: fakeOriginals };
 
 describe('stringEnv', () => {
   it('keeps string vars and secrets and drops bindings', () => {
@@ -30,9 +31,12 @@ describe('cloudflarePlatform', () => {
     await expect(waitUntil.mock.calls[0]![0]).resolves.toBeUndefined();
   });
 
-  it('returns one R2 store, built on the MEDIA binding', () => {
+  it('returns one R2 store per bucket, media by default', () => {
     const platform = cloudflarePlatform(bindings, () => {});
     expect(platform.blobs()).toBe(platform.blobs());
+    expect(platform.blobs()).toBe(platform.blobs('media'));
+    expect(platform.blobs('originals')).toBe(platform.blobs('originals'));
+    expect(platform.blobs('originals')).not.toBe(platform.blobs('media'));
     expect(typeof platform.blobs().put).toBe('function');
   });
 });

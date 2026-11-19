@@ -43,8 +43,11 @@
       "preview_database_id": "00000000-0000-0000-0000-000000000000",
     },
   ],
-  // The app's bucket (cleanup jobs, Phase 5).
-  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "memoria-media" }],
+  // The app's buckets (the purge jobs, plan p05): = the app's (guard).
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "memoria-media" },
+    { "binding": "ORIGINALS", "bucket_name": "memoria-originals" },
+  ],
   // The vars both Workers read: equal to the app's (guard). APP_NAME and
   // SITE_URL are only defaults (Settings → Studio wins, plan p02b).
   "vars": {

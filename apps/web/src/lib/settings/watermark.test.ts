@@ -49,6 +49,7 @@ describe('watermarkImageUrl (never a presigned URL)', () => {
   const S3 = {
     MEDIA_S3_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
     MEDIA_S3_BUCKET: 'memoria-media',
+    MEDIA_S3_ORIGINALS_BUCKET: 'memoria-originals',
     MEDIA_S3_ACCESS_KEY_ID: 'id',
     MEDIA_S3_SECRET_ACCESS_KEY: 'secret',
   };

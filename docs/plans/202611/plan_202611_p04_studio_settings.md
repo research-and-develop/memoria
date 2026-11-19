@@ -1,7 +1,7 @@
 ---
 title: "Phase 4: Studio settings"
 type: plan
-status: ready
+status: in-progress
 updated: 2026-11-17
 related: [plan_202611_mvp.md, plan_202611_p02b_settings_db.md, plan_202611_p03_relay_email.md, plan_202611_p05_galleries_upload.md, plan_202611_p06_client_gallery.md, ../../design/HANDOFF.md, ../../recipes.md, ../../../AGENTS.md]
 ---

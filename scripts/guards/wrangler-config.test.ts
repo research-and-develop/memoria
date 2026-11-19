@@ -10,8 +10,9 @@
  *    may be, and a var's literal type must still equal its value.
  * 2. No secret in `vars`: they are committed in plain text. Secrets go in
  *    `.dev.vars` / `wrangler secret put`.
- * 3. Two media/env rules: `MEDIA_S3_BUCKET` (the bucket presigned URLs name)
- *    is the bucket the `MEDIA` binding uses, and `NEXTJS_ENV` is never a var:
+ * 3. Media/env rules: `MEDIA_S3_BUCKET` and `MEDIA_S3_ORIGINALS_BUCKET` (the
+ *    buckets presigned URLs name) are the buckets the `MEDIA` and `ORIGINALS`
+ *    bindings use, two different buckets (plan p05, D5.1), and `NEXTJS_ENV` is never a var:
  *    it switches on the development-only blob routes, so it lives only in
  *    `.dev.vars`, never in config that is deployed.
  * 4. The Worker's name is written in places wrangler cannot see (the
@@ -116,6 +117,11 @@ export function badOriginVars(vars: Record<string, unknown>): string[] {
 }
 
 /** `KEY=value` lines of a .dev.vars file (comments and blanks skipped). */
+/** The bucket an R2 binding names, looked up by binding name. */
+export function bucketOf(config: WranglerConfig, binding: string): string | undefined {
+  return ((config.r2_buckets ?? []).find((b) => b.binding === binding) as { bucket_name?: string } | undefined)?.bucket_name;
+}
+
 export function devVarsKeys(text: string): string[] {
   return [...text.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map(([, key = '']) => key);
 }
@@ -188,10 +194,17 @@ describe('wrangler.jsonc', () => {
     ).toEqual([]);
   });
 
-  it('presigned URLs name the bucket the MEDIA binding uses', () => {
-    const media = (config.r2_buckets ?? []).find((b) => b.binding === 'MEDIA') as (Binding & { bucket_name?: string }) | undefined;
-    expect(media?.bucket_name, 'r2_buckets MEDIA').toBeTruthy();
-    expect(config.vars?.MEDIA_S3_BUCKET, 'vars.MEDIA_S3_BUCKET').toBe(media?.bucket_name);
+  it.each([
+    ['MEDIA', 'MEDIA_S3_BUCKET'],
+    ['ORIGINALS', 'MEDIA_S3_ORIGINALS_BUCKET'],
+  ])('presigned URLs name the bucket the %s binding uses (%s)', (binding, varName) => {
+    const bucket = bucketOf(config, binding);
+    expect(bucket, `r2_buckets ${binding}`).toBeTruthy();
+    expect(config.vars?.[varName], `vars.${varName}`).toBe(bucket);
+  });
+
+  it('the originals are a bucket of their own (plan p05, D5.1)', () => {
+    expect(bucketOf(config, 'ORIGINALS')).not.toBe(bucketOf(config, 'MEDIA'));
   });
 
   it('never deploys NEXTJS_ENV (it opens the development-only routes)', () => {
@@ -263,7 +276,7 @@ describe('the app and the relay agree', () => {
     expect([...(relay.compatibility_flags ?? [])].sort()).toEqual([...(config.compatibility_flags ?? [])].sort());
   });
 
-  it('the same D1 and bucket; only the app migrates', () => {
+  it('the same D1 and buckets; only the app migrates', () => {
     type D1 = Binding & { database_name?: string; database_id?: string; preview_database_id?: string; migrations_dir?: string };
     const appDb = (config.d1_databases ?? []).find((b) => b.binding === 'DB') as D1 | undefined;
     const relayDb = (relay.d1_databases ?? []).find((b) => b.binding === 'DB') as D1 | undefined;
@@ -271,8 +284,9 @@ describe('the app and the relay agree', () => {
     expect(relayDb?.migrations_dir, 'the relay never migrates').toBeUndefined();
     // preview_database_id keys the LOCAL database: equal, or `npm run dev:relay` reads another one.
     expect([relayDb?.database_name, relayDb?.database_id, relayDb?.preview_database_id]).toEqual([appDb?.database_name, appDb?.database_id, appDb?.preview_database_id]);
-    const bucket = (c: WranglerConfig) => ((c.r2_buckets ?? []).find((b) => b.binding === 'MEDIA') as { bucket_name?: string } | undefined)?.bucket_name;
-    expect(bucket(relay)).toBe(bucket(config));
+    for (const binding of ['MEDIA', 'ORIGINALS']) {
+      expect(bucketOf(relay, binding), `relay r2_buckets ${binding}`).toBe(bucketOf(config, binding));
+    }
   });
 
   it('both read SETTINGS_ENCRYPTION_KEY (the mail secrets: the app seals, the relay opens, plan p03 D3.17)', () => {

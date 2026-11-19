@@ -4,8 +4,8 @@ import { MAX_TOKEN_LENGTH, signBlobToken, verifyBlobToken, type BlobTokenPayload
 
 const SECRET = 'a-local-secret-that-is-long-enough-123';
 const NOW = 1_800_000_000;
-const PUT: BlobTokenPayload = { v: 1, op: 'put', key: 'dev/probe.png', exp: NOW + 60, ct: 'image/png', size: 5 };
-const GET: BlobTokenPayload = { v: 1, op: 'get', key: 'galleries/a/b.jpg', exp: NOW + 60, dn: 'IMG 1.jpg' };
+const PUT: BlobTokenPayload = { v: 1, op: 'put', b: 'm', key: 'dev/probe.png', exp: NOW + 60, ct: 'image/png', size: 5 };
+const GET: BlobTokenPayload = { v: 1, op: 'get', b: 'o', key: 'galleries/a/b.jpg', exp: NOW + 60, dn: 'IMG 1.jpg' };
 
 /** Sign without the claim checks, to build tokens the minting code would never produce. */
 const sign = (payload: Record<string, unknown>) => signBlobToken(payload as unknown as BlobTokenPayload, SECRET);
@@ -46,6 +46,8 @@ describe('blob tokens', () => {
   it.each([
     ['a wrong version', { ...PUT, v: 2 }],
     ['an unknown op', { ...PUT, op: 'delete' }],
+    ['no bucket', { ...PUT, b: undefined }],
+    ['an unknown bucket', { ...PUT, b: 'x' }],
     ['a bad key', { ...PUT, key: 'galleries/../x.png' }],
     ['a disallowed type', { ...PUT, ct: 'text/html' }],
     ['SVG', { ...PUT, ct: 'image/svg+xml' }],

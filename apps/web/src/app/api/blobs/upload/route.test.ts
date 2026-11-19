@@ -25,7 +25,7 @@ const now = () => Math.floor(Date.now() / 1000);
 const mint = (key: string, size = PNG.byteLength, contentType = 'image/png') =>
   blobUrls(getPlatform().config()).uploadUrl(key, { contentType, size });
 const handMint = async (payload: Partial<BlobTokenPayload>) =>
-  `/api/blobs/upload?t=${await signBlobToken({ v: 1, op: 'put', key: 'dev/x.png', exp: now() + 60, ct: 'image/png', size: PNG.byteLength, ...payload } as BlobTokenPayload, SECRET)}`;
+  `/api/blobs/upload?t=${await signBlobToken({ v: 1, op: 'put', b: 'm', key: 'dev/x.png', exp: now() + 60, ct: 'image/png', size: PNG.byteLength, ...payload } as BlobTokenPayload, SECRET)}`;
 
 /** A header value meaning "leave this header out". */
 const DROP = '<drop>';
@@ -45,6 +45,17 @@ function put(url: string, init: { body?: Uint8Array<ArrayBuffer> | null; headers
 const errorCode = async (res: Response) => ((await res.json()) as { errorCode?: string }).errorCode;
 
 describe('PUT /api/blobs/upload', () => {
+  it('stores an originals upload in the originals bucket only (the token names it)', async () => {
+    const { url, headers } = await blobUrls(getPlatform().config()).uploadUrl('galleries/g/p/original.png', {
+      contentType: 'image/png',
+      size: PNG.byteLength,
+      bucket: 'originals',
+    });
+    expect((await PUT(put(url, { headers }))).status).toBe(200);
+    expect(await getPlatform().blobs('originals').head('galleries/g/p/original.png')).not.toBeNull();
+    expect(await getPlatform().blobs('media').head('galleries/g/p/original.png')).toBeNull();
+  });
+
   it('stores the upload, readable through the blob store', async () => {
     const { url, headers } = await mint('dev/happy.png');
     const res = await PUT(put(url, { headers }));
@@ -85,7 +96,7 @@ describe('PUT /api/blobs/upload', () => {
     ['an expired token', () => handMint({ exp: now() - 1 })],
     ['a read token', async () => blobUrls(getPlatform().config()).readUrl('dev/x.png').then((u) => u.replace('/read?', '/upload?'))],
     ['a token signed with another secret', async () => {
-      const token = await signBlobToken({ v: 1, op: 'put', key: 'dev/x.png', exp: now() + 60, ct: 'image/png', size: PNG.byteLength }, `${SECRET}-other`);
+      const token = await signBlobToken({ v: 1, op: 'put', b: 'm', key: 'dev/x.png', exp: now() + 60, ct: 'image/png', size: PNG.byteLength }, `${SECRET}-other`);
       return `/api/blobs/upload?t=${token}`;
     }],
   ])('refuses %s (403 BLOB_TOKEN_INVALID)', async (_label, url) => {

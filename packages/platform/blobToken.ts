@@ -1,4 +1,5 @@
 import { isBlobKey, isMediaType } from './media';
+import type { BucketName } from './ports';
 
 /**
  * Tokens for the development-only blob routes (`/api/blobs/upload`, `/api/blobs/read`): a payload
@@ -9,9 +10,17 @@ import { isBlobKey, isMediaType } from './media';
  * something else later without a token of one kind passing as another.
  */
 
+/** The bucket a token is for, in one letter (plan p05, D5.1): `m` = media, `o` = originals. */
+export type BlobTokenBucket = 'm' | 'o';
+
+/** The bucket a token names: the dev routes pick the binding from it. */
+export const bucketOfToken = (b: BlobTokenBucket): BucketName => (b === 'o' ? 'originals' : 'media');
+
 export type BlobTokenPayload = {
   v: 1;
   op: 'put' | 'get';
+  /** The bucket; the dev routes pick the binding from it. */
+  b: BlobTokenBucket;
   key: string;
   /** Expiry, Unix seconds. */
   exp: number;
@@ -80,6 +89,7 @@ export async function verifyBlobToken(token: unknown, secret: string | null, now
   if (!payload || typeof payload !== 'object') return null;
   const p = payload as Partial<BlobTokenPayload>;
   if (p.v !== 1 || (p.op !== 'put' && p.op !== 'get')) return null;
+  if (p.b !== 'm' && p.b !== 'o') return null;
   if (typeof p.exp !== 'number' || !(p.exp > now)) return null;
   if (!isBlobKey(p.key)) return null;
   if (p.op === 'put' && (!isMediaType(p.ct) || typeof p.size !== 'number' || !Number.isInteger(p.size) || p.size <= 0)) return null;

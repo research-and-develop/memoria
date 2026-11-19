@@ -8,6 +8,7 @@ const KEY_B64 = btoa(String.fromCharCode(...KEY));
 const S3 = {
   MEDIA_S3_ENDPOINT: 'https://acct.r2.cloudflarestorage.com/',
   MEDIA_S3_BUCKET: 'memoria-media',
+  MEDIA_S3_ORIGINALS_BUCKET: 'memoria-originals',
   MEDIA_S3_ACCESS_KEY_ID: 'AKID',
   MEDIA_S3_SECRET_ACCESS_KEY: 'shh',
 };
@@ -60,7 +61,13 @@ describe('parseConfig', () => {
       media: {
         devSigningSecret: SECRET,
         publicBaseUrl: 'https://media.example.com',
-        s3: { endpoint: 'https://acct.r2.cloudflarestorage.com', bucket: 'memoria-media', accessKeyId: 'AKID', secretAccessKey: 'shh' },
+        s3: {
+          endpoint: 'https://acct.r2.cloudflarestorage.com',
+          bucket: 'memoria-media',
+          originalsBucket: 'memoria-originals',
+          accessKeyId: 'AKID',
+          secretAccessKey: 'shh',
+        },
       },
     });
   });
@@ -93,7 +100,7 @@ describe('parseConfig', () => {
     expect(parseConfig({ MEDIA_DEV_SIGNING_SECRET: value }).media.devSigningSecret).toBe(expected);
   });
 
-  it.each(Object.keys(S3))('needs all four S3 settings (without %s → null)', (missing) => {
+  it.each(Object.keys(S3))('needs all five S3 settings (without %s → null)', (missing) => {
     const env: Record<string, string> = { ...S3 };
     env[missing] = ' ';
     expect(parseConfig(env).media.s3).toBeNull();

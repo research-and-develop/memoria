@@ -47,11 +47,17 @@
       "migrations_dir": "../../migrations",
     },
   ],
-  // Photos and branding files. Domain code reaches it only through
-  // getPlatform().blobs() (the BlobStore port). Local dev and the tests use a
-  // local bucket; no Cloudflare account needed. Production setup (bucket, CORS
-  // from r2-cors.json, the S3 API token): docs/deployment.md.
-  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "memoria-media" }],
+  // MEDIA: what browsers may fetch (display copies, thumbnails, branding; the
+  // public media domain points here). ORIGINALS: the uploaded originals,
+  // private, never on a public domain (plan p05, D5.1). Domain code reaches
+  // them only through getPlatform().blobs(bucket) (the BlobStore port). Local
+  // dev and the tests use local buckets; no Cloudflare account needed.
+  // Production setup (buckets, CORS from r2-cors.json and
+  // r2-cors-originals.json, the S3 API token): docs/deployment.md → Media.
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "memoria-media" },
+    { "binding": "ORIGINALS", "bucket_name": "memoria-originals" },
+  ],
   // Plain, non-secret config. Secrets go in `.dev.vars` locally and
   // `wrangler secret put` in production — never here (the guard checks names).
   "vars": {
@@ -75,8 +81,10 @@
     // presigned upload/download URLs. Empty (or no S3 key secrets) = minting
     // fails with MEDIA_NOT_CONFIGURED outside development.
     "MEDIA_S3_ENDPOINT": "",
-    // Must equal r2_buckets[0].bucket_name (the guard checks).
+    // Must equal the MEDIA binding's bucket_name (the guard checks).
     "MEDIA_S3_BUCKET": "memoria-media",
+    // Must equal the ORIGINALS binding's bucket_name (the guard checks).
+    "MEDIA_S3_ORIGINALS_BUCKET": "memoria-originals",
     "LOG_LEVEL": "info",
     "LOG_FORMAT": "json",
   },

@@ -1,8 +1,8 @@
 import { forbiddenError, invalidParamsError, jsonError, notFoundError } from '@repo/api/responses';
 import { logger } from '@repo/logger';
-import { verifyBlobToken, type BlobTokenPayload } from '@repo/platform/blobToken';
+import { bucketOfToken, verifyBlobToken, type BlobTokenPayload } from '@repo/platform/blobToken';
 import { isMediaType, MAX_DEV_UPLOAD_BYTES, type MediaType } from '@repo/platform/media';
-import type { Config } from '@repo/platform/ports';
+import type { BucketName, Config } from '@repo/platform/ports';
 
 import { isSameOrigin } from '@/lib/security/request';
 
@@ -12,7 +12,7 @@ import { isSameOrigin } from '@/lib/security/request';
  * so the tests drive every branch.
  *
  * 1. 404 unless `NEXTJS_ENV=development`: the routes do not exist in production.
- * 2. The token (signed by `blobUrls` in server code): bad, expired or for the other operation → 403,
+ * 2. The token (signed by `blobUrls` in server code; it names the bucket, `b`): bad, expired or for the other operation → 403,
  *    never a 404, so a bad token says nothing about which keys exist. Logged without the token.
  * 3. Upload only: same-origin (a missing `Origin` with no `Sec-Fetch-Site` fails).
  * 4. Upload only: the Content-Type the token names, a Content-Length equal to the token's size, and
@@ -24,7 +24,7 @@ import { isSameOrigin } from '@/lib/security/request';
 
 export type BlobCheck<T> = { ok: true; value: T } | { ok: false; response: Response };
 
-export type DevUpload = { key: string; contentType: MediaType; size: number };
+export type DevUpload = { bucket: BucketName; key: string; contentType: MediaType; size: number };
 
 function tokenInvalid(op: 'put' | 'get'): BlobCheck<never> {
   logger.warn({ event: 'blob_token_invalid', op });
@@ -50,7 +50,7 @@ function mediaTypeOf(header: string | null): string {
 export async function checkUpload(req: Request, config: Config, now: number): Promise<BlobCheck<DevUpload>> {
   const checked = await token(req, config, now, 'put');
   if (!checked.ok) return checked;
-  const { key, ct, size } = checked.value;
+  const { key, ct, size, b } = checked.value;
   if (!isSameOrigin(req)) return { ok: false, response: forbiddenError({ reason: 'cross_origin' }) };
 
   if (!isMediaType(ct) || typeof size !== 'number') return tokenInvalid('put');
@@ -71,7 +71,7 @@ export async function checkUpload(req: Request, config: Config, now: number): Pr
       }),
     };
   }
-  return { ok: true, value: { key, contentType: ct, size } };
+  return { ok: true, value: { bucket: bucketOfToken(b), key, contentType: ct, size } };
 }
 
 export async function checkRead(req: Request, config: Config, now: number): Promise<BlobCheck<BlobTokenPayload>> {

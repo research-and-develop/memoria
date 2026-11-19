@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { verifyBlobToken } from './blobToken';
-import { blobUrls, MAX_DEV_READ_EXPIRY, MAX_S3_READ_EXPIRY, MAX_UPLOAD_EXPIRY } from './blobUrls';
+import { blobUrls, MAX_DEV_READ_EXPIRY, MAX_S3_READ_EXPIRY, MAX_UPLOAD_EXPIRY, signerCache } from './blobUrls';
 import { parseConfig } from './config';
 import { MAX_DEV_UPLOAD_BYTES, MAX_UPLOAD_BYTES } from './media';
 
@@ -10,6 +10,7 @@ const SECRET = 'a-local-secret-that-is-long-enough-123';
 const S3_ENV = {
   MEDIA_S3_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
   MEDIA_S3_BUCKET: 'memoria-media',
+  MEDIA_S3_ORIGINALS_BUCKET: 'memoria-originals',
   MEDIA_S3_ACCESS_KEY_ID: 'AKIDEXAMPLE',
   MEDIA_S3_SECRET_ACCESS_KEY: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
 };
@@ -44,13 +45,20 @@ describe('blobUrls: dev mode', () => {
     expect(upload.method).toBe('PUT');
     expect(upload.headers).toEqual({ 'content-type': 'image/png' });
     expect(upload.url).toMatch(/^\/api\/blobs\/upload\?t=[\w-]+\.[\w-]+$/);
-    expect(await verifyBlobToken(tokenOf(upload.url), SECRET, NOW)).toEqual({ v: 1, op: 'put', key: 'dev/a.png', exp: NOW + 60, ct: 'image/png', size: 5 });
+    expect(await verifyBlobToken(tokenOf(upload.url), SECRET, NOW)).toEqual({ v: 1, op: 'put', key: 'dev/a.png', exp: NOW + 60, ct: 'image/png', size: 5, b: 'm' });
+  });
+
+  it('names the originals bucket in the token', async () => {
+    const upload = await dev().uploadUrl('galleries/g/p/original.png', { contentType: 'image/png', size: 5, bucket: 'originals' });
+    expect(await verifyBlobToken(tokenOf(upload.url), SECRET, NOW)).toMatchObject({ op: 'put', b: 'o' });
+    const read = await dev().readUrl('galleries/g/p/original.png', { bucket: 'originals' });
+    expect(await verifyBlobToken(tokenOf(read), SECRET, NOW)).toMatchObject({ op: 'get', b: 'o' });
   });
 
   it('mints a relative read URL with a get token and the download name', async () => {
     const url = await dev().readUrl('galleries/x/y.jpg', { downloadName: 'IMG 1.jpg' });
     expect(url).toMatch(/^\/api\/blobs\/read\?t=/);
-    expect(await verifyBlobToken(tokenOf(url), SECRET, NOW)).toEqual({ v: 1, op: 'get', key: 'galleries/x/y.jpg', exp: NOW + 300, dn: 'IMG 1.jpg' });
+    expect(await verifyBlobToken(tokenOf(url), SECRET, NOW)).toEqual({ v: 1, op: 'get', key: 'galleries/x/y.jpg', exp: NOW + 300, dn: 'IMG 1.jpg', b: 'm' });
   });
 
   it('caps uploads at the dev size', async () => {
@@ -94,6 +102,32 @@ describe('blobUrls: S3 mode', () => {
     expect(url.searchParams.get('X-Amz-SignedHeaders')).toBe('host');
   });
 
+  it('signs the originals bucket path when asked, for PUT and GET', async () => {
+    const upload = new URL((await s3().uploadUrl('galleries/a/b/original.jpg', { contentType: 'image/jpeg', size: 1000, bucket: 'originals' })).url);
+    expect(upload.pathname).toBe('/memoria-originals/galleries/a/b/original.jpg');
+    const read = new URL(await s3().readUrl('galleries/a/b/original.jpg', { bucket: 'originals' }));
+    expect(read.pathname).toBe('/memoria-originals/galleries/a/b/original.jpg');
+    const media = new URL((await s3().uploadUrl('galleries/a/b/original.jpg', { contentType: 'image/jpeg', size: 1000 })).url);
+    expect(upload.searchParams.get('X-Amz-Signature')).not.toBe(media.searchParams.get('X-Amz-Signature'));
+  });
+
+  it('derives the signing key once and reuses it across URLs (D5.25)', async () => {
+    const cache = signerCache(S3_ENV.MEDIA_S3_ACCESS_KEY_ID);
+    cache.clear();
+    const sign = vi.spyOn(crypto.subtle, 'sign');
+    await s3().uploadUrl('galleries/a/1.jpg', { contentType: 'image/jpeg', size: 1000 });
+    const first = sign.mock.calls.length;
+    expect(cache.size).toBe(1);
+    await s3().uploadUrl('galleries/a/2.jpg', { contentType: 'image/jpeg', size: 1000 });
+    await s3().readUrl('galleries/a/3.jpg', { bucket: 'originals' });
+    // A cold URL runs the 4-step key derivation plus the signature; a warm one only the signature.
+    expect(sign.mock.calls.length - first).toBe(2);
+    expect(cache.size).toBe(1);
+    expect(signerCache(S3_ENV.MEDIA_S3_ACCESS_KEY_ID)).toBe(cache);
+    expect(signerCache('ANOTHER')).not.toBe(cache);
+    sign.mockRestore();
+  });
+
   it('allows the full 100 MB upload and a day-long read', async () => {
     await expect(s3().uploadUrl('dev/a.png', { contentType: 'image/png', size: MAX_UPLOAD_BYTES })).resolves.toBeTruthy();
     await expect(s3().readUrl('dev/a.png', { expiresInSeconds: MAX_S3_READ_EXPIRY })).resolves.toBeTruthy();
@@ -126,6 +160,12 @@ describe('blobUrls: publicUrl', () => {
     expect(blobUrls(parseConfig({ MEDIA_PUBLIC_BASE_URL: 'https://media.example.com/' })).publicUrl('galleries/a/b.jpg')).toBe(
       'https://media.example.com/galleries/a/b.jpg',
     );
+  });
+
+  it('refuses the originals bucket: an original never has a public URL (D5.1)', () => {
+    const urls = blobUrls(parseConfig({ MEDIA_PUBLIC_BASE_URL: 'https://media.example.com' }));
+    expect(() => urls.publicUrl('galleries/a/original.jpg', { bucket: 'originals' })).toThrow(/originals/);
+    expect(urls.publicUrl('galleries/a/b.jpg', { bucket: 'media' })).toBe('https://media.example.com/galleries/a/b.jpg');
   });
 
   it('is null without a public domain, and refuses a bad key', () => {
