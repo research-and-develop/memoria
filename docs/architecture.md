@@ -176,6 +176,28 @@ mode follows the config:
   `applyWatermark`: the same function previews the watermark and, from Phase 5, bakes it in the upload
   worker) and `upload.ts` (`putToSignedUrl`, a PUT with progress).
 
+### Upload (Phase 5)
+
+Photos never pass through the Worker: the browser processes them and PUTs straight to R2.
+
+1. **In the browser** (`lib/images/`, a pool of module Web Workers, ≤ 80 decoded megapixels in flight):
+   sniff the type from the bytes; SHA-256 of the file as dropped; remove the location losslessly
+   (`metadata/`: GPS, MakerNote, the embedded thumbnail, XMP and free-text tags out, IPTC whitelisted,
+   the JPEG rebuilt from a segment allow-list; an unknown structure is refused); decode upright; draw
+   the display copy and the thumbnail (halving steps); bake the gallery's watermark snapshot; encode
+   WebP (JPEG where the browser cannot); the placeholder colour.
+2. **Register** (`POST /api/admin/galleries/[id]/uploads`, ≤ 10 photos): one `uploading` row per new hash
+   (`INSERT … ON CONFLICT (gallery_id, sha256) DO NOTHING`), a re-mint for an unfinished one (same id
+   and `rev`, so the new PUTs overwrite), `duplicate` for a finished one; three presigned PUTs each,
+   10 minutes: the original to **`memoria-originals`**, the thumbnail and display copy to `memoria-media`.
+3. **PUT** ×3 per photo, 4 in parallel, from the browser.
+4. **Complete** (`…/uploads/complete`, ≤ 8 photos): `head()` the three objects (present, the declared
+   sizes and types; a mismatch deletes them), then ONE batch marks them ready, adds them to their sets'
+   counts, recounts the gallery, picks a cover if none and bumps `content_version` if anything changed.
+
+Re-dropping the same files resumes an interrupted upload; an upload left `uploading` for 24 hours is
+purged (`media.purge`, Phase 5 commit 6).
+
 ### The Docker path (documented, not built)
 
 A Node build would add `packages/platform-node`: a SQLite `Db` (`node:sqlite` or `better-sqlite3`) that

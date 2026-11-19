@@ -881,6 +881,22 @@ on them; this commit adds the rest. Different from the design above:
   not run** (Firefox is not installed here, Safari needs a Mac; Playwright's WebKit build did not
   match the installed driver): Verification 3 stays open for them.
 
+**Commit 5, server half (T5.5 routes), 2026-11-19, lane A.** The upload routes land before the browser
+half (lane C: `uploader.ts`, the drop zone, the panel, the banner); T5.5 is ticked when both are in.
+
+- `lib/galleries/parseUploadInput.ts` (pure): `REGISTER_BATCH` = 10, `COMPLETE_BATCH` = 8,
+  `MAX_DERIVATIVE_BYTES` = 10 MB, ≤ 100 MP; the same hash twice in one request is a 400.
+- `lib/galleries/uploads.ts`: `registerUploads` (insert batch → the conflicts read → re-mints in one
+  batch → old-format derivatives deleted → the PUTs signed; a set of another gallery → 400 `INVALID_SET`
+  from the composite FK; a hash that neither inserted nor exists = the gallery was deleted meanwhile →
+  404) and `completeUploads` (`head()` ×3; `UPLOAD_MISSING` leaves the photo `uploading`;
+  `UPLOAD_MISMATCH` also deletes its objects; an already-ready photo counts as ready; the mark, the
+  increment, the gallery count, the cover default and the guarded bump in one batch).
+- **No per-derivative size column**: the derivatives are checked against `bytes − original_bytes`
+  (their sum) plus the 10 MB cap each; the original against `original_bytes` exactly.
+- Rate limit: 600 register requests an hour (`upload_register`).
+- Docs: architecture.md → Upload; AGENTS.md → Where to look (`lib/images/`, `lib/galleries/`).
+
 ## Review log
 
 - **Round 1** (2026-11-16, code and docs check): restore/purge windows made disjoint; claim-first purge;
