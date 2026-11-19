@@ -2,7 +2,7 @@
 title: "Phase 6: Client gallery"
 type: plan
 status: ready
-updated: 2026-11-17
+updated: 2026-11-19
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, plan_202611_p03_relay_email.md, plan_202611_p04_studio_settings.md, plan_202611_p05_galleries_upload.md, plan_202611_p07_proofing.md, ../../architecture.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
@@ -489,7 +489,7 @@ T6.9.
 
 ## Checklist
 
-- [ ] T6.1 Static root layout, admin layout, static shell, build step, lazy OpenNext (S6.1)
+- [x] T6.1 Static root layout, admin layout, static shell, build step, lazy OpenNext (S6.1)
 - [ ] T6.2 `@repo/db/statement`, public builders, `importGraph.ts`, guard `edge-graph` (S6.2)
 - [ ] T6.3 Gallery handler, injection, access, visitor cookie, headers, cache, `worker.ts`, dev routes
 - [ ] T6.4 Gate route (IPv6 /64 keys, HMAC compare, daily notice), preview links, `Turnstile` `siteKey`
@@ -498,6 +498,48 @@ T6.9.
 - [ ] T6.7 Lightbox map, photo text shadow, `scrim` button
 - [ ] Verification 1–3 (4–5 once deployed with the custom domain)
 - [ ] M2: T6.8 protected delivery · T6.9 compare, virtualised grid
+
+## Built
+
+**Commit 1 (T6.1), 2026-11-19, lane B.** **S6.1 passed** (local, `build:app` then the built Worker run
+with node-direct `wrangler dev` on a scratch D1):
+
+- Next 16 prerenders `app/gallery-shell` to `apps/web/.next/server/app/gallery-shell.html` and, now that
+  the root layout is static, `_not-found.html`; `build:app` copies both and writes the 503 page. Every
+  marker occurs exactly once; the RSC payload repeats `data-gallery-root` and `memoria-gallery-head` only
+  in escaped JSON, so the literal markers stay unique.
+- `/g/<slug>` → 200, the shell, with the gallery CSP (Turnstile in `script-src`/`frame-src`,
+  `'unsafe-inline'`, no beacon, no S3 endpoint), `Referrer-Policy: no-referrer`, `X-Robots-Tag`,
+  `private, no-store`. `/G/abc`, `/g/abc/`, `/g/abc/data`, POST → the 404 page; `/__gallery/{shell,404,503}`
+  → 200. In a browser the shell hydrates (a React fiber on `main#gallery`), with no React warning, the
+  gallery font variables on the wrapper and `name="viewport"` present (the only console error is the
+  pre-existing `/favicon.ico` 404).
+- `/` keeps the studio name as title and `/admin/login` is `Sign in | <studio>`; a studio row written to
+  D1 while the Worker ran showed on both at once (dynamic, per request). `/admin` → 307 to the sign-in
+  page; `/nope` → the not-found page, title `Page not found`; `/robots.txt` 200.
+- With the Durable Object re-exports removed, `wrangler deploy --dry-run` accepts `worker.ts`; in the
+  bundle OpenNext's module is an `__esm` lazy initialiser called only from the `next()` callback,
+  with no eager top-level initialisation.
+
+Different from the design above:
+
+- **No injection yet**: commit 1 serves the shell as built (no `<title>`), and `/g/<slug>/data` is the
+  404 page; `injectGallery` and the data route arrive with the handler (T6.3). S6.1's "markers
+  replaced" is checked at build time only (`scripts/gallery-shell.mjs`).
+- **The markers live in `src/lib/edge/gallery/markers.mjs`** (plain, import-free `.mjs` like
+  `headers.mjs`), shared by the build script and the edge code, with the asset paths. The `html` marker
+  is `<html lang="en"` (the injection replaces the language), the wrapper marker `<div data-gallery-root=""`.
+- **Two edge modules early**: `gallery/headers.ts` (`galleryHeaders`, D6.13) and `gallery/pages.ts`
+  (fetching the three pages, the 503 fallback, `gallery_shell_missing` with the page name, never the slug).
+- **`routeEdge(request, { env, assets }, next)`**: the `/g/` prefix is matched case-insensitively (`/G/x`
+  gets the 404 page, not Next); `galleryRoute` returns `{ slug, kind }`; `isGalleryPath` wraps it.
+- **`worker.ts`** falls back to a 404 from a missing `ASSETS` (OpenNext's global types declare it
+  optional), which ends in the bare 503.
+- **Scripts**: `apps/web/package.json` `build:app` = `opennextjs-cloudflare build && node
+  ../../scripts/gallery-shell.mjs`; `build:worker`, `preview` and `deploy` call it; the root gains
+  `build:app`.
+- **`error.tsx`** renders `<title>` (a client component cannot export `metadata`). The source test is
+  `app/layouts.test.ts`.
 
 ## Review log
 

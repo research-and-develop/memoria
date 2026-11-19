@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @repo/web",
     "build": "npm run build --workspace @repo/web",
+    "build:app": "npm run build:app --workspace @repo/web",
     "build:worker": "npm run build:worker --workspace @repo/web",
     "preview": "npm run preview --workspace @repo/web",
     "deploy": "tsx scripts/cloudflare.ts npm run deploy --workspace @repo/web",

@@ -7,10 +7,13 @@ import { Caption, Heading, Text } from '@repo/ui/typography';
 /**
  * A page that threw while rendering. Minimal on purpose — the chrome may be
  * what failed. `digest` is the id Next logs server-side, for the logs search.
+ * A client component cannot export `metadata`, and the root layout has no title (it is static, plan
+ * p06 D6.2): the `<title>` is rendered here (React hoists it into <head>).
  */
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <main>
+      <title>Something went wrong</title>
       <Section surface="ground" className="min-h-[60vh]">
         <div className="flex max-w-prose flex-col items-start gap-4">
           <Heading level={1}>Something went wrong</Heading>

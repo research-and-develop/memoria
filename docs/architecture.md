@@ -1,7 +1,7 @@
 ---
 title: Architecture
 type: reference
-updated: 2026-11-17
+updated: 2026-11-19
 related: [../AGENTS.md, deployment.md, recipes.md, plans/202611/plan_202611_p01_core_adapters.md]
 ---
 
@@ -15,14 +15,36 @@ browser ──► Cloudflare edge (custom domain)
               ├─ static assets (.open-next/assets: /_next/static, public/)   free, unlimited, no Worker run
               │
               └─ Worker "memoria" (worker.ts)                               100k req/day, 10 ms CPU/req
-                   ├─ edge routes (src/lib/edge)            /healthz, before Next.js loads (~1 ms CPU)
-                   ├─ OpenNext: the Next.js server         pages, /admin, /api/**
+                   ├─ edge routes (src/lib/edge)            /healthz and /g/* (galleries), before Next.js
+                   │                                        loads (~1 ms CPU)
+                   ├─ OpenNext: the Next.js server         pages, /admin, /api/** (imported lazily)
                    ├─ D1 "memoria" (binding DB)            settings, sessions, rate limits, audit
                    ├─ R2 "memoria-media" (binding MEDIA)   photos and branding files (used from Phase 5)
                    └─ Turnstile siteverify (fetch)         the login form
 ```
 
 Public pages, the admin (`/admin`) and the API (`/api/**`) are routes of the same Next app.
+
+### The gallery path (Phase 6)
+
+Client galleries (`/g/<slug>`) never run Next: `worker.ts` calls `routeEdge(request, deps, next)`
+(`src/lib/edge/routes.ts`), which answers `/healthz` and everything under `/g/`, and imports OpenNext
+**lazily** (`await import('./.open-next/worker.js')`) only on the `next()` path, so a gallery request
+on a fresh isolate never evaluates Next's module (that is why OpenNext's Durable Object classes are not
+re-exported). A gallery page is **one static shell for every gallery**: `app/gallery-shell/` is
+prerendered (`force-static`), and `build:app` (`opennextjs-cloudflare build`, then
+`scripts/gallery-shell.mjs`) copies it with the 404 page into `.open-next/assets/__gallery/` and writes
+a 503 page; the build fails when the shell or one of its markers (`src/lib/edge/gallery/markers.mjs`)
+is missing. `worker.ts` fetches `/__gallery/shell` through `ASSETS` and (from Phase 6 commit 3)
+injects the gallery's head, theme attributes and data; its responses set their own headers (the gallery
+CSP profile, `Referrer-Policy: no-referrer`, `X-Robots-Tag`; `src/lib/edge/gallery/headers.ts`).
+Anything else under `/g/` is the 404 page. Plan: [p06](plans/202611/plan_202611_p06_client_gallery.md).
+
+**One static root layout**: `app/layout.tsx` (html, body, studio fonts, `viewport`) reads no D1, so
+the shell under it can be prerendered. What reads config per request declares it:
+`app/admin/layout.tsx` (`force-dynamic`, the title template, `getAppConfig`, `AppProvider` for the
+panel and the sign-in page) and `app/page.tsx` (`force-dynamic`, the studio name as title).
+`not-found.tsx` and `error.tsx` carry static titles.
 
 ### The relay Worker (Phase 3)
 

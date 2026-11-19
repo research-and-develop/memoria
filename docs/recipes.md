@@ -1,7 +1,7 @@
 ---
 title: Recipes
 type: reference
-updated: 2026-11-17
+updated: 2026-11-19
 related: [../AGENTS.md, architecture.md]
 ---
 
@@ -181,10 +181,14 @@ Cloudflare type anywhere else. Add it to `testing/proxy.ts` so the contract runs
 
 ## Caching
 
-Every page renders per request by default (`dynamic = 'force-dynamic'` in the root layout); measure
-first (`npm run measure:cpu`). When renders cost too much CPU, options from cheapest to most work:
+The root layout is **static** (plan p06 D6.2): a page that reads D1 or the env declares
+`export const dynamic = 'force-dynamic'` itself, or sits under a layout that does (`app/admin/layout.tsx`
+covers every admin page; `app/page.tsx` has its own). Without it Next prerenders the page at build time,
+where `getPlatform()` does not exist (a page that also reads `headers()`/`cookies()` is dynamic anyway).
+Measure first (`npm run measure:cpu`). When renders cost too much CPU, options from cheapest to most
+work:
 
-1. **Static where possible**: a page that reads no D1/env can be static (drop `force-dynamic` there;
+1. **Static where possible**: a page that reads no D1/env can be static (no `force-dynamic`;
    build-time code cannot call `getPlatform()`).
 2. **OpenNext's incremental cache** (`open-next.config.ts`, R2/KV-backed ISR) with `revalidatePath`
    after admin writes.
@@ -196,6 +200,11 @@ first (`npm run measure:cpu`). When renders cost too much CPU, options from chea
    serving). Render only from an allow-listed request (no visitor cookies or headers), store only a
    complete 200 `text/html` without `Set-Cookie`, never cache RSC payloads. Note: the Cache API does
    nothing on `workers.dev` and preview URLs — only on a custom domain.
+
+**Client galleries took a fourth way** (plan p06, option B, the owner's decision): a static shell
+prerendered once and served from the assets by `worker.ts`, the gallery's data injected per request from
+D1 (`docs/architecture.md` → The gallery path), with the photo JSON — never the HTML — cached in
+`caches.default` from Phase 6 commit 3. No Next render on a gallery view, cached or not.
 
 ## A second app
 
