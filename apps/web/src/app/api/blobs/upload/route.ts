@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { invalidParamsError, jsonError } from '@repo/api/responses';
+import { invalidParamsError } from '@repo/api/responses';
 import { withErrorHandling } from '@repo/api/withErrorHandling';
 import { getPlatform } from '@repo/platform/current';
 
@@ -27,12 +27,10 @@ export const PUT = withErrorHandling(
     if (bytes.byteLength !== size) {
       return withBlobSecurityHeaders(invalidParamsError('The body must be the size the upload link was made for', 'body'));
     }
-    const stored = await platform.blobs(bucket).put(key, bytes, { contentType, ifAbsent: true });
-    if (!stored) {
-      return withBlobSecurityHeaders(
-        jsonError(409, { error: 'A file already exists under this key', errorCode: 'BLOB_EXISTS' }),
-      );
-    }
+    // Overwrites, like the presigned S3 PUT it stands in for: a resumed upload (D5.9) PUTs the
+    // same keys again. The token is minted for this key only.
+    const stored = await platform.blobs(bucket).put(key, bytes, { contentType });
+    if (!stored) throw new Error('blob put refused without ifAbsent');
     return withBlobSecurityHeaders(NextResponse.json({ data: { key, size: stored.size, etag: stored.etag } }));
   },
   { route: 'PUT /api/blobs/upload' },

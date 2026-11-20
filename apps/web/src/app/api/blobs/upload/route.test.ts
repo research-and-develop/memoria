@@ -138,12 +138,11 @@ describe('PUT /api/blobs/upload', () => {
     expect(await errorCode(res)).toBe('PAYLOAD_TOO_LARGE');
   });
 
-  it('keeps an existing file (409 BLOB_EXISTS)', async () => {
+  it('overwrites an existing file, like a presigned S3 PUT (a resumed upload, D5.9)', async () => {
     await getPlatform().blobs().put('dev/taken.png', new Uint8Array([1]), { contentType: 'image/png' });
     const { url } = await mint('dev/taken.png');
     const res = await PUT(put(url));
-    expect(res.status).toBe(409);
-    expect(await errorCode(res)).toBe('BLOB_EXISTS');
-    expect((await getPlatform().blobs().head('dev/taken.png'))?.size).toBe(1);
+    expect(res.status).toBe(200);
+    expect((await getPlatform().blobs().head('dev/taken.png'))?.size).toBeGreaterThan(1);
   });
 });
