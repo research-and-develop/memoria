@@ -2,7 +2,7 @@
 title: "Phase 5: Galleries and upload"
 type: plan
 status: in-progress
-updated: 2026-11-19
+updated: 2026-11-20
 related: [plan_202611_mvp.md, plan_202611_p01_core_adapters.md, plan_202611_p03_relay_email.md, plan_202611_p04_studio_settings.md, plan_202611_p06_client_gallery.md, ../../architecture.md, ../../deployment.md, ../../recipes.md, ../../../AGENTS.md]
 ---
 
@@ -742,7 +742,8 @@ worktree's local D1 and buckets. The fixtures are generated (ffmpeg `testsrc2` f
 test fixtures' TIFF writer) and dropped as **scripted** folder drops (fake `FileSystemEntry` objects
 carrying the real files); a real OS drag cannot be scripted here.
 
-- **V1**: run by lane A on master (lane C's run was stopped by low memory after ts-check).
+- **V1: passes** (lane A, master 6c90704, 2026-11-20; lane C's run was stopped by low memory after
+  ts-check): `npm run verify` (ts-check; 169 test files, 2562 tests) and `npm run build:relay`.
 - **V2: passes.** 50 files in `Wedding/` + `Ceremony/` + `Party/`. The fixtures:
   - 44 Lightroom-style JPEGs (4000 × 3000 and 3000 × 4000): one rotated (Orientation 6); one with GPS
     in EXIF, XMP and IPTC city (`cameraExif` + `app1Xmp` + `app13`); one cut at 20 %; one a byte copy
@@ -846,7 +847,8 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [x] T5.9 `Chip`, `Tabs`, `scrim`
 - [x] T5.7 Sharing panel, the template `load` step, `gallery.ready`
 - [x] T5.8 Soft delete, restore, purge jobs
-- [ ] Verification 1–3, 6 (4–5 once the buckets, the domain and a deploy exist)
+- [ ] Verification 1–3, 6 (4–5 once the buckets, the domain and a deploy exist): V1, V2, V6 pass; V3 passes in Chrome and Firefox, **Safari is the owner's**
+- [x] **M1–M3 done** (2026-11-20, master 6c90704): Phase 5's part of the first usable version
 - [ ] M4: T5.10 presets · T5.11 auto-split · T5.13 filters, drag order, ranges, QR download, autosave, IndexedDB · T5.14 PNG/WebP editors
 - [ ] M5: T5.12 replace with edited · T5.13b reprocess · T5.15 processing switch
 
