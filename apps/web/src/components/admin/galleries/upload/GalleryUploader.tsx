@@ -75,6 +75,8 @@ export function GalleryUploader({ galleryId, setId, sets, profile, unfinished = 
   const [dropError, setDropError] = useState<string | null>(null);
   const callbacks = useRef({ onPhotosReady, onSetsChanged });
   callbacks.current = { onPhotosReady, onSetsChanged };
+  /** Passes on the ready sets still waiting for the window (the run ended). */
+  const flushReady = useRef<() => void>(() => undefined);
 
   // Ready photos: the first batch at once, then at most one call per window.
   useEffect(() => {
@@ -92,11 +94,23 @@ export function GalleryUploader({ galleryId, setId, sets, profile, unfinished = 
       pending.add(readySet);
       if (!timer) flush();
     });
+    flushReady.current = () => {
+      if (pending.size === 0) return;
+      if (timer) clearTimeout(timer);
+      flush();
+    };
     return () => {
       off();
       if (timer) clearTimeout(timer);
+      flushReady.current = () => undefined;
     };
   }, [uploader]);
+
+  // When the run ends, the last photos are passed on at once: otherwise the manager's reload (and the
+  // unfinished-uploads banner it feeds) lags up to a window behind the panel.
+  useEffect(() => {
+    if (!snapshot.running) flushReady.current();
+  }, [snapshot.running]);
 
   // Ask before leaving while photos are on their way.
   useEffect(() => {

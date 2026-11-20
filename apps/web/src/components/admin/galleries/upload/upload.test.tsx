@@ -278,6 +278,29 @@ describe('GalleryUploader', () => {
     }
   });
 
+  it('the run ending passes on the ready sets still waiting for the window', () => {
+    vi.useFakeTimers();
+    const idle = store.snapshot;
+    try {
+      const onPhotosReady = vi.fn();
+      const ui = () => <GalleryUploader galleryId={`${G.slice(0, -1)}4`} setId="s-main" sets={SETS} profile={profile} onPhotosReady={onPhotosReady} onSetsChanged={vi.fn()} />;
+      store.snapshot = { ...idle, running: true };
+      const { rerender } = render(ui());
+      act(() => store.ready!('s-main', ['p1']));
+      act(() => store.ready!('s-cer', ['p2']));
+      expect(onPhotosReady).toHaveBeenCalledTimes(1);
+      store.snapshot = { ...idle, running: false };
+      rerender(ui());
+      expect(onPhotosReady).toHaveBeenCalledTimes(2);
+      expect(onPhotosReady).toHaveBeenLastCalledWith(['s-cer']);
+      act(() => vi.advanceTimersByTime(READY_EVERY_MS * 2)); // nothing left for the window
+      expect(onPhotosReady).toHaveBeenCalledTimes(2);
+    } finally {
+      store.snapshot = idle;
+      vi.useRealTimers();
+    }
+  });
+
   it('shows the unfinished-uploads banner when the server has some', () => {
     mount({ galleryId: '00000000-0000-4000-8000-000000000003', unfinished: 3 });
     expect(screen.getByRole('status')).toHaveTextContent('3 photos did not finish uploading. Drop the same files again');
