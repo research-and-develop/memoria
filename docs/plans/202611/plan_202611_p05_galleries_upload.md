@@ -735,6 +735,83 @@ never a filename, a password or an address.
    batch-size constants.
 6. Manager and New gallery at 360 px and 1440 px; keyboard only through selection, the bulk bar and sets.
 
+### Results (2026-11-20, lane C, master 8feb835)
+
+Setup: `next dev` on its own port, `npm run dev:relay` (8790), Mailpit in Docker (1025/8025), the
+worktree's local D1 and buckets. The fixtures are generated (ffmpeg `testsrc2` frames with EXIF from the
+test fixtures' TIFF writer) and dropped as **scripted** folder drops (fake `FileSystemEntry` objects
+carrying the real files); a real OS drag cannot be scripted here.
+
+- **V1**: run by lane A on master (lane C's run was stopped by low memory after ts-check).
+- **V2: passes.** 50 files in `Wedding/` + `Ceremony/` + `Party/`. The fixtures:
+  - 44 Lightroom-style JPEGs (4000 × 3000 and 3000 × 4000): one rotated (Orientation 6); one with GPS
+    in EXIF, XMP and IPTC city (`cameraExif` + `app1Xmp` + `app13`); one cut at 20 %; one a byte copy
+    of another.
+  - A PNG and a WebP without metadata, a PNG with an `eXIf` chunk, a header-only HEIC and an MP4.
+  - **Selection gallery** (text watermark): `Ceremony` and `Party` were created; 45 uploaded in 57 s
+    (Chrome 157):
+    - The HEIC and the video were listed as unsupported, the cut JPEG as damaged, the PNG with EXIF as
+      refused ("metadata that cannot be removed yet", T5.14), and the copy as a duplicate.
+    - Order is filename order (`detail.webp`, `MJ_0101`…, `scan.png`). The cover is `MJ_0002`, the first
+      landscape after the portrait `MJ_0001`.
+    - Placeholder colours fill the tiles under Slow 3G.
+  - **The originals** were read from the local bucket, not the dev route (`wrangler r2 object get
+    --local`). **exiftool is not installed here**, so a script checked the JPEG segments instead:
+    - The GPS photo keeps APP0, EXIF without a GPS IFD, and an APP13 holding only the title, byline,
+      copyright and caption records. No XMP. None of the fixture's location strings remain.
+    - The codestream (everything but APPn/COM) is byte-identical to the source, so the pixels are
+      identical. The rotated original keeps Orientation 6. The WebP original is byte-identical to the
+      source.
+  - **Display copies**: WebP, long edge 1600 (selection) / 2048 (sharing), the watermark at the bottom
+    right in the selection gallery only. The rotated photo is 1200 × 1600, upright (the red band of the
+    stored left edge is at the top).
+  - **Sharing gallery, tab closed at 17 of 46**: the reopened page showed "18 photos did not finish
+    uploading". The same drop finished the 18, skipped 17 duplicates, and left 45 photos with no doubles.
+  - **Manager**:
+    - The capture-time sort put the later `MJ_0105` after `MJ_0119` and the undated files last.
+    - Hide, cover, move to Party and delete (with its dialog) worked. The rail counts follow D5.13
+      (hidden photos are not counted).
+    - The deleted photo's objects were purged by the relay's `media.purge` (44 originals left of 45).
+  - **Email**:
+    - Without a website address the panel disables Send with its sentence, and the route answers 409
+      `SITE_URL_REQUIRED`. With one (set in local D1: the Settings form asks for a TOTP code), Mailpit
+      received "V2 Selection — your photos are ready".
+    - On a password gallery with the password included, the email carries it. The job's payload holds
+      no params once done, and neither `jobs` nor `audit_log` contains the password.
+  - **Delete, restore, purge**:
+    - Deleting (type the title) removed the gallery from the list, and `/g/…` answered 404 (a live one
+      200). Restore brought it back and marked the purge job `CANCELLED`.
+    - Deleted again, with `deleted_at` moved back 8 days and the job due: the relay ran `gallery.purge`
+      (45 photos). 0 objects under the gallery's prefix in either local bucket, and no gallery, set or
+      photo rows. The other gallery's objects are untouched.
+  - **CSP**: the page's policy (`worker-src 'self' blob:`) is enforced. No console errors or violations
+    during the uploads (`next dev`'s CSP; `npm run preview` has not been run for this).
+- **V3: Chrome and Firefox pass; Safari is the owner's.** 50 exports, 6000 × 4000, 1.1 MB each (ffmpeg
+  frames compress better than camera files, so bytes are low and pixels are real), selection with the
+  text watermark, 20 cores:
+  - Chrome 157: 29.5 s, 0.59 s per photo.
+  - Firefox 160 (headless, over WebDriver BiDi, no driver package): 30.1 s, 0.60 s per photo, WebP
+    derivatives, no console errors.
+  - The 50-file folder in Firefox gave the same report as in Chrome (45 uploaded, 1 duplicate, 4 not
+    supported). The rotated fixture is upright there too.
+- **V6: passes, with findings.**
+  - No sideways scroll: the manager (Photos, Settings, the Share panel) and New gallery at 360 px
+    (emulated touch) and 1440 px. The photo tiles are 160 × 107 labels (the 20 px checkbox sits inside).
+  - The keyboard alone reaches selection (Tab, Space), the bulk bar (it follows the grid in tab order:
+    22 Tabs past 30 photos), and sets (Enter selects; rename, move up and add set by keyboard).
+  - **Findings**: 1–4 fixed by lane A in `fix(galleries): focus, the Move button, touch targets and a
+    fresh header` (not re-checked in a browser); 5 fixed in `fix(upload): the last ready photos reach
+    the manager when the run ends`.
+    1. Focus falls to `<body>` after every bulk action and every rail action (rename, move, add), since
+       the control unmounts or is disabled while busy.
+    2. On Windows, ArrowDown on the closed *Move to…* select moves the photos at once (`change` fires;
+       Alt+ArrowDown opens the list).
+    3. Under 44 px on a coarse pointer: the `Toggle` primitive (44 × 26, no hit-area `::before`) and New
+       gallery's *Advanced: preview size* summary (19 px).
+    4. The page header's photo count is stale until a reload.
+    5. After a run ends, the unfinished-uploads banner can show the previous count for up to 3 s (the
+       throttled reload).
+
 ## Commits
 
 | # | Commit | Tasks | Extra gate |
