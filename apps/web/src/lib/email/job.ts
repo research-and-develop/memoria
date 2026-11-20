@@ -62,7 +62,8 @@ export const emailJob: JobKind<EmailPayload> = {
     const to = await resolveRecipient(payload.to);
     const template = emailTemplate(payload.template);
     if (!template) throw new JobError('UNKNOWN_TEMPLATE');
-    const rendered = template.render(payload.params, emailContext(studio));
+    const value = template.load ? await template.load(payload.params, { to }) : payload.params;
+    const rendered = template.render(value, emailContext(studio));
     if (setup.transport.provider === 'smtp' && setup.transport.smtp.security === 'none') {
       logger.warn({ event: 'mail_insecure_dev', jobId: ctx.jobId });
     }

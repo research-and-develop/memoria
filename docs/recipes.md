@@ -121,6 +121,11 @@ An email is an `email` job rendered by the relay when it sends (architecture.md 
    no `server-only`, no D1; plain text in, the layout escapes. Links: `ctx.link('/path')` only. Dates:
    `lib/dates.ts`. Never a secret, a code or a link that acts in a security email; never a name a
    visitor typed in a subject (AGENTS.md → Emails to visitors).
+   **Optional `load(params, { opts, to })`** (plan p05, D5.20; model `templates/galleryReady.ts`): when
+   the email needs data or a secret, store only ids in `params` and read the rest at send time; `render`
+   then takes what `load` returned. Throw `JobError(code, { permanent: true })` for "never sendable" (a
+   sentence for the code in `views.ts`), `MailError(code, { configuration: true })` for "fix and retry".
+   `load` must stay relay-safe (guard `relay-graph`). A preview: `loadAndRenderEmail`.
 2. Register it in `templates/registry.ts`. Deploy the relay before the app enqueues it; never remove one
    while queued jobs may use it.
 3. Enqueue: `const job = emailJobStatement({ template, to, params, now }); await batch([...change,

@@ -767,7 +767,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [ ] T5.5 Upload routes, uploader, drop zone, panel, unfinished banner
 - [x] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
 - [x] T5.9 `Chip`, `Tabs`, `scrim`
-- [ ] T5.7 Sharing panel, the template `load` step, `gallery.ready`
+- [x] T5.7 Sharing panel, the template `load` step, `gallery.ready`
 - [ ] T5.8 Soft delete, restore, purge jobs
 - [ ] Verification 1–3, 6 (4–5 once the buckets, the domain and a deploy exist)
 - [ ] M4: T5.10 presets · T5.11 auto-split · T5.13 filters, drag order, ranges, QR download, autosave, IndexedDB · T5.14 PNG/WebP editors
@@ -944,6 +944,29 @@ show, set as cover, delete with `ConfirmDialog`). Requests go through `adminFetc
 screen; it returns `details.message`). *Settings* holds the order for now (delete: commit 8). Drag
 reordering is M4 (T5.13). The uploader (lane C) mounts at the marked slot in `GalleryManager`;
 the unfinished-uploads banner comes with it. Icons `up`, `down`, `pencil` added to the studio set.
+
+**Commit 7 (T5.7), 2026-11-20, lane A.** As designed, plus:
+
+- **`GET /api/admin/galleries/[id]/password`** (`{ password }`, null for a link gallery, `no-store`)
+  shows the photographer the password (D5.11); `revealGalleryPassword` in `lib/galleries/sharing.ts`
+  (503 `SETTINGS_KEY_MISSING` / `PASSWORD_UNREADABLE`). Change, *Generate* and remove go through the
+  existing `PATCH …/[id]` `{ access, password }`.
+- **`lib/galleries/sharing.ts`**: `assertEmailable` (the two 409s, shared by the send and the
+  preview), `previewGalleryEmail`, `queueGalleryEmail` (job + audit `update { event: 'email', jobId,
+  includePassword }` in one batch; `includePassword` is forced false on a link gallery). The input
+  parser is `parseShareInput.ts` (the name: ≤ 100, one line, header-safe: the job's recipient rules).
+- **`renderEmail` refuses a template with a `load` step**; `loadAndRenderEmail(id, params, ctx, { opts,
+  to })` is parse → load → render (the preview). The preview's recipient is the gallery's client
+  address, or a placeholder (only the name is used).
+- **`gallery.ready`'s `load` without a settings key** throws `MailError('SETTINGS_KEY_MISSING',
+  { configuration: true })` (retried), like the mail settings.
+- The panel (`SharingPanel.tsx`, opened by *Share* in the header) reuses `EmailStatusLine` (new
+  `sentNote` prop) and `QrCode`; without a website address the link shows this browser's origin and
+  the email is disabled with the Settings → Studio link.
+- **`GET …/[id]` returns `unfinishedUploads`** (≤ 1000, through `ix_photos_purge`) for the banner;
+  *View as client* (p06 T6.4, lane B) sits in the header (050dc3c).
+- **The dev upload route overwrites** (1fd0013), like the presigned S3 PUT: a resumed upload (D5.9)
+  PUTs its keys again; `ifAbsent` made them 409 locally. Found by lane C's resume e2e.
 
 ## Review log
 

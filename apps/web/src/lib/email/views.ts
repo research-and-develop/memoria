@@ -43,6 +43,8 @@ const SENTENCES: Record<string, string> = {
   MAIL_ABORTED: 'Sending took too long and was stopped; it will be tried again.',
   SITE_URL_MISSING: 'The email links to your website, but no website address is set in Settings → Studio.',
   ACCOUNT_MISSING: 'There is no sign-in account to send it to.',
+  GALLERY_GONE: 'The gallery was deleted before the email went out.',
+  GALLERY_UNPUBLISHED: 'The gallery was unpublished before the email went out: publish it and send again.',
   SMTP_TIMEOUT: 'The mail server did not answer in time.',
   SMTP_CONNECTION: 'The mail server could not be reached.',
   SMTP_TLS: 'A secure connection to the mail server failed (its certificate?).',

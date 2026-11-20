@@ -7,12 +7,15 @@ import { Mono } from '@repo/ui/typography';
 
 import { GalleryManager } from '@/components/admin/galleries/GalleryManager';
 import { PublishButton } from '@/components/admin/galleries/PublishButton';
+import { ShareButton } from '@/components/admin/galleries/SharingPanel';
 import { ViewAsClientButton } from '@/components/admin/galleries/ViewAsClientButton';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { getAdminSession } from '@/lib/auth/requireAdmin';
 import { getGallery } from '@/lib/db/queries/galleries';
 import { listSets } from '@/lib/db/queries/photo_sets';
+import { countUnfinishedUploads } from '@/lib/db/queries/photos';
 import { gallerySettingsOf } from '@/lib/galleries/galleries';
+import { getStudio } from '@/lib/settings/studio.cached';
 
 export const metadata: Metadata = { title: 'Gallery' };
 export const dynamic = 'force-dynamic';
@@ -20,7 +23,7 @@ export const dynamic = 'force-dynamic';
 /**
  * The gallery manager (plan p05 → Screens): the header (title, status, counts, the address, Publish)
  * *View as client* (p06 D6.11) and the manager itself, which renders its photos in the browser from
- * the API (D5.14). *Share* arrives with commit 7.
+ * the API (D5.14). *Share* opens the sharing panel (link, QR, password, the client email).
  */
 export default async function GalleryPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
@@ -29,7 +32,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
   if (!isUuid(id)) notFound();
   const gallery = await getGallery(id);
   if (!gallery || gallery.deleted_at) notFound();
-  const sets = await listSets(id);
+  const [sets, unfinished, studio] = await Promise.all([listSets(id), countUnfinishedUploads(id), getStudio()]);
   const live = gallery.status === 'published';
   return (
     <div className="flex flex-col gap-7">
@@ -48,6 +51,18 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
             <Pill tone={live ? 'live' : 'draft'}>{live ? 'Live' : 'Draft'}</Pill>
             <ViewAsClientButton galleryId={id} />
             <PublishButton galleryId={id} published={live} />
+            <ShareButton
+              siteUrl={studio.siteUrl}
+              gallery={{
+                id,
+                slug: gallery.slug,
+                published: live,
+                access: gallery.access,
+                clientName: gallery.client_name,
+                clientEmail: gallery.client_email,
+                unfinished,
+              }}
+            />
           </>
         }
       />

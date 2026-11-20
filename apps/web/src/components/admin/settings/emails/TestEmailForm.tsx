@@ -65,7 +65,7 @@ export function TestEmailForm({ defaultTo, configured }: { defaultTo: string; co
  * The live status of one email: polls every 2 s until it is sent or failed, the session ends, it
  * is gone, or a minute passes (then: is the relay running?). A network error keeps trying.
  */
-export function EmailStatusLine({ initial }: { initial: EmailView }) {
+export function EmailStatusLine({ initial, sentNote = 'Check the inbox.' }: { initial: EmailView; sentNote?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState(initial);
   const [stopped, setStopped] = useState<null | 'final' | 'timeout' | 'signed-out' | 'gone'>(null);
@@ -99,7 +99,7 @@ export function EmailStatusLine({ initial }: { initial: EmailView }) {
     <div role="status" aria-live="polite" className="flex flex-col gap-1">
       <Text as="p" size="body-sm" weight="semibold">
         {EMAIL_STATUS_LABELS[email.status]}
-        {reason ? `: ${reason}` : email.status === 'sent' ? '. Check the inbox.' : '…'}
+        {reason ? `: ${reason}` : email.status === 'sent' ? `. ${sentNote}` : '…'}
       </Text>
       {email.status === 'failed' && email.lastError && reason !== email.lastError ? (
         <Text as="p" size="caption" tone="muted" className="break-words">

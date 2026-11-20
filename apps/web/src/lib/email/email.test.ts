@@ -74,14 +74,20 @@ describe('the test template', () => {
     expect(() => renderEmail('nope', {}, emailContext(studio))).toThrow(/no template/);
   });
 
-  it('templates and the layout stay importable by the app: no server-only, no platform', () => {
+  it('templates and the layout stay importable by the app and the relay: no server-only; the platform and D1 only in a load step', () => {
     const dir = path.join(__dirname, 'templates');
-    const files = [...readdirSync(dir).map((f) => path.join(dir, f)), path.join(__dirname, 'layout.ts'), path.join(__dirname, 'context.ts'), path.join(__dirname, 'views.ts')];
+    const templates = readdirSync(dir).filter((f) => !f.endsWith('.test.ts'));
+    const files = [...templates.map((f) => path.join(dir, f)), path.join(__dirname, 'layout.ts'), path.join(__dirname, 'context.ts'), path.join(__dirname, 'views.ts')];
     expect(files.length).toBeGreaterThan(4);
+    let loaders = 0;
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
-      expect(source, file).not.toMatch(/from 'server-only'|import 'server-only'|@repo\/platform\/current|@repo\/db\/client/);
+      expect(source, file).not.toMatch(/from 'server-only'|import 'server-only'/);
+      // A template with a `load` step (D5.20) reads D1 at send time; everything else stays pure.
+      if (/^ {2}async load\(/m.test(source)) loaders += 1;
+      else expect(source, file).not.toMatch(/@repo\/platform\/current|@repo\/db\/client/);
     }
+    expect(loaders).toBe(1);
   });
 });
 
