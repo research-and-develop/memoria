@@ -56,6 +56,8 @@ export default defineConfig({
           name: 'components',
           environment: 'jsdom',
           pool: 'threads',
+          // userEvent.type is slow under load (several sessions running suites): 5 s timed out.
+          testTimeout: 15_000,
           include: ['apps/web/src/**/*.test.tsx', 'packages/**/*.test.tsx'],
           exclude: ['**/node_modules/**'],
           setupFiles: ['./vitest.setup.components.ts'],
