@@ -1,4 +1,4 @@
-import { all, allRows, statement, type Options } from '@repo/db/client';
+import { all, allRows, first, statement, type Options } from '@repo/db/client';
 
 import { MAX_BULK_PHOTOS, MAX_PHOTO_PAGE, PHOTO_COLUMNS, toPhotoRow, type KnownPhoto, type PhotoDbRow, type PhotoRow, type PurgeablePhoto } from './types';
 
@@ -77,4 +77,23 @@ export function getCoverPhotos(photoIds: readonly string[], opts?: Options): Pro
     statement(`SELECT id, gallery_id, rev, derivative_ext FROM photos WHERE id IN (${ids(photoIds.length)}) AND status = 'ready'`, [...photoIds]),
     opts,
   );
+}
+
+/** The cap of `countUnfinishedUploads`: the banner says "1000+" past it. */
+export const MAX_UNFINISHED_COUNT = 1000;
+
+/**
+ * How many uploads of this gallery never finished (`uploading` rows: the manager's resume banner),
+ * through ix_photos_purge (the WHERE repeats its predicate), counted up to `MAX_UNFINISHED_COUNT`.
+ */
+export async function countUnfinishedUploads(galleryId: string, opts?: Options): Promise<number> {
+  const row = await first<{ n: number }>(
+    statement(
+      `SELECT count(*) AS n FROM (SELECT 1 FROM photos
+  WHERE status IN ('uploading', 'deleted') AND status = 'uploading' AND gallery_id = ? LIMIT ?)`,
+      [galleryId, MAX_UNFINISHED_COUNT],
+    ),
+    opts,
+  );
+  return row?.n ?? 0;
 }

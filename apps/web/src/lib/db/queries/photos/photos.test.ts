@@ -8,6 +8,7 @@ import { at, galleryInsert, hash, photoUpload, uuid } from '../galleries/testFix
 import { insertSetStatement } from '../photo_sets';
 import {
   bulkDeleteStatement,
+  countUnfinishedUploads,
   bulkHideStatement,
   bulkMoveStatement,
   claimStaleUploadsStatement,
@@ -144,6 +145,17 @@ describe('photos: complete, list, bulk', () => {
     expect(page2.map((p) => p.sort_key[0])).toEqual(['c', 'd']);
     expect(page2[1]!.status).toBe('uploading');
     expect(await listSetPhotos({ galleryId: other.id, setId }, opts())).toEqual([]);
+  });
+
+  it('counts this gallery\'s unfinished uploads only', async () => {
+    const { id, setId } = await newGallery();
+    const other = await newGallery();
+    const photos = [photoUpload(id, setId), photoUpload(id, setId), photoUpload(id, setId), photoUpload(other.id, other.setId)];
+    for (const p of photos) await register(p);
+    await ready(id, photos[0]!.id);
+    expect(await countUnfinishedUploads(id, opts())).toBe(2);
+    expect(await countUnfinishedUploads(other.id, opts())).toBe(1);
+    expect(await countUnfinishedUploads(uuid('9a1'), opts())).toBe(0);
   });
 
   it('bulk writes touch only this gallery\'s ready photos, skip no-ops, and refuse more than 90 ids', async () => {

@@ -7,6 +7,7 @@ import { Mono } from '@repo/ui/typography';
 
 import { GalleryManager } from '@/components/admin/galleries/GalleryManager';
 import { PublishButton } from '@/components/admin/galleries/PublishButton';
+import { ViewAsClientButton } from '@/components/admin/galleries/ViewAsClientButton';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { getAdminSession } from '@/lib/auth/requireAdmin';
 import { getGallery } from '@/lib/db/queries/galleries';
@@ -18,8 +19,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * The gallery manager (plan p05 → Screens): the header (title, status, counts, the address, Publish)
- * and the manager itself, which renders its photos in the browser from the API (D5.14). *Share* and
- * *View as client* arrive with commit 7 and Phase 6 T6.4.
+ * *View as client* (p06 D6.11) and the manager itself, which renders its photos in the browser from
+ * the API (D5.14). *Share* arrives with commit 7.
  */
 export default async function GalleryPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
@@ -45,6 +46,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
         actions={
           <>
             <Pill tone={live ? 'live' : 'draft'}>{live ? 'Live' : 'Draft'}</Pill>
+            <ViewAsClientButton galleryId={id} />
             <PublishButton galleryId={id} published={live} />
           </>
         }

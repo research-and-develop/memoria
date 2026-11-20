@@ -21,7 +21,7 @@ import {
   type GalleryRow,
 } from '@/lib/db/queries/galleries';
 import { insertSetStatement, listSets, type PhotoSetRow } from '@/lib/db/queries/photo_sets';
-import { getCoverPhotos, resortStatement } from '@/lib/db/queries/photos';
+import { countUnfinishedUploads, getCoverPhotos, resortStatement } from '@/lib/db/queries/photos';
 import { readWatermark, watermarkImageUrl } from '@/lib/settings/watermark';
 import { settingsCipher } from '@/lib/settings/secrets';
 
@@ -294,7 +294,10 @@ export async function listGalleryCards(input: { deleted?: boolean; cursor?: Gall
 export async function galleryView(detail: GalleryDetail) {
   const { settingsParsed, sets, settings: _raw, ...gallery } = detail;
   const watermark = settingsParsed.processing.watermark;
-  const imageUrl = watermark && watermark.kind === 'image' && typeof watermark.key === 'string' ? await watermarkImageUrl(watermark.key) : null;
+  const [imageUrl, unfinishedUploads] = await Promise.all([
+    watermark && watermark.kind === 'image' && typeof watermark.key === 'string' ? watermarkImageUrl(watermark.key) : null,
+    countUnfinishedUploads(gallery.id),
+  ]);
   return {
     ...gallery,
     settings: settingsParsed,
@@ -302,5 +305,7 @@ export async function galleryView(detail: GalleryDetail) {
     processing: settingsParsed.processing,
     watermark,
     imageUrl,
+    /** `uploading` rows (<= 1000): the manager's "N unfinished uploads" banner (D5.9). */
+    unfinishedUploads,
   };
 }
