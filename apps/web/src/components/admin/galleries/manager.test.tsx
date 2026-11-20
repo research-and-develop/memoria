@@ -96,12 +96,18 @@ describe('GalleryManager', () => {
     expect(bodyOf('POST', `/api/admin/galleries/${G}/photos/bulk`)).toEqual({ ids: ['p1'], action: 'hide' });
     // After the action the gallery is reloaded and the selection cleared.
     await waitFor(() => expect(screen.queryByRole('toolbar')).toBeNull());
+    // Focus lands on the photos, not the page (the bar it was in is gone); the header refreshes.
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Photos' })).toHaveFocus());
+    expect(router.refresh).toHaveBeenCalled();
   });
 
   it('delete asks first; move sends the target set', async () => {
     renderManager();
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Select IMG_2.jpg' }));
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Move to set' }), 's2');
+    // Choosing a set does nothing yet (on Windows ArrowDown on a closed select changes it).
+    expect(calls()).not.toContain(`POST /api/admin/galleries/${G}/photos/bulk`);
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }));
     await waitFor(() => expect(bodyOf('POST', `/api/admin/galleries/${G}/photos/bulk`)).toEqual({ ids: ['p2'], action: 'move', setId: 's2' }));
   });
 
@@ -110,6 +116,8 @@ describe('GalleryManager', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Move Ceremony up' }));
     await waitFor(() => expect(bodyOf('PUT', `/api/admin/galleries/${G}/sets/order`)).toEqual({ ids: ['s2', 's1'] }));
     expect(screen.getByRole('button', { name: 'Move Photos up' })).toBeDisabled();
+    // Focus stays on the button that acted.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Move Ceremony up' })).toHaveFocus());
   });
 
   it('adds a set by name', async () => {

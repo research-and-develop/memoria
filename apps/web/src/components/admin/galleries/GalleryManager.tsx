@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useId, useRef, useState } from 'react';
 
 import { Segmented } from '@repo/ui/segmented';
 import { TabPanel, Tabs } from '@repo/ui/tabs';
@@ -57,6 +58,9 @@ export function GalleryManager({ initial, title }: { initial: ManagerGallery; ti
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  /** Where focus goes after a bulk action: the bar it was in is gone with the selection. */
+  const photosRef = useRef<HTMLDivElement>(null);
 
   const reload = useCallback(async () => {
     const result = await adminFetch<GalleryResponse>(`/api/admin/galleries/${initial.id}`);
@@ -78,7 +82,9 @@ export function GalleryManager({ initial, title }: { initial: ManagerGallery; ti
     setSetId((current) => (sets.some((s) => s.id === current) ? current : (sets[0]?.id ?? '')));
     setSelected(new Set());
     setVersion((v) => v + 1);
-  }, [initial.id]);
+    // The header (server-rendered: counts, status) follows the change.
+    router.refresh();
+  }, [initial.id, router]);
 
   async function changeSort(sort: 'filename' | 'taken') {
     const result = await adminFetch(`/api/admin/galleries/${initial.id}`, { method: 'PATCH', body: { sort } });
@@ -103,7 +109,7 @@ export function GalleryManager({ initial, title }: { initial: ManagerGallery; ti
             onChanged={() => void reload()}
             onError={setError}
           />
-          <div className="flex min-w-0 flex-col gap-4">
+          <div ref={photosRef} tabIndex={-1} aria-label="Photos" role="region" className="flex min-w-0 flex-col gap-4 focus:outline-none">
             <GalleryUploader
               galleryId={gallery.id}
               setId={setId}
@@ -115,7 +121,14 @@ export function GalleryManager({ initial, title }: { initial: ManagerGallery; ti
             />
             {setId ? <PhotoGrid galleryId={gallery.id} setId={setId} coverId={gallery.coverPhotoId} version={version} selected={selected} onSelectedChange={setSelected} /> : null}
             {selected.size > 0 ? (
-              <BulkBar galleryId={gallery.id} selected={[...selected]} sets={gallery.sets} currentSet={setId} onDone={() => void reload()} onError={setError} />
+              <BulkBar
+                galleryId={gallery.id}
+                selected={[...selected]}
+                sets={gallery.sets}
+                currentSet={setId}
+                onDone={() => void reload().then(() => photosRef.current?.focus())}
+                onError={setError}
+              />
             ) : null}
           </div>
         </div>

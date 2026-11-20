@@ -32,6 +32,8 @@ export function BulkBar({
 }) {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Chosen, then applied with *Move*: on Windows ArrowDown on a closed select already changes it.
+  const [target, setTarget] = useState('');
   const targets = sets.filter((s) => s.id !== currentSet);
   const tooMany = selected.length > 90;
 
@@ -51,22 +53,19 @@ export function BulkBar({
         {selected.length} selected{tooMany ? ' (90 at a time)' : ''}
       </Text>
       {targets.length > 0 ? (
-        <Select
-          aria-label="Move to set"
-          value=""
-          disabled={busy || tooMany}
-          onChange={(e) => {
-            if (e.target.value) void bulk({ action: 'move', setId: e.target.value });
-          }}
-          className="w-auto"
-        >
-          <option value="">Move to…</option>
-          {targets.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
+        <span className="flex items-center gap-1">
+          <Select aria-label="Move to set" value={target} disabled={tooMany} onChange={(e) => setTarget(e.target.value)} className="w-auto">
+            <option value="">Move to…</option>
+            {targets.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+          <Button variant="secondary" size="sm" disabled={busy || tooMany || !target} onClick={() => void bulk({ action: 'move', setId: target })}>
+            Move
+          </Button>
+        </span>
       ) : null}
       <Button variant="secondary" size="sm" disabled={busy || tooMany} onClick={() => void bulk({ action: 'hide' })}>
         Hide

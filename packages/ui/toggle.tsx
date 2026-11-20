@@ -48,7 +48,8 @@ export function Toggle({
         disabled={disabled}
         onClick={() => onCheckedChange(!checked)}
         className={twMerge(
-          'relative inline-flex h-[26px] w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none',
+          // On a touch screen a transparent ::before grows the 26 px switch to a 44 px hit area.
+          "relative inline-flex h-[26px] w-11 shrink-0 cursor-pointer items-center rounded-full coarse:before:absolute coarse:before:-inset-y-[9px] coarse:before:inset-x-0 coarse:before:content-[''] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
           checked ? 'bg-accent' : 'bg-line-input',
         )}
       >

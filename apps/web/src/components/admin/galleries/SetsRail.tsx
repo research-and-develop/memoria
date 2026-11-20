@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@repo/ui/button';
 import { Input } from '@repo/ui/input';
@@ -16,6 +16,8 @@ export type ManagerSet = { id: string; name: string; photoCount: number };
 /**
  * The manager's sets (plan p05 → Screens): pick one, rename it inline, move it up or down (buttons,
  * so the keyboard can reorder), add one. Each change is saved at once and the parent reloads the list.
+ * Focus stays on the control that acted (or the set it acted on), never dropped to the page: the
+ * buttons are not disabled while a call runs (a disabled button loses focus), they ignore clicks.
  */
 export function SetsRail({
   galleryId,
@@ -36,6 +38,25 @@ export function SetsRail({
   const [name, setName] = useState('');
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  /** `data-focus` of the control to focus once the list has re-rendered (`added:<n>`: the new last set). */
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!pendingFocus || !nav) return;
+    let key = pendingFocus;
+    if (pendingFocus.startsWith('added:')) {
+      // Wait for the reloaded list that holds the new set.
+      if (sets.length <= Number(pendingFocus.slice('added:'.length))) return;
+      key = `select-${sets[sets.length - 1]!.id}`;
+    }
+    const el = nav.querySelector<HTMLButtonElement>(`[data-focus="${key}"]`);
+    // A move button at the end of the list is disabled: fall back to its set.
+    const fallback = nav.querySelector<HTMLButtonElement>(`[data-focus="select-${key.replace(/^(up|down)-/, '')}"]`);
+    (el && !el.disabled ? el : fallback)?.focus();
+    setPendingFocus(null);
+  }, [pendingFocus, sets, renaming, adding]);
 
   async function call(url: string, method: string, body?: unknown) {
     setBusy(true);
@@ -47,6 +68,9 @@ export function SetsRail({
   }
 
   async function move(index: number, by: -1 | 1) {
+    if (busy) return;
+    const id = sets[index]!.id;
+    setPendingFocus(`${by < 0 ? 'up' : 'down'}-${id}`);
     const ids = sets.map((s) => s.id);
     const [moved] = ids.splice(index, 1);
     ids.splice(index + by, 0, moved!);
@@ -55,7 +79,10 @@ export function SetsRail({
 
   async function submitRename(event: FormEvent, id: string) {
     event.preventDefault();
-    if (await call(`/api/admin/galleries/${galleryId}/sets/${id}`, 'PATCH', { name })) setRenaming(null);
+    if (await call(`/api/admin/galleries/${galleryId}/sets/${id}`, 'PATCH', { name })) {
+      setRenaming(null);
+      setPendingFocus(`select-${id}`);
+    }
   }
 
   async function submitAdd(event: FormEvent) {
@@ -63,11 +90,12 @@ export function SetsRail({
     if (await call(`/api/admin/galleries/${galleryId}/sets`, 'POST', { name })) {
       setAdding(false);
       setName('');
+      setPendingFocus(`added:${sets.length}`);
     }
   }
 
   return (
-    <nav aria-label="Sets" className="flex flex-col gap-2">
+    <nav ref={navRef} aria-label="Sets" className="flex flex-col gap-2">
       <Text size="body-sm" weight="semibold">
         Sets
       </Text>
@@ -84,6 +112,7 @@ export function SetsRail({
             ) : (
               <button
                 type="button"
+                data-focus={`select-${set.id}`}
                 aria-current={set.id === selected ? 'true' : undefined}
                 onClick={() => onSelect(set.id)}
                 onDoubleClick={() => {
@@ -112,10 +141,10 @@ export function SetsRail({
                 >
                   <Icon name="pencil" size={16} />
                 </Button>
-                <Button size="icon" variant="ghost" aria-label={`Move ${set.name} up`} disabled={busy || index === 0} onClick={() => void move(index, -1)}>
+                <Button size="icon" variant="ghost" data-focus={`up-${set.id}`} aria-label={`Move ${set.name} up`} disabled={index === 0} onClick={() => void move(index, -1)}>
                   <Icon name="up" size={16} />
                 </Button>
-                <Button size="icon" variant="ghost" aria-label={`Move ${set.name} down`} disabled={busy || index === sets.length - 1} onClick={() => void move(index, 1)}>
+                <Button size="icon" variant="ghost" data-focus={`down-${set.id}`} aria-label={`Move ${set.name} down`} disabled={index === sets.length - 1} onClick={() => void move(index, 1)}>
                   <Icon name="down" size={16} />
                 </Button>
               </span>
@@ -134,6 +163,7 @@ export function SetsRail({
         <Button
           variant="ghost"
           size="sm"
+          data-focus="add"
           className="self-start"
           disabled={sets.length >= 50}
           onClick={() => {

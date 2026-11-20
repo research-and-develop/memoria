@@ -160,7 +160,7 @@ export function NewGalleryForm({ defaults, branding, watermark }: { defaults: Ga
         <SettingsCard id="purpose" title="Purpose" description="This choice sets the image sizes and watermark for this gallery’s uploads.">
           <RadioCards name="purpose" value={purpose} options={PURPOSES} onChange={choosePurpose} aria-label="Purpose" />
           <details className="font-sans text-body-sm text-ink-2">
-            <summary className="cursor-pointer font-semibold text-ink">Advanced: preview size</summary>
+            <summary className="cursor-pointer font-semibold text-ink coarse:py-[13px]">Advanced: preview size</summary>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <FormField label="Long edge (px)" error={errorFor('display')}>
                 {(ids) => (
