@@ -76,14 +76,15 @@ export function periodicJobStatement(input: JobInput & { dedupeKey: string }): S
 
 /**
  * Cancel the pending jobs about `ref` (and of `kind`): a running one finishes; the key is freed
- * for a new schedule.
+ * for a new schedule. `when`: only if this holds (a restore cancels the purge only if it restored).
  */
-export function cancelPendingJobsStatement(input: { ref: string; kind?: string; now: string }): Statement {
+export function cancelPendingJobsStatement(input: { ref: string; kind?: string; now: string; when?: { sql: string; params: readonly SqlValue[] } }): Statement {
   const kind = input.kind ? ' AND kind = ?' : '';
+  const when = input.when ? ` AND (${input.when.sql})` : '';
   return statement(
     `UPDATE jobs SET status = 'failed', finished_at = ?, last_error = 'CANCELLED', dedupe_key = NULL, updated_at = ?
-  WHERE ref = ? AND status = 'pending'${kind}`,
-    [input.now, input.now, input.ref, ...(input.kind ? [input.kind] : [])],
+  WHERE ref = ? AND status = 'pending'${kind}${when}`,
+    [input.now, input.now, input.ref, ...(input.kind ? [input.kind] : []), ...(input.when?.params ?? [])],
   );
 }
 

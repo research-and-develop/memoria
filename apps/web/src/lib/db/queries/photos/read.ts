@@ -79,6 +79,18 @@ export function getCoverPhotos(photoIds: readonly string[], opts?: Options): Pro
   );
 }
 
+/**
+ * `gallery.purge`'s page (D5.17): ≤ `limit` (≤ 90) photos of a gallery, any status, through
+ * uq_photos_gallery_sha256 (its first column is `gallery_id`).
+ */
+export function listGalleryPhotosForPurge(input: { galleryId: string; limit: number }, opts?: Options): Promise<PurgeablePhoto[]> {
+  const limit = Math.max(1, Math.min(input.limit, MAX_BULK_PHOTOS));
+  return all<PurgeablePhoto>(
+    statement('SELECT id, gallery_id, content_type, rev, derivative_ext FROM photos WHERE gallery_id = ? LIMIT ?', [input.galleryId, limit]),
+    opts,
+  );
+}
+
 /** The cap of `countUnfinishedUploads`: the banner says "1000+" past it. */
 export const MAX_UNFINISHED_COUNT = 1000;
 

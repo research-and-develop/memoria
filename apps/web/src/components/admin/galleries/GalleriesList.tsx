@@ -12,6 +12,8 @@ import { Caption, Heading, Text } from '@repo/ui/typography';
 import { FormNote } from '@/components/admin/login/StepHeading';
 import type { GalleryCard } from '@/lib/galleries/galleries';
 
+import { adminFetch } from './adminFetch';
+
 type Page = GalleryCard[];
 const FILTERS = [
   { value: 'live', label: 'Galleries' },
@@ -21,7 +23,7 @@ const FILTERS = [
 /**
  * The galleries grid (plan p05 → Screens): cards with the cover, title, status, purpose, count and
  * date, 50 a page from `GET /api/admin/galleries` (*Load more*); the *Deleted* filter shows the
- * soft-deleted ones (Restore arrives with commit 8).
+ * soft-deleted ones, each with the date it is removed for good and *Restore* (D5.17).
  */
 export function GalleriesList() {
   const [filter, setFilter] = useState<'live' | 'deleted'>('live');
@@ -95,7 +97,7 @@ export function GalleriesList() {
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
           <li key={card.id}>
-            <GalleryCardView card={card} />
+            <GalleryCardView card={card} onRestored={() => setCards((all) => all.filter((c) => c.id !== card.id))} />
           </li>
         ))}
       </ul>
@@ -108,7 +110,7 @@ export function GalleriesList() {
   );
 }
 
-function GalleryCardView({ card }: { card: GalleryCard }) {
+function GalleryCardView({ card, onRestored }: { card: GalleryCard; onRestored: () => void }) {
   const body = (
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="aspect-[3/2] bg-wash">
@@ -130,6 +132,7 @@ function GalleryCardView({ card }: { card: GalleryCard }) {
             </>
           ) : null}
         </Caption>
+        {card.purgeAt ? <RestoreRow galleryId={card.id} purgeAt={card.purgeAt} onRestored={onRestored} /> : null}
       </div>
     </Card>
   );
@@ -138,5 +141,35 @@ function GalleryCardView({ card }: { card: GalleryCard }) {
     <Link href={`/admin/galleries/${card.id}`} className="block h-full rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
       {body}
     </Link>
+  );
+}
+
+/** A deleted gallery: when it goes for good, and *Restore* until then (D5.17). */
+function RestoreRow({ galleryId, purgeAt, onRestored }: { galleryId: string; purgeAt: string; onRestored: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <Caption>
+        Removed for good on <DateText value={purgeAt} />.
+      </Caption>
+      <FormNote message={error} />
+      <div>
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={busy}
+          onClick={async () => {
+            setBusy(true);
+            const result = await adminFetch(`/api/admin/galleries/${galleryId}/restore`, { method: 'POST', body: {} });
+            setBusy(false);
+            setError(result.ok ? null : result.error);
+            if (result.ok) onRestored();
+          }}
+        >
+          Restore
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -15,11 +15,14 @@ import {
   insertGalleryStatement,
   listGalleries,
   publishStatement,
+  restoreGalleryStatement,
+  softDeleteGalleryStatement,
   unpublishStatement,
   updateGalleryStatement,
   type GalleryCursor,
   type GalleryRow,
 } from '@/lib/db/queries/galleries';
+import { cancelPendingJobsStatement } from '@/lib/db/queries/jobs';
 import { insertSetStatement, listSets, type PhotoSetRow } from '@/lib/db/queries/photo_sets';
 import { countUnfinishedUploads, getCoverPhotos, resortStatement } from '@/lib/db/queries/photos';
 import { readWatermark, watermarkImageUrl } from '@/lib/settings/watermark';
@@ -29,6 +32,7 @@ import { parseGallerySettings, type GallerySettings } from './gallerySettings';
 import { thumbKey } from './keys';
 import type { GalleryCreateInput, GalleryPatchInput } from './parseGalleryInput';
 import { sealGalleryPassword } from './password';
+import { GALLERY_PURGE_AFTER_MS, galleryPurgeJobStatement, galleryPurgeRef } from './purge';
 import { joinSlug, slugBase, slugSuffix, suffixOf } from './slug';
 
 /**
@@ -217,6 +221,55 @@ export async function setPublished(id: string, published: boolean, opts?: Option
   );
 }
 
+/**
+ * Delete (D5.17): soft — `deleted_at = now` (gone from lists and clients at once) and, in the same
+ * batch, `gallery.purge` for now + 7 days, written only if this delete happened and none is alive.
+ * Returns when the purge will run.
+ */
+export async function softDeleteGallery(id: string, opts?: Options): Promise<{ purgeAt: string }> {
+  await requireGallery(id, opts);
+  const now = new Date();
+  const iso = now.toISOString();
+  const purgeAt = new Date(now.getTime() + GALLERY_PURGE_AFTER_MS);
+  const deletedNow: { sql: string; params: string[] } = { sql: 'EXISTS (SELECT 1 FROM galleries WHERE id = ? AND deleted_at = ?)', params: [id, iso] };
+  await batch(
+    [
+      softDeleteGalleryStatement({ id, now: iso }),
+      galleryPurgeJobStatement({ galleryId: id, run: 0, now, runAfter: purgeAt, extra: deletedNow }),
+      conditionalAuditStatement(
+        { action: 'delete', entity: 'galleries', entityId: id, summary: 'Deleted a gallery', details: { event: 'soft_delete', purgeAt: purgeAt.toISOString() } },
+        deletedNow.sql,
+        deletedNow.params,
+      ),
+    ],
+    opts,
+  );
+  return { purgeAt: purgeAt.toISOString() };
+}
+
+/**
+ * Restore (D5.17): only inside the 7-day window; the pending purge is cancelled in the same batch,
+ * only if the restore happened. 404 for a missing or live gallery, 409 once the window has passed.
+ */
+export async function restoreGallery(id: string, opts?: Options): Promise<void> {
+  const row = await getGallery(id, opts);
+  if (!row || !row.deleted_at) throw notFound();
+  const now = new Date();
+  const iso = now.toISOString();
+  const restored = { sql: 'EXISTS (SELECT 1 FROM galleries WHERE id = ? AND deleted_at IS NULL)', params: [id] };
+  const [result] = await batch(
+    [
+      restoreGalleryStatement({ id, now: iso, windowStart: new Date(now.getTime() - GALLERY_PURGE_AFTER_MS).toISOString() }),
+      cancelPendingJobsStatement({ ref: galleryPurgeRef(id), kind: 'gallery.purge', now: iso, when: restored }),
+      conditionalAuditStatement({ action: 'update', entity: 'galleries', entityId: id, summary: 'Restored a gallery', details: { event: 'restore' } }, restored.sql, restored.params),
+    ],
+    opts,
+  );
+  if ((result?.changes ?? 0) === 0) {
+    throw new AppError('Restore window passed', 'RESTORE_WINDOW_PASSED', { status: 409, message: 'This gallery is being removed for good and can no longer be restored.' });
+  }
+}
+
 /** New link (D5.3): a new random part; the old address stops at once. Retries once on a clash. */
 export async function newLink(id: string, opts?: Options): Promise<string> {
   const current = await requireGallery(id, opts);
@@ -253,6 +306,8 @@ export type GalleryCard = {
   shootDate: string | null;
   createdAt: string;
   deletedAt: string | null;
+  /** When a deleted gallery is removed for good (deleted + 7 days); null for a live one. */
+  purgeAt: string | null;
   /** The cover's thumbnail URL (public domain or the dev read route), or null. */
   coverUrl: string | null;
 };
@@ -279,6 +334,7 @@ export async function listGalleryCards(input: { deleted?: boolean; cursor?: Gall
       shootDate: row.shoot_date,
       createdAt: row.created_at,
       deletedAt: row.deleted_at,
+      purgeAt: row.deleted_at ? new Date(Date.parse(row.deleted_at) + GALLERY_PURGE_AFTER_MS).toISOString() : null,
       coverUrl: await coverUrl(row),
     })),
   );

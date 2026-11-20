@@ -67,6 +67,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
         }
       />
       <GalleryManager
+        title={gallery.title}
         initial={{
           id,
           coverPhotoId: gallery.cover_photo_id,

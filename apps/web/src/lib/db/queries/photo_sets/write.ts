@@ -94,3 +94,11 @@ export function recountSetsStatement(input: { galleryId: string; setIds: readonl
 export function deleteGallerySetsStatement(galleryId: string): Statement {
   return statement('DELETE FROM photo_sets WHERE gallery_id = ?', [galleryId]);
 }
+
+/** `gallery.purge`'s last step (D5.17): the sets, only while the gallery's purge window has passed. */
+export function deletePurgedGallerySetsStatement(input: { galleryId: string; purgeBefore: string }): Statement {
+  return statement(
+    'DELETE FROM photo_sets WHERE gallery_id = ? AND EXISTS (SELECT 1 FROM galleries WHERE id = ? AND deleted_at IS NOT NULL AND deleted_at <= ?)',
+    [input.galleryId, input.galleryId, input.purgeBefore],
+  );
+}

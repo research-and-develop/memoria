@@ -1,4 +1,4 @@
-import { allRows, first, firstRow, statement, type Options } from '@repo/db/client';
+import { all, allRows, first, firstRow, statement, type Options } from '@repo/db/client';
 
 import { GALLERY_COLUMNS, toGalleryRow, type GalleryCursor, type GalleryDbRow, type GalleryRow } from './types';
 
@@ -48,4 +48,17 @@ export function listGalleries(
 export async function getGalleryPasswordSealed(id: string, opts?: Options): Promise<string | null> {
   const row = await first<{ password_sealed: string | null }>(statement('SELECT password_sealed FROM galleries WHERE id = ?', [id]), opts);
   return row?.password_sealed ?? null;
+}
+
+/**
+ * Soft-deleted galleries whose purge window has passed (housekeeping's sweep, D5.17), oldest first,
+ * through ix_galleries_list (`deleted_at` first). Ids only; `limit` ≤ 50.
+ */
+export async function listPurgeDueGalleries(input: { purgeBefore: string; limit: number }, opts?: Options): Promise<string[]> {
+  const limit = Math.max(1, Math.min(input.limit, MAX_GALLERY_PAGE));
+  const rows = await all<{ id: string }>(
+    statement('SELECT id FROM galleries WHERE deleted_at IS NOT NULL AND deleted_at <= ? ORDER BY deleted_at LIMIT ?', [input.purgeBefore, limit]),
+    opts,
+  );
+  return rows.map((r) => r.id);
 }

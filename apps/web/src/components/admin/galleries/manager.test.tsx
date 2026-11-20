@@ -2,7 +2,11 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DeleteGalleryCard } from './DeleteGalleryCard';
 import { GalleryManager } from './GalleryManager';
+
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router, usePathname: () => '/admin/galleries/g1' }));
 
 type Reply = { status: number; body: unknown };
 let routes: Record<string, Reply[]>;
@@ -40,7 +44,22 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 const renderManager = (unfinishedUploads = 0) =>
-  render(<GalleryManager initial={{ id: G, coverPhotoId: 'p1', sort: 'filename', sets: SETS, upload: UPLOAD, unfinishedUploads }} />);
+  render(<GalleryManager title="Maria & Jonas" initial={{ id: G, coverPhotoId: 'p1', sort: 'filename', sets: SETS, upload: UPLOAD, unfinishedUploads }} />);
+
+describe('DeleteGalleryCard', () => {
+  it('asks for the title before deleting, then goes back to the galleries', async () => {
+    render(<DeleteGalleryCard galleryId={G} title="Maria & Jonas" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Delete gallery' }));
+    const confirm = screen.getByRole('button', { name: 'Delete' });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Gallery title'), 'Maria & Jo');
+    expect(confirm).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Gallery title'), 'nas');
+    await userEvent.click(confirm);
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/admin/galleries'));
+    expect(calls()).toContain(`DELETE /api/admin/galleries/${G}`);
+  });
+});
 
 describe('GalleryManager', () => {
   it('the uploader sits above the grid and uploads into the current set', async () => {

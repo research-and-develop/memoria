@@ -247,6 +247,14 @@ Photos never pass through the Worker: the browser processes them and PUTs straig
 Re-dropping the same files resumes an interrupted upload; an upload left `uploading` for 24 hours is
 purged (`media.purge`, Phase 5 commit 6).
 
+**Deleting** a photo marks it `deleted` and the same batch enqueues `media.purge`. **Deleting a gallery**
+is soft (`deleted_at`): it leaves the lists and its client link at once, and the same batch enqueues
+`gallery.purge` (`ref = gallery:<id>`) for 7 days later. *Restore* (the *Deleted* filter) works inside
+those 7 days and cancels the purge in its batch; the purge acts only after them, and every purge
+statement repeats that condition, so the two never both succeed (plan p05, D5.17). The purge deletes ≤ 90
+photos a run (objects first, then rows), chains itself until none are left, then removes the sets and
+the gallery. Daily housekeeping re-enqueues it for any gallery past its window with no purge alive.
+
 ### The Docker path (documented, not built)
 
 A Node build would add `packages/platform-node`: a SQLite `Db` (`node:sqlite` or `better-sqlite3`) that

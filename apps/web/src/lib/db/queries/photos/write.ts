@@ -178,3 +178,16 @@ export function deletePhotosStatement(photoIds: readonly string[]): Statement {
   checkIds('deletePhotosStatement', photoIds);
   return statement(`DELETE FROM photos WHERE id IN (${ids(photoIds.length)}) AND status = 'deleted'`, [...photoIds]);
 }
+
+/**
+ * `gallery.purge`'s row delete (D5.17): these photos of a gallery whose purge window has passed, any
+ * status. The EXISTS repeats the purge condition, so a gallery restored meanwhile keeps its photos.
+ */
+export function deletePurgedGalleryPhotosStatement(input: { galleryId: string; ids: readonly string[]; purgeBefore: string }): Statement {
+  checkIds('deletePurgedGalleryPhotosStatement', input.ids);
+  return statement(
+    `DELETE FROM photos WHERE gallery_id = ? AND id IN (${ids(input.ids.length)})
+  AND EXISTS (SELECT 1 FROM galleries WHERE id = ? AND deleted_at IS NOT NULL AND deleted_at <= ?)`,
+    [input.galleryId, ...input.ids, input.galleryId, input.purgeBefore],
+  );
+}

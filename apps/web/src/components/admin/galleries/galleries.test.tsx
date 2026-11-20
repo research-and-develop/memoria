@@ -103,4 +103,32 @@ describe('GalleriesList', () => {
     expect(String(fetchMock.mock.calls.at(-1)![0])).toContain('cursor=');
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
+
+  it('Deleted: a card shows when it goes for good; Restore takes it off the list', async () => {
+    replies.push({ status: 200, body: { data: [], next: null } });
+    render(<GalleriesList />);
+    await screen.findByText('No galleries yet');
+    const gone = {
+      id: 'd1',
+      slug: 'd1-abcdefghij',
+      title: 'Old shoot',
+      status: 'draft',
+      purpose: 'sharing',
+      photoCount: 2,
+      shootDate: null,
+      createdAt: '2026-11-01T10:00:00.000Z',
+      deletedAt: '2026-11-18T10:00:00.000Z',
+      purgeAt: '2026-11-25T10:00:00.000Z',
+      coverUrl: null,
+    };
+    replies.push({ status: 200, body: { data: [gone], next: null } });
+    await userEvent.click(screen.getByRole('radio', { name: 'Deleted' }));
+    expect(await screen.findByText(/Removed for good on/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Old shoot/ })).toBeNull();
+    replies.push({ status: 200, body: { data: { id: 'd1' } } });
+    await userEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(screen.queryByText('Old shoot')).toBeNull());
+    const restoreCall = fetchMock.mock.calls.find((c) => String(c[0]) === '/api/admin/galleries/d1/restore');
+    expect((restoreCall![1] as RequestInit).method).toBe('POST');
+  });
 });

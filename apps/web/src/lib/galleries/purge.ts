@@ -2,7 +2,19 @@ import { batch } from '@repo/db/client';
 import { getPlatform } from '@repo/platform/current';
 import { logger } from '@repo/logger';
 
-import { claimStaleUploadsStatement, deletePhotosStatement, listPurgeablePhotos, PURGE_BATCH } from '@/lib/db/queries/photos';
+import { isUuid } from '@repo/core/validation';
+
+import { conditionalAuditStatement } from '@/lib/db/queries/audit_log';
+import { deleteGalleryStatement, getGallery } from '@/lib/db/queries/galleries';
+import { deletePurgedGallerySetsStatement } from '@/lib/db/queries/photo_sets';
+import {
+  claimStaleUploadsStatement,
+  deletePhotosStatement,
+  deletePurgedGalleryPhotosStatement,
+  listGalleryPhotosForPurge,
+  listPurgeablePhotos,
+  PURGE_BATCH,
+} from '@/lib/db/queries/photos';
 import { jobStatement, type JobCondition } from '@/lib/jobs/enqueue';
 import type { JobKind } from '@/lib/jobs/types';
 
@@ -83,4 +95,104 @@ export function mediaPurgeIfNeededStatement(now: Date) {
       },
     },
   ).statement;
+}
+
+/** A soft-deleted gallery can be restored for this long; then `gallery.purge` removes it (D5.17). */
+export const GALLERY_PURGE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const galleryPurgeRef = (galleryId: string) => `gallery:${galleryId}`;
+
+/** "No gallery.purge is alive for this gallery" (pending or running; `excludeJobId` = the running one itself). */
+export function noLiveGalleryPurge(galleryId: string, excludeJobId?: string): JobCondition {
+  const base = `NOT EXISTS (SELECT 1 FROM jobs WHERE kind = 'gallery.purge' AND ref = ? AND status IN ('pending', 'running')`;
+  return excludeJobId
+    ? { sql: `${base} AND id != ?)`, params: [galleryPurgeRef(galleryId), excludeJobId] }
+    : { sql: `${base})`, params: [galleryPurgeRef(galleryId)] };
+}
+
+type GalleryPurgePayload = { galleryId: string; run: number };
+
+/**
+ * Every enqueue of `gallery.purge` (D5.17): conditional on none being alive for the gallery (and on
+ * `extra`, e.g. "the soft delete in this batch happened"), no dedupe key, `ref = gallery:<id>`.
+ */
+export function galleryPurgeJobStatement(input: {
+  galleryId: string;
+  run: number;
+  now: Date;
+  runAfter: Date;
+  excludeJobId?: string;
+  extra?: JobCondition;
+}) {
+  const alive = noLiveGalleryPurge(input.galleryId, input.excludeJobId);
+  const when: JobCondition = input.extra ? { sql: `${alive.sql} AND ${input.extra.sql}`, params: [...alive.params, ...input.extra.params] } : alive;
+  const payload: GalleryPurgePayload = { galleryId: input.galleryId, run: input.run };
+  return jobStatement(galleryPurgeJob, payload, { now: input.now, runAfter: input.runAfter, ref: galleryPurgeRef(input.galleryId), when }).statement;
+}
+
+/**
+ * `gallery.purge` (D5.17): a gallery gone or restored → nothing to do; still inside its window (clock
+ * skew, an early run) → re-enqueued for `deleted_at + 7 d`; else ≤ 90 of its photos (any status): their
+ * objects, then dependents and rows in one batch whose every statement repeats "deleted, window passed".
+ * A full page chains the next run; the last one deletes the sets and the gallery and audits it.
+ */
+export const galleryPurgeJob: JobKind<GalleryPurgePayload> = {
+  kind: 'gallery.purge',
+  version: 1,
+  maxAttempts: 5,
+  priority: 1,
+  backoff: [5, 30, 120],
+  parse(payload) {
+    const { galleryId, run } = payload as { galleryId?: unknown; run?: unknown };
+    return isUuid(galleryId) && typeof run === 'number' && Number.isInteger(run) && run >= 0
+      ? { ok: true, value: { galleryId, run } }
+      : { ok: false, unknown: false };
+  },
+  async run({ galleryId, run }, ctx) {
+    const gallery = await getGallery(galleryId);
+    if (!gallery || !gallery.deleted_at) {
+      logger.info({ event: 'purge_run', kind: 'gallery.purge', galleryId, deleted: 0, more: false, skipped: gallery ? 'restored' : 'gone' });
+      return;
+    }
+    const purgeBefore = new Date(ctx.now.getTime() - GALLERY_PURGE_AFTER_MS).toISOString();
+    if (gallery.deleted_at > purgeBefore) {
+      const runAfter = new Date(Date.parse(gallery.deleted_at) + GALLERY_PURGE_AFTER_MS);
+      await batch([galleryPurgeJobStatement({ galleryId, run, now: ctx.now, runAfter, excludeJobId: ctx.jobId })]);
+      logger.info({ event: 'purge_run', kind: 'gallery.purge', galleryId, deleted: 0, more: true, rescheduled: runAfter.toISOString() });
+      return;
+    }
+    const photos = await listGalleryPhotosForPurge({ galleryId, limit: PURGE_BATCH });
+    if (photos.length > 0) {
+      const keys = photos.map(photoKeys);
+      const platform = getPlatform();
+      await platform.blobs('originals').delete(keys.map((k) => k.original));
+      await platform.blobs('media').delete(keys.flatMap((k) => [k.thumb, k.display]));
+    }
+    const ids = photos.map((p) => p.id);
+    const rows = ids.length > 0 ? [...PHOTO_DEPENDENT_DELETES.map((build) => build(ids)), deletePurgedGalleryPhotosStatement({ galleryId, ids, purgeBefore })] : [];
+    const more = photos.length === PURGE_BATCH;
+    if (more) {
+      await batch([...rows, galleryPurgeJobStatement({ galleryId, run: run + 1, now: ctx.now, runAfter: ctx.now, excludeJobId: ctx.jobId })]);
+    } else {
+      await batch([
+        ...rows,
+        deletePurgedGallerySetsStatement({ galleryId, purgeBefore }),
+        deleteGalleryStatement({ id: galleryId, purgeBefore }),
+        conditionalAuditStatement(
+          { action: 'delete', entity: 'galleries', entityId: galleryId, summary: 'Purged a deleted gallery', details: { event: 'purged', runs: run + 1 } },
+          'changes() > 0',
+          [],
+        ),
+      ]);
+    }
+    logger.info({ event: 'purge_run', kind: 'gallery.purge', galleryId, deleted: photos.length, more });
+  },
+};
+
+/**
+ * Housekeeping's sweep (daily): `gallery.purge` for the galleries past their window that have none
+ * alive (a purge that failed its last attempt self-heals the next day).
+ */
+export function galleryPurgeSweepStatements(galleryIds: readonly string[], now: Date) {
+  return galleryIds.map((galleryId) => galleryPurgeJobStatement({ galleryId, run: 0, now, runAfter: now }));
 }

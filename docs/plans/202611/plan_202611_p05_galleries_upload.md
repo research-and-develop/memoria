@@ -768,7 +768,7 @@ must be deployed with the purge kinds and the `gallery.ready` template before th
 - [x] T5.6 Manager: sets, grid, selection, bulk bar, cover and its default, sort
 - [x] T5.9 `Chip`, `Tabs`, `scrim`
 - [x] T5.7 Sharing panel, the template `load` step, `gallery.ready`
-- [ ] T5.8 Soft delete, restore, purge jobs
+- [x] T5.8 Soft delete, restore, purge jobs
 - [ ] Verification 1–3, 6 (4–5 once the buckets, the domain and a deploy exist)
 - [ ] M4: T5.10 presets · T5.11 auto-split · T5.13 filters, drag order, ranges, QR download, autosave, IndexedDB · T5.14 PNG/WebP editors
 - [ ] M5: T5.12 replace with edited · T5.13b reprocess · T5.15 processing switch
@@ -1017,6 +1017,23 @@ the unfinished-uploads banner comes with it. Icons `up`, `down`, `pencil` added 
   *View as client* (p06 T6.4, lane B) sits in the header (050dc3c).
 - **The dev upload route overwrites** (1fd0013), like the presigned S3 PUT: a resumed upload (D5.9)
   PUTs its keys again; `ifAbsent` made them 409 locally. Found by lane C's resume e2e.
+
+**Commit 8 (T5.8), 2026-11-20, lane A.** As designed, plus:
+
+- **`softDeleteGallery`** writes the job and its audit row only if the delete happened (`EXISTS …
+  deleted_at = ?now`, joined to the "none alive" condition through `galleryPurgeJobStatement`'s
+  `extra`); a second DELETE is a 404. The route does not nudge the relay (the job is due in 7 days).
+- **`restoreGallery`**: `cancelPendingJobsStatement` gained `when` (cancel only if the restore
+  happened); 404 for a live or missing gallery, **409 `RESTORE_WINDOW_PASSED`** after the window.
+- **Every purge statement is guarded**: `deletePurgedGalleryPhotosStatement` and
+  `deletePurgedGallerySetsStatement` repeat `EXISTS (… deleted_at <= ?purgeBefore)`, as
+  `deleteGalleryStatement` already did; the final audit row is `changes() > 0` after the gallery delete.
+- **The purge's page** reads `WHERE gallery_id = ? LIMIT 90` through `uq_photos_gallery_sha256`
+  (`gallery_id` first): no new index. Housekeeping's sweep (`listPurgeDueGalleries`, ≤ 10, oldest first,
+  `ix_galleries_list`) runs in the same batch as the `media.purge` step.
+- **The cards carry `purgeAt`** (deleted + 7 days); the *Deleted* filter shows "Removed for good on …"
+  and *Restore*. The Delete card (manager → Settings) asks for the title (checked in the browser).
+- **The relay must be deployed before the app** once this ships (a new kind, D3.14).
 
 ## Review log
 

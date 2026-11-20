@@ -11,6 +11,7 @@ import { SettingsCard } from '@/components/admin/settings/SettingsCard';
 
 import { adminFetch } from './adminFetch';
 import { BulkBar } from './BulkBar';
+import { DeleteGalleryCard } from './DeleteGalleryCard';
 import { PhotoGrid } from './PhotoGrid';
 import { SetsRail, type ManagerSet } from './SetsRail';
 import { GalleryUploader, type UploadProfile } from './upload/GalleryUploader';
@@ -45,10 +46,10 @@ type GalleryResponse = UploadProfile & {
 
 /**
  * The gallery manager (plan p05 → Screens): *Photos* (sets rail, the uploader, grid, selection, bulk
- * bar) and *Settings* (order; delete arrives with commit 8). Selections, Downloads and
+ * bar) and *Settings* (order, delete). Selections, Downloads and
  * Activity tabs come with Phases 8, 9 and 11. Every change reloads the gallery from the API.
  */
-export function GalleryManager({ initial }: { initial: ManagerGallery }) {
+export function GalleryManager({ initial, title }: { initial: ManagerGallery; title: string }) {
   const tabsId = useId();
   const [tab, setTab] = useState<Tab>('photos');
   const [gallery, setGallery] = useState(initial);
@@ -120,10 +121,13 @@ export function GalleryManager({ initial }: { initial: ManagerGallery }) {
         </div>
       </TabPanel>
       <TabPanel id={tabsId} value="settings" selected={tab === 'settings'}>
-        <SettingsCard id="order" title="Order" description="How photos are ordered in every set, for you and your client.">
-          <Segmented options={SORTS} value={gallery.sort} onValueChange={(sort) => void changeSort(sort)} aria-label="Photo order" />
-          <Caption>Changing the order re-sorts every photo in the gallery.</Caption>
-        </SettingsCard>
+        <div className="flex flex-col gap-6">
+          <SettingsCard id="order" title="Order" description="How photos are ordered in every set, for you and your client.">
+            <Segmented options={SORTS} value={gallery.sort} onValueChange={(sort) => void changeSort(sort)} aria-label="Photo order" />
+            <Caption>Changing the order re-sorts every photo in the gallery.</Caption>
+          </SettingsCard>
+          <DeleteGalleryCard galleryId={gallery.id} title={title} />
+        </div>
       </TabPanel>
     </div>
   );
